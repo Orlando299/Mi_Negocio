@@ -6,9 +6,9 @@
   --text: #111827;
   --text2: #6B7280;
   --text3: #9CA3AF;
-  --primary: #2563EB;
-  --primary-soft: #EFF6FF;
-  --primary-mid: #BFDBFE;
+  --primary: #00338D;
+  --primary-soft: #E8EDF9; /* Un tono mucho más claro para fondos */
+  --primary-mid: #8099C4;  /* Un tono intermedio para gráficos y barras */
   --green: #059669;
   --green-soft: #ECFDF5;
   --amber: #D97706;

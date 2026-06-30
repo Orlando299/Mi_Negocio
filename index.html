@@ -74,7 +74,7 @@
       <span class="section-link" onclick="goScreen('ventas')">Ver todo</span>
     </div>
     <div id="actividad-list">
-      <!-- Se llenará dinámicamente -->
+      <div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>
     </div>
   </div>
 </div>
@@ -180,7 +180,7 @@
   </div>
 </div>
 
-<!-- SCREEN: CLIENTE -->
+<!-- SCREEN: CLIENTE (MÓDULO PARA CLIENTES) -->
 <div class="screen" id="screen-cliente">
   <div id="cliente-login" style="padding-top:20px;">
     <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
@@ -211,7 +211,9 @@
       <span class="section-title">Productos disponibles</span>
       <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
     </div>
-    <div id="catalogo-productos"></div>
+    <div id="catalogo-productos">
+      <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando productos...</div></div>
+    </div>
 
     <!-- Historial de pedidos -->
     <div style="margin-top:20px;">
@@ -263,7 +265,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- SCRIPTS -->
-<!-- Firebase SDK (usando compat para mantener compatibilidad) -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -276,6 +278,5 @@
 <script src="js/render.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/app.js"></script>
-  
 </body>
 </html>

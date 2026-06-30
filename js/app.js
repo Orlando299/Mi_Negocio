@@ -9,65 +9,61 @@ function goScreen(name) {
     document.getElementById('nav-' + s).classList.toggle('active', s === name);
   });
   currentScreen = name;
-  // Cambiar el ícono del FAB según la pantalla
   const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇' };
   document.getElementById('fab-btn').textContent = fabLabels[name] || '＋';
-  // Renderizar listas al cambiar de pantalla
   if (name === 'ventas') renderVentas();
   if (name === 'inventario') renderInv();
   if (name === 'clientes') renderClients();
 }
 
-// ── FILTROS POR CHIP ──
 function filterChip(el, ctx) {
   el.closest('.chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   showToast('Filtro: ' + el.textContent);
 }
 
-// ── REPORT TABS ──
 function switchReportTab(el, period) {
   document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   showToast('Mostrando datos: ' + el.textContent);
 }
 
-// ── Sincronizar variables globales con el store ──
-function syncGlobals() {
-  // Estas variables se usan en render.js y en otros lugares
-  window.ventas = store.ventas;
-  window.inventario = store.inventario;
-  window.clientes = store.clientes;
-}
-
-// ── FUNCIONES PARA GUARDAR DESDE MODALES ──
+// ── FUNCIONES DE GUARDADO ──
 
 function guardarVenta() {
   const modalBody = document.getElementById('modal-body');
   const inputs = modalBody.querySelectorAll('input, select, textarea');
 
-  const cliente = inputs[0]?.value?.trim() || 'Cliente genérico';
-  const producto = inputs[1]?.value?.trim() || 'Producto';
+  const cliente = inputs[0]?.value?.trim() || '';
+  const producto = inputs[1]?.value?.trim() || '';
   const cantidad = parseInt(inputs[2]?.value) || 1;
   const precioUnit = parseFloat(inputs[3]?.value?.replace('$', '')) || 0;
-  const total = precioUnit * cantidad;
   const metodo = inputs[4]?.value || 'Efectivo';
   const notas = inputs[5]?.value || '';
 
-  if (!cliente || cliente === 'Cliente genérico') {
+  if (!cliente) {
     showToast('⚠️ Ingresa el nombre del cliente');
     return;
   }
+  if (!producto) {
+    showToast('⚠️ Ingresa el nombre del producto');
+    return;
+  }
+  if (precioUnit <= 0) {
+    showToast('⚠️ Ingresa un precio válido');
+    return;
+  }
 
+  const total = precioUnit * cantidad;
   const nuevaVenta = {
-    cliente: cliente,
+    cliente,
     fecha: new Date().toLocaleString(),
     items: cantidad,
     total: '$' + total.toFixed(2),
     status: 'pagado',
-    metodo: metodo,
-    notas: notas,
-    producto: producto
+    metodo,
+    notas,
+    producto
   };
 
   store.addVenta(nuevaVenta);
@@ -81,20 +77,21 @@ function guardarProducto() {
   const modalBody = document.getElementById('modal-body');
   const inputs = modalBody.querySelectorAll('input, select, textarea');
 
-  const nombre = inputs[0]?.value?.trim() || 'Producto nuevo';
+  const nombre = inputs[0]?.value?.trim() || '';
   const cat = inputs[1]?.value || 'General';
   const precioVenta = parseFloat(inputs[2]?.value) || 0;
-  const precioCosto = parseFloat(inputs[3]?.value) || 0;
   const stock = parseInt(inputs[4]?.value) || 0;
   const stockMin = parseInt(inputs[5]?.value) || 5;
-  const referencia = inputs[6]?.value || '';
 
-  if (!nombre || nombre === 'Producto nuevo') {
+  if (!nombre) {
     showToast('⚠️ Ingresa el nombre del producto');
     return;
   }
+  if (precioVenta <= 0) {
+    showToast('⚠️ Ingresa un precio válido');
+    return;
+  }
 
-  // Asignar icono según categoría (simple)
   const iconMap = {
     'Bebidas': '☕',
     'Dulces': '🍫',
@@ -106,20 +103,17 @@ function guardarProducto() {
   };
   const icon = iconMap[cat] || '📦';
 
-  // Determinar estado del stock
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= stockMin) estado = 'low';
 
   const nuevoProducto = {
-    nombre: nombre,
-    cat: cat,
+    nombre,
+    cat,
     precio: '$' + precioVenta.toFixed(2),
-    stock: stock,
-    icon: icon,
-    estado: estado,
-    costo: '$' + precioCosto.toFixed(2),
-    referencia: referencia
+    stock,
+    icon,
+    estado,
   };
 
   store.addProducto(nuevoProducto);
@@ -136,9 +130,6 @@ function guardarCliente() {
   const nombre = inputs[0]?.value?.trim() || '';
   const apellido = inputs[1]?.value?.trim() || '';
   const telefono = inputs[2]?.value?.trim() || '';
-  const email = inputs[3]?.value?.trim() || '';
-  const direccion = inputs[4]?.value?.trim() || '';
-  const notas = inputs[5]?.value || '';
 
   const nombreCompleto = (nombre + ' ' + apellido).trim();
 
@@ -147,10 +138,7 @@ function guardarCliente() {
     return;
   }
 
-  // Generar iniciales
   const init = nombreCompleto.split(' ').map(p => p.charAt(0).toUpperCase()).join('');
-
-  // Colores aleatorios para el avatar
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
 
@@ -160,11 +148,8 @@ function guardarCliente() {
     compras: '$0.00',
     pedidos: 0,
     tag: 'nuevo',
-    color: color,
-    init: init,
-    email: email,
-    direccion: direccion,
-    notas: notas
+    color,
+    init,
   };
 
   store.addCliente(nuevoCliente);
@@ -291,11 +276,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const hoy = new Date();
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
 
-  // Sincronizar variables globales con el store
+  // Sincronizar variables globales
   syncGlobals();
 
-  // Renderizar listas iniciales
+  // Renderizar listas
   renderVentas();
   renderInv();
   renderClients();
+
+  console.log('🚀 App inicializada correctamente');
 });

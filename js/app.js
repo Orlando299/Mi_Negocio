@@ -2,6 +2,10 @@
 
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes'];
+// Filtros activos por módulo
+let filtroVentas = 'todas';   // 'todas', 'pagado', 'pendiente', 'cancelado'
+let filtroInv = 'todos';      // 'todos', 'ok', 'low', 'out'
+let filtroCli = 'todos';      // 'todos', 'vip', 'regular', 'nuevo'
 
 function goScreen(name) {
   screens.forEach(s => {

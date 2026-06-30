@@ -89,9 +89,9 @@ function loadTheme() {
   }
 }
 
-// ── FUNCIONES DE GUARDADO ──
+// ── FUNCIONES DE GUARDADO (adaptadas para async) ──
 
-function guardarVenta() {
+async function guardarVenta() {
   const modalBody = document.getElementById('modal-body');
   const inputs = modalBody.querySelectorAll('input, select, textarea');
 
@@ -112,14 +112,16 @@ function guardarVenta() {
     status: 'pagado', metodo, notas, fecha: new Date().toLocaleString()
   };
 
-  store.addVenta(nuevaVenta);
+  await store.addVenta(nuevaVenta);
   syncGlobals();
   renderVentas('', filtroVentas);
+  renderActividadReciente();
+  updateKPIs();
   closeModal();
   showToast('✅ Venta registrada con éxito');
 }
 
-function guardarProducto() {
+async function guardarProducto() {
   const modalBody = document.getElementById('modal-body');
   const inputs = modalBody.querySelectorAll('input, select, textarea');
 
@@ -139,14 +141,14 @@ function guardarProducto() {
   else if (stock <= stockMin) estado = 'low';
 
   const nuevoProducto = { nombre, cat, precio: '$' + precioVenta.toFixed(2), stock, icon, estado };
-  store.addProducto(nuevoProducto);
+  await store.addProducto(nuevoProducto);
   syncGlobals();
   renderInv('', filtroInv);
   closeModal();
   showToast('✅ Producto agregado con éxito');
 }
 
-function guardarCliente() {
+async function guardarCliente() {
   const modalBody = document.getElementById('modal-body');
   const inputs = modalBody.querySelectorAll('input, select, textarea');
 
@@ -162,7 +164,7 @@ function guardarCliente() {
   const color = colores[Math.floor(Math.random() * colores.length)];
 
   const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
-  store.addCliente(nuevoCliente);
+  await store.addCliente(nuevoCliente);
   syncGlobals();
   renderClients('', filtroCli);
   closeModal();
@@ -171,7 +173,7 @@ function guardarCliente() {
 
 function guardarReporte() { closeModal(); showToast('📊 Reporte generado (simulación)'); }
 
-// ── EDICIÓN ──
+// ── EDICIÓN (adaptada para async) ──
 
 function editVenta(id) {
   const v = store.ventas.find(item => item.id === id);
@@ -198,7 +200,7 @@ function editVenta(id) {
   openModalWithContent('Editar venta', body);
 }
 
-function updateVentaFromModal(id) {
+async function updateVentaFromModal(id) {
   const cliente = document.getElementById('edit-cliente').value.trim();
   const producto = document.getElementById('edit-producto').value.trim();
   const cantidad = parseInt(document.getElementById('edit-cantidad').value) || 1;
@@ -209,9 +211,11 @@ function updateVentaFromModal(id) {
 
   if (!cliente) { showToast('⚠️ El cliente es obligatorio'); return; }
   const updates = { cliente, producto, items: cantidad, total: '$' + total.toFixed(2), metodo, notas };
-  store.updateVenta(id, updates);
+  await store.updateVenta(id, updates);
   syncGlobals();
   renderVentas('', filtroVentas);
+  renderActividadReciente();
+  updateKPIs();
   closeModal();
   showToast('✅ Venta actualizada');
 }
@@ -242,7 +246,7 @@ function editProducto(nombre) {
   openModalWithContent('Editar producto', body);
 }
 
-function updateProductoFromModal(nombreOriginal) {
+async function updateProductoFromModal(nombreOriginal) {
   const nombre = document.getElementById('edit-nombre').value.trim();
   const cat = document.getElementById('edit-cat').value;
   const precio = parseFloat(document.getElementById('edit-precio').value) || 0;
@@ -252,11 +256,12 @@ function updateProductoFromModal(nombreOriginal) {
   if (stock === 0) estado = 'out';
   else if (stock <= 5) estado = 'low';
   const updates = { nombre, cat, precio: '$' + precio.toFixed(2), stock, estado };
+  const producto = inventario.find(p => p.nombre === nombreOriginal);
+  if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (nombre !== nombreOriginal) {
-    store.deleteProducto(nombreOriginal);
-    store.addProducto({ ...updates, icon: '📦' });
+    await store.updateProducto(producto.id, updates);
   } else {
-    store.updateProducto(nombreOriginal, updates);
+    await store.updateProducto(producto.id, updates);
   }
   syncGlobals();
   renderInv('', filtroInv);
@@ -283,19 +288,15 @@ function editCliente(nombre) {
   openModalWithContent('Editar cliente', body);
 }
 
-function updateClienteFromModal(nombreOriginal) {
+async function updateClienteFromModal(nombreOriginal) {
   const nombre = document.getElementById('edit-nombre').value.trim();
   const phone = document.getElementById('edit-phone').value.trim();
   const tag = document.getElementById('edit-tag').value;
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  const cliente = clientes.find(c => c.nombre === nombreOriginal);
+  if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
   const updates = { nombre, phone, tag };
-  if (nombre !== nombreOriginal) {
-    store.deleteCliente(nombreOriginal);
-    const nuevo = { ...updates, compras: '$0.00', pedidos: 0, color: '#6B7280', init: nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('') };
-    store.addCliente(nuevo);
-  } else {
-    store.updateCliente(nombreOriginal, updates);
-  }
+  await store.updateCliente(cliente.id, updates);
   syncGlobals();
   renderClients('', filtroCli);
   closeModal();
@@ -305,17 +306,21 @@ function updateClienteFromModal(nombreOriginal) {
 // ── ELIMINACIÓN CON CONFIRMACIÓN ──
 
 function confirmDeleteVenta(id) {
-  openConfirmModal('¿Seguro que deseas eliminar esta venta?', () => {
-    store.deleteVenta(id);
+  openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
+    await store.deleteVenta(id);
     syncGlobals();
     renderVentas('', filtroVentas);
+    renderActividadReciente();
+    updateKPIs();
     showToast('🗑️ Venta eliminada');
   });
 }
 
 function confirmDeleteProducto(nombre) {
-  openConfirmModal('¿Seguro que deseas eliminar este producto?', () => {
-    store.deleteProducto(nombre);
+  const producto = inventario.find(p => p.nombre === nombre);
+  if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+  openConfirmModal('¿Seguro que deseas eliminar este producto?', async () => {
+    await store.deleteProducto(producto.id);
     syncGlobals();
     renderInv('', filtroInv);
     showToast('🗑️ Producto eliminado');
@@ -323,8 +328,10 @@ function confirmDeleteProducto(nombre) {
 }
 
 function confirmDeleteCliente(nombre) {
-  openConfirmModal('¿Seguro que deseas eliminar este cliente?', () => {
-    store.deleteCliente(nombre);
+  const cliente = clientes.find(c => c.nombre === nombre);
+  if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
+  openConfirmModal('¿Seguro que deseas eliminar este cliente?', async () => {
+    await store.deleteCliente(cliente.id);
     syncGlobals();
     renderClients('', filtroCli);
     showToast('🗑️ Cliente eliminado');
@@ -443,7 +450,7 @@ function confirmAction() {
   closeModal();
 }
 
-// ── MÓDULO CLIENTE ──
+// ── MÓDULO CLIENTE (con autenticación Firebase) ──
 
 function toggleCliente() {
   const current = document.querySelector('.screen.active');
@@ -451,7 +458,7 @@ function toggleCliente() {
     goScreen('dashboard');
   } else {
     goScreen('cliente');
-    if (cargarSesion()) {
+    if (clienteActual) {
       mostrarPanelCliente();
     } else {
       document.getElementById('cliente-login').style.display = 'block';
@@ -472,46 +479,46 @@ function mostrarRegistro() {
   document.getElementById('registro-form').style.display = 'block';
 }
 
-function loginCliente() {
+async function loginCliente() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
   if (!email || !pass) { showToast('⚠️ Completa todos los campos'); return; }
 
-  const cliente = store.clientes.find(c => c.phone === email);
-  if (!cliente) { showToast('❌ Cliente no encontrado'); return; }
-
-  clienteActual = cliente;
-  guardarSesion();
-  mostrarPanelCliente();
-  showToast('✅ Bienvenido ' + cliente.nombre);
+  try {
+    const user = await store.loginUsuario(email, pass);
+    const clienteData = await store.getClientePorUid(user.uid);
+    if (clienteData) {
+      clienteActual = clienteData;
+      guardarSesion();
+      mostrarPanelCliente();
+      showToast('✅ Bienvenido ' + clienteActual.nombre);
+    } else {
+      showToast('❌ No se encontró perfil de cliente');
+    }
+  } catch (error) {
+    showToast('❌ Error al iniciar sesión: ' + error.message);
+  }
 }
 
-function registrarCliente() {
+async function registrarCliente() {
   const nombre = document.getElementById('reg-nombre').value.trim();
   const email = document.getElementById('reg-email').value.trim();
   const pass = document.getElementById('reg-pass').value.trim();
   if (!nombre || !email || !pass) { showToast('⚠️ Completa todos los campos'); return; }
 
-  if (store.clientes.some(c => c.phone === email)) {
-    showToast('⚠️ Ese correo ya está registrado');
-    return;
+  try {
+    const existing = await store.getClientePorEmail(email);
+    if (existing) {
+      showToast('⚠️ Ese correo ya está registrado');
+      return;
+    }
+    await store.registrarUsuario(email, pass, nombre);
+    showToast('✅ Registro exitoso, inicia sesión');
+    mostrarLogin();
+    document.getElementById('login-email').value = email;
+  } catch (error) {
+    showToast('❌ Error al registrar: ' + error.message);
   }
-
-  const nuevo = {
-    nombre: nombre,
-    phone: email,
-    compras: '$0.00',
-    pedidos: 0,
-    tag: 'nuevo',
-    color: '#6B7280',
-    init: nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join(''),
-    password: pass
-  };
-  store.addCliente(nuevo);
-  syncGlobals();
-  showToast('✅ Registro exitoso, inicia sesión');
-  mostrarLogin();
-  document.getElementById('login-email').value = email;
 }
 
 function mostrarPanelCliente() {
@@ -523,16 +530,23 @@ function mostrarPanelCliente() {
   actualizarCarritoCount();
 }
 
-function cerrarSesionCliente() {
-  clienteActual = null;
-  carrito = [];
-  localStorage.removeItem('clienteActual');
-  localStorage.removeItem('carrito');
-  document.getElementById('cliente-panel').style.display = 'none';
-  document.getElementById('cliente-login').style.display = 'block';
-  showToast('👋 Sesión cerrada');
-  goScreen('dashboard');
+async function cerrarSesionCliente() {
+  try {
+    await store.logoutUsuario();
+    clienteActual = null;
+    carrito = [];
+    localStorage.removeItem('clienteActual');
+    localStorage.removeItem('carrito');
+    document.getElementById('cliente-panel').style.display = 'none';
+    document.getElementById('cliente-login').style.display = 'block';
+    showToast('👋 Sesión cerrada');
+    goScreen('dashboard');
+  } catch (error) {
+    showToast('❌ Error al cerrar sesión: ' + error.message);
+  }
 }
+
+// ── FUNCIONES DE CATÁLOGO Y CARRITO ──
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
@@ -606,7 +620,7 @@ function vaciarCarrito() {
   showToast('🗑️ Carrito vacío');
 }
 
-function realizarPedido() {
+async function realizarPedido() {
   if (!clienteActual) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
@@ -623,13 +637,15 @@ function realizarPedido() {
     producto: 'Pedido desde app cliente'
   };
 
-  store.addVenta(pedido);
+  await store.addVenta(pedido);
   syncGlobals();
   carrito = [];
   guardarCarrito();
   actualizarCarritoCount();
   closeModal();
   renderHistorial();
+  renderActividadReciente();
+  updateKPIs();
   showToast('✅ Pedido realizado con éxito, espera confirmación');
 }
 
@@ -656,27 +672,41 @@ function renderHistorial() {
   `).join('');
 }
 
+// ── RENDER ACTIVIDAD RECIENTE ──
+function renderActividadReciente() {
+  const container = document.getElementById('actividad-list');
+  if (!container) return;
+  const ultimas = ventas.slice(0, 5);
+  if (!ultimas.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
+    return;
+  }
+  container.innerHTML = ultimas.map(v => `
+    <div class="activity-item">
+      <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
+      <div class="act-info">
+        <div class="act-name">${v.cliente}</div>
+        <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
+      </div>
+      <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
+    </div>
+  `).join('');
+}
+
 // ── INICIALIZACIÓN ──
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Fecha actual
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const hoy = new Date();
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
 
   loadTheme();
-  syncGlobals();
-
-  // Cargar sesión y carrito si existen
-  if (cargarSesion()) {
-    // Si el cliente está logueado, no mostramos el panel automáticamente
-    // pero dejamos la variable cargada.
-  }
   cargarCarrito();
 
-  renderVentas('', filtroVentas);
-  renderInv('', filtroInv);
-  renderClients('', filtroCli);
+  // Inicializar Firestore
+  initStore();
 
-  console.log('🚀 App inicializada con módulo cliente');
+  console.log('🚀 App inicializada con Firebase');
 });

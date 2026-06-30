@@ -4,6 +4,7 @@ function renderVentas(textFilter = '', statusFilter = 'todas') {
   const list = document.getElementById('ventas-list');
   const q = textFilter.toLowerCase();
 
+  // Filtrar por texto y por estado
   let data = ventas.filter(v => {
     const matchText = !q || v.cliente.toLowerCase().includes(q) || v.id.includes(q);
     const matchStatus = statusFilter === 'todas' || v.status === statusFilter;
@@ -35,11 +36,6 @@ function renderVentas(textFilter = '', statusFilter = 'todas') {
     </div>
   `).join('');
   updateKPIs();
-}
-
-function filterVentas() {
-  // Esta función está en app.js, pero la dejamos aquí por si acaso
-  renderVentas(document.getElementById('venta-search').value, filtroVentas);
 }
 
 function renderInv(textFilter = '', stockFilter = 'todos') {
@@ -76,10 +72,6 @@ function renderInv(textFilter = '', stockFilter = 'todos') {
     </div>
   `).join('');
   updateKPIs();
-}
-
-function filterInv() {
-  renderInv(document.getElementById('inv-search').value, filtroInv);
 }
 
 function renderClients(textFilter = '', tagFilter = 'todos') {
@@ -120,10 +112,6 @@ function renderClients(textFilter = '', tagFilter = 'todos') {
   updateKPIs();
 }
 
-function filterClients() {
-  renderClients(document.getElementById('client-search').value, filtroCli);
-}
-
 // ── ACTUALIZAR KPIs ──
 function updateKPIs() {
   // Ventas hoy (pagadas y con fecha de hoy)
@@ -135,7 +123,7 @@ function updateKPIs() {
       return fechaVenta.toLocaleDateString() === hoy && v.status === 'pagado';
     } catch { return false; }
   });
-  const totalHoy = ventasHoy.reduce((sum, v) => sum + parseFloat(v.total.replace('$','')), 0);
+  const totalHoy = ventasHoy.reduce((sum, v) => sum + parseFloat(v.total.replace('$', '')), 0);
   const kpiVentas = document.querySelector('.kpi-card.blue .kpi-value');
   if (kpiVentas) kpiVentas.textContent = '$' + totalHoy.toFixed(2);
 

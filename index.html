@@ -13,11 +13,13 @@
 <nav class="top-nav">
   <div class="nav-logo">Mi<span>Negocio</span></div>
   <div class="nav-right">
+    <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
     <div class="avatar" onclick="showToast('Perfil de usuario')">OR</div>
   </div>
 </nav>
 
+<!-- SCREENS (igual que antes, sin cambios) -->
 <!-- SCREEN: DASHBOARD -->
 <div class="screen active" id="screen-dashboard">
   <div class="greeting">
@@ -28,27 +30,27 @@
   <div class="kpi-grid">
     <div class="kpi-card blue">
       <div class="kpi-label">Ventas hoy</div>
-      <div class="kpi-value blue">$847</div>
-      <div class="kpi-sub">↑ 12% vs ayer</div>
+      <div class="kpi-value blue">$0.00</div>
+      <div class="kpi-sub" id="kpi-sub-ventas">↑ 0% vs ayer</div>
     </div>
     <div class="kpi-card green">
       <div class="kpi-label">Pedidos</div>
-      <div class="kpi-value green">23</div>
-      <div class="kpi-sub">5 pendientes</div>
+      <div class="kpi-value green">0</div>
+      <div class="kpi-sub" id="kpi-sub-pedidos">0 pendientes</div>
     </div>
     <div class="kpi-card amber">
       <div class="kpi-label">Stock bajo</div>
-      <div class="kpi-value amber">4</div>
+      <div class="kpi-value amber">0</div>
       <div class="kpi-sub">productos</div>
     </div>
     <div class="kpi-card purple">
       <div class="kpi-label">Clientes</div>
-      <div class="kpi-value purple">128</div>
-      <div class="kpi-sub">3 nuevos hoy</div>
+      <div class="kpi-value purple">0</div>
+      <div class="kpi-sub">0 nuevos hoy</div>
     </div>
   </div>
 
-  <!-- Mini chart -->
+  <!-- Mini chart (sin cambios) -->
   <div class="card" style="margin-bottom:12px">
     <div class="section-header">
       <span class="section-title">Ventas — últimos 7 días</span>
@@ -65,35 +67,19 @@
     </div>
   </div>
 
-  <!-- Actividad reciente -->
+  <!-- Actividad reciente (sin cambios) -->
   <div class="card">
     <div class="section-header">
       <span class="section-title">Actividad reciente</span>
       <span class="section-link" onclick="goScreen('ventas')">Ver todo</span>
     </div>
-    <div class="activity-item">
-      <div class="act-icon" style="background:#EFF6FF">🛒</div>
-      <div class="act-info"><div class="act-name">María González</div><div class="act-sub">Hace 12 min · 3 productos</div></div>
-      <div class="act-amount" style="color:var(--green)">+$45.00</div>
-    </div>
-    <div class="activity-item">
-      <div class="act-icon" style="background:#ECFDF5">📦</div>
-      <div class="act-info"><div class="act-name">Stock actualizado</div><div class="act-sub">Café Caracas · hace 28 min</div></div>
-      <div class="act-amount" style="color:var(--text2)">50 u.</div>
-    </div>
-    <div class="activity-item">
-      <div class="act-icon" style="background:#FFF7ED">🛒</div>
-      <div class="act-info"><div class="act-name">Carlos Pérez</div><div class="act-sub">Hace 1h · 1 producto</div></div>
-      <div class="act-amount" style="color:var(--green)">+$18.50</div>
-    </div>
-    <div class="activity-item">
-      <div class="act-icon" style="background:#FEF2F2">⚠️</div>
-      <div class="act-info"><div class="act-name">Stock crítico</div><div class="act-sub">Azúcar Morena · quedan 2 u.</div></div>
-      <div class="act-amount" style="color:var(--red)">2 u.</div>
+    <div id="actividad-list">
+      <!-- Se llenará dinámicamente -->
     </div>
   </div>
 </div>
 
+<!-- Resto de las pantallas igual que antes -->
 <!-- SCREEN: VENTAS -->
 <div class="screen" id="screen-ventas">
   <div class="search-bar">
@@ -139,14 +125,13 @@
   <div id="client-list"></div>
 </div>
 
-<!-- SCREEN: REPORTES -->
+<!-- SCREEN: REPORTES (sin cambios) -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">
     <div class="report-tab active" onclick="switchReportTab(this,'semana')">Semana</div>
     <div class="report-tab" onclick="switchReportTab(this,'mes')">Mes</div>
     <div class="report-tab" onclick="switchReportTab(this,'anio')">Año</div>
   </div>
-
   <div class="card" style="margin-bottom:12px">
     <div class="section-title" style="margin-bottom:12px">Resumen financiero</div>
     <div class="stat-row"><span class="stat-label">Total ingresos</span><span class="stat-value up">$3,842.00</span></div>
@@ -155,7 +140,6 @@
     <div class="stat-row"><span class="stat-label">Pedidos cancelados</span><span class="stat-value down">8</span></div>
     <div class="stat-row"><span class="stat-label">Nuevos clientes</span><span class="stat-value up">+14</span></div>
   </div>
-
   <div class="card" style="margin-bottom:12px">
     <div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>
     <div class="top-product">
@@ -189,7 +173,6 @@
       <div class="top-val">$136</div>
     </div>
   </div>
-
   <div class="card">
     <div class="section-title" style="margin-bottom:12px">Clientes top</div>
     <div class="stat-row"><span class="stat-label">María González</span><span class="stat-value up">$310.50</span></div>
@@ -225,7 +208,7 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" id="fab-btn">＋</button>
 
-<!-- MODAL SHEET -->
+<!-- MODAL SHEET (se reutiliza para todo) -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal-sheet" id="modal-sheet">
     <div class="sheet-handle"></div>

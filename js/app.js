@@ -10,12 +10,19 @@ let filtroCli = 'todos';
 
 function goScreen(name) {
   screens.forEach(s => {
-    document.getElementById('screen-' + s).classList.toggle('active', s === name);
-    document.getElementById('nav-' + s).classList.toggle('active', s === name);
+    const screenEl = document.getElementById('screen-' + s);
+    if (screenEl) {
+      screenEl.classList.toggle('active', s === name);
+    }
+    const navEl = document.getElementById('nav-' + s);
+    if (navEl) {
+      navEl.classList.toggle('active', s === name);
+    }
   });
   currentScreen = name;
   const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇', cliente: '⬇' };
-  document.getElementById('fab-btn').textContent = fabLabels[name] || '＋';
+  const fabBtn = document.getElementById('fab-btn');
+  if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
 
   if (name === 'ventas') renderVentas('', filtroVentas);
   if (name === 'inventario') renderInv('', filtroInv);
@@ -25,8 +32,10 @@ function goScreen(name) {
     if (clienteActual) {
       mostrarPanelCliente();
     } else {
-      document.getElementById('cliente-login').style.display = 'block';
-      document.getElementById('cliente-panel').style.display = 'none';
+      const loginDiv = document.getElementById('cliente-login');
+      const panelDiv = document.getElementById('cliente-panel');
+      if (loginDiv) loginDiv.style.display = 'block';
+      if (panelDiv) panelDiv.style.display = 'none';
     }
   }
 }
@@ -521,10 +530,18 @@ async function registrarCliente() {
   }
 }
 
-function mostrarPanelCliente() {
+async function mostrarPanelCliente() {
   document.getElementById('cliente-login').style.display = 'none';
   document.getElementById('cliente-panel').style.display = 'block';
   document.getElementById('cliente-nombre').textContent = clienteActual.nombre;
+
+  // Si los datos no están cargados, cargarlos y esperar
+  if (!store.cargado) {
+    showToast('⏳ Cargando productos...');
+    await store.cargarDatos();
+    syncGlobals();
+  }
+
   renderCatalogo();
   renderHistorial();
   actualizarCarritoCount();
@@ -550,8 +567,14 @@ async function cerrarSesionCliente() {
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
-  if (!inventario.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay productos disponibles</div></div>';
+  if (!inventario || inventario.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📦</div>
+        <div class="empty-text">No hay productos disponibles</div>
+        <button class="btn btn-outline" style="margin-top:12px;" onclick="recargarCatalogo()">🔄 Recargar</button>
+      </div>
+    `;
     return;
   }
   container.innerHTML = inventario.map(p => `
@@ -568,6 +591,15 @@ function renderCatalogo() {
       </div>
     </div>
   `).join('');
+}
+
+// Función auxiliar para recargar manualmente
+async function recargarCatalogo() {
+  showToast('🔄 Recargando productos...');
+  await store.cargarDatos();
+  syncGlobals();
+  renderCatalogo();
+  showToast('✅ Productos cargados');
 }
 
 function agregarAlCarrito(nombre) {

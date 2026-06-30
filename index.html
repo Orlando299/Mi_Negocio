@@ -15,11 +15,11 @@
   <div class="nav-right">
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
+    <button class="nav-icon-btn" onclick="toggleCliente()" id="btn-cliente">👤</button>
     <div class="avatar" onclick="showToast('Perfil de usuario')">OR</div>
   </div>
 </nav>
 
-<!-- SCREENS (igual que antes, sin cambios) -->
 <!-- SCREEN: DASHBOARD -->
 <div class="screen active" id="screen-dashboard">
   <div class="greeting">
@@ -50,7 +50,7 @@
     </div>
   </div>
 
-  <!-- Mini chart (sin cambios) -->
+  <!-- Mini chart -->
   <div class="card" style="margin-bottom:12px">
     <div class="section-header">
       <span class="section-title">Ventas — últimos 7 días</span>
@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <!-- Actividad reciente (sin cambios) -->
+  <!-- Actividad reciente -->
   <div class="card">
     <div class="section-header">
       <span class="section-title">Actividad reciente</span>
@@ -79,7 +79,6 @@
   </div>
 </div>
 
-<!-- Resto de las pantallas igual que antes -->
 <!-- SCREEN: VENTAS -->
 <div class="screen" id="screen-ventas">
   <div class="search-bar">
@@ -125,7 +124,7 @@
   <div id="client-list"></div>
 </div>
 
-<!-- SCREEN: REPORTES (sin cambios) -->
+<!-- SCREEN: REPORTES -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">
     <div class="report-tab active" onclick="switchReportTab(this,'semana')">Semana</div>
@@ -181,6 +180,49 @@
   </div>
 </div>
 
+<!-- SCREEN: CLIENTE -->
+<div class="screen" id="screen-cliente">
+  <div id="cliente-login" style="padding-top:20px;">
+    <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
+    <div id="login-form">
+      <div class="field"><label>Correo</label><input type="email" id="login-email" placeholder="correo@ejemplo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="******"></div>
+      <button class="btn btn-primary" onclick="loginCliente()">Iniciar sesión</button>
+      <p style="text-align:center; margin:10px 0;">o</p>
+      <button class="btn btn-outline" onclick="mostrarRegistro()">Registrarme</button>
+    </div>
+    <div id="registro-form" style="display:none;">
+      <div class="field"><label>Nombre</label><input type="text" id="reg-nombre" placeholder="Tu nombre"></div>
+      <div class="field"><label>Correo</label><input type="email" id="reg-email" placeholder="correo@ejemplo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" placeholder="******"></div>
+      <button class="btn btn-primary" onclick="registrarCliente()">Registrarme</button>
+      <button class="btn btn-outline" onclick="mostrarLogin()">Volver a login</button>
+    </div>
+  </div>
+
+  <div id="cliente-panel" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
+      <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
+    </div>
+
+    <!-- Catálogo de productos -->
+    <div class="section-header">
+      <span class="section-title">Productos disponibles</span>
+      <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
+    </div>
+    <div id="catalogo-productos"></div>
+
+    <!-- Historial de pedidos -->
+    <div style="margin-top:20px;">
+      <div class="section-header">
+        <span class="section-title">Mis pedidos</span>
+      </div>
+      <div id="historial-pedidos"></div>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
   <div class="nav-item active" onclick="goScreen('dashboard')" id="nav-dashboard">
@@ -208,7 +250,7 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" id="fab-btn">＋</button>
 
-<!-- MODAL SHEET (se reutiliza para todo) -->
+<!-- MODAL SHEET -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal-sheet" id="modal-sheet">
     <div class="sheet-handle"></div>

@@ -33,18 +33,24 @@ function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  document.getElementById('theme-toggle').textContent = isDark ? '☀️' : '🌙';
+  const themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn) {
+    themeBtn.textContent = isDark ? '☀️' : '🌙';
+  }
 }
 
 function loadTheme() {
   const theme = localStorage.getItem('theme');
   if (theme === 'dark') {
     document.body.classList.add('dark-mode');
-    document.getElementById('theme-toggle').textContent = '☀️';
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+      themeBtn.textContent = '☀️';
+    }
   }
 }
 
-// ── FUNCIONES DE GUARDADO (NUEVOS) ──
+// ── FUNCIONES DE GUARDADO ──
 
 function guardarVenta() {
   const modalBody = document.getElementById('modal-body');
@@ -63,8 +69,14 @@ function guardarVenta() {
 
   const total = precioUnit * cantidad;
   const nuevaVenta = {
-    cliente, producto, items: cantidad, total: '$' + total.toFixed(2),
-    status: 'pagado', metodo, notas, fecha: new Date().toLocaleString()
+    cliente,
+    producto,
+    items: cantidad,
+    total: '$' + total.toFixed(2),
+    status: 'pagado',
+    metodo,
+    notas,
+    fecha: new Date().toLocaleString()
   };
 
   store.addVenta(nuevaVenta);
@@ -87,13 +99,30 @@ function guardarProducto() {
   if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
-  const iconMap = { 'Bebidas': '☕', 'Dulces': '🍫', 'Endulzantes': '🍯', 'Básicos': '🧂', 'Granos': '🫘', 'Lácteos': '🧀', 'Cocina': '🫙' };
+  const iconMap = {
+    'Bebidas': '☕',
+    'Dulces': '🍫',
+    'Endulzantes': '🍯',
+    'Básicos': '🧂',
+    'Granos': '🫘',
+    'Lácteos': '🧀',
+    'Cocina': '🫙'
+  };
   const icon = iconMap[cat] || '📦';
+
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= stockMin) estado = 'low';
 
-  const nuevoProducto = { nombre, cat, precio: '$' + precioVenta.toFixed(2), stock, icon, estado };
+  const nuevoProducto = {
+    nombre,
+    cat,
+    precio: '$' + precioVenta.toFixed(2),
+    stock,
+    icon,
+    estado
+  };
+
   store.addProducto(nuevoProducto);
   syncGlobals();
   renderInv();
@@ -116,7 +145,16 @@ function guardarCliente() {
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
 
-  const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
+  const nuevoCliente = {
+    nombre: nombreCompleto,
+    phone: telefono,
+    compras: '$0.00',
+    pedidos: 0,
+    tag: 'nuevo',
+    color,
+    init
+  };
+
   store.addCliente(nuevoCliente);
   syncGlobals();
   renderClients();
@@ -124,7 +162,10 @@ function guardarCliente() {
   showToast('✅ Cliente registrado con éxito');
 }
 
-function guardarReporte() { closeModal(); showToast('📊 Reporte generado (simulación)'); }
+function guardarReporte() {
+  closeModal();
+  showToast('📊 Reporte generado (simulación)');
+}
 
 // ── EDICIÓN ──
 
@@ -207,7 +248,6 @@ function updateProductoFromModal(nombreOriginal) {
   if (stock === 0) estado = 'out';
   else if (stock <= 5) estado = 'low';
   const updates = { nombre, cat, precio: '$' + precio.toFixed(2), stock, estado };
-  // Si el nombre cambió, debemos eliminar el antiguo y agregar el nuevo
   if (nombre !== nombreOriginal) {
     store.deleteProducto(nombreOriginal);
     store.addProducto({ ...updates, icon: '📦' });
@@ -287,7 +327,7 @@ function confirmDeleteCliente(nombre) {
   });
 }
 
-// ── MODALES EXISTENTES (sin cambios, pero referencian las funciones) ──
+// ── MODALES ──
 
 const modals = {
   ventas: {
@@ -383,6 +423,12 @@ function closeModal(e) {
   if (!e || e.target === document.getElementById('modal')) {
     document.getElementById('modal').classList.remove('open');
   }
+}
+
+function openModalWithContent(title, bodyHTML) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal').classList.add('open');
 }
 
 // ── INICIALIZACIÓN ──

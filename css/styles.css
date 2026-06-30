@@ -314,3 +314,16 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 .btn-icon:hover { background: var(--surface2); }
 .btn-icon.danger:hover { background: var(--red-soft); color: var(--red); }
 .btn-icon.edit:hover { background: var(--primary-soft); color: var(--primary); }
+
+/* Estilos extra para módulo cliente */
+#screen-cliente .inv-card {
+  cursor: default;
+}
+#screen-cliente .inv-card .btn {
+  height: 36px;
+  font-size: 12px;
+  padding: 0 12px;
+}
+#cliente-panel h2 {
+  font-size: 20px;
+}

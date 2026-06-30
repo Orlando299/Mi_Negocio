@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MiNegocio — Gestión Inteligente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="top-nav">
+  <div class="nav-logo">Mi<span>Negocio</span></div>
+  <div class="nav-right">
+    <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
+    <div class="avatar" onclick="showToast('Perfil de usuario')">OR</div>
+  </div>
+</nav>
+
+<!-- SCREEN: DASHBOARD -->
+<div class="screen active" id="screen-dashboard">
+  <div class="greeting">
+    <h2>Buenos días, Orlando 👋</h2>
+    <p>Resumen de hoy · <span id="fecha-hoy"></span></p>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Ventas hoy</div>
+      <div class="kpi-value blue">$847</div>
+      <div class="kpi-sub">↑ 12% vs ayer</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Pedidos</div>
+      <div class="kpi-value green">23</div>
+      <div class="kpi-sub">5 pendientes</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Stock bajo</div>
+      <div class="kpi-value amber">4</div>
+      <div class="kpi-sub">productos</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Clientes</div>
+      <div class="kpi-value purple">128</div>
+      <div class="kpi-sub">3 nuevos hoy</div>
+    </div>
+  </div>
+
+  <!-- Mini chart -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="section-header">
+      <span class="section-title">Ventas — últimos 7 días</span>
+      <span class="section-link">Ver más</span>
+    </div>
+    <div class="chart-bars">
+      <div class="bar-wrap"><div class="bar" style="height:55%"></div><div class="bar-label">L</div></div>
+      <div class="bar-wrap"><div class="bar" style="height:70%"></div><div class="bar-label">M</div></div>
+      <div class="bar-wrap"><div class="bar" style="height:40%"></div><div class="bar-label">X</div></div>
+      <div class="bar-wrap"><div class="bar" style="height:85%"></div><div class="bar-label">J</div></div>
+      <div class="bar-wrap"><div class="bar" style="height:60%"></div><div class="bar-label">V</div></div>
+      <div class="bar-wrap"><div class="bar" style="height:90%"></div><div class="bar-label">S</div></div>
+      <div class="bar-wrap"><div class="bar highlight" style="height:100%"></div><div class="bar-label">D</div></div>
+    </div>
+  </div>
+
+  <!-- Actividad reciente -->
+  <div class="card">
+    <div class="section-header">
+      <span class="section-title">Actividad reciente</span>
+      <span class="section-link" onclick="goScreen('ventas')">Ver todo</span>
+    </div>
+    <div class="activity-item">
+      <div class="act-icon" style="background:#EFF6FF">🛒</div>
+      <div class="act-info"><div class="act-name">María González</div><div class="act-sub">Hace 12 min · 3 productos</div></div>
+      <div class="act-amount" style="color:var(--green)">+$45.00</div>
+    </div>
+    <div class="activity-item">
+      <div class="act-icon" style="background:#ECFDF5">📦</div>
+      <div class="act-info"><div class="act-name">Stock actualizado</div><div class="act-sub">Café Caracas · hace 28 min</div></div>
+      <div class="act-amount" style="color:var(--text2)">50 u.</div>
+    </div>
+    <div class="activity-item">
+      <div class="act-icon" style="background:#FFF7ED">🛒</div>
+      <div class="act-info"><div class="act-name">Carlos Pérez</div><div class="act-sub">Hace 1h · 1 producto</div></div>
+      <div class="act-amount" style="color:var(--green)">+$18.50</div>
+    </div>
+    <div class="activity-item">
+      <div class="act-icon" style="background:#FEF2F2">⚠️</div>
+      <div class="act-info"><div class="act-name">Stock crítico</div><div class="act-sub">Azúcar Morena · quedan 2 u.</div></div>
+      <div class="act-amount" style="color:var(--red)">2 u.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: VENTAS -->
+<div class="screen" id="screen-ventas">
+  <div class="search-bar">
+    <input class="search-input" placeholder="🔍  Buscar venta o cliente..." id="venta-search" oninput="filterVentas()">
+    <button class="filter-btn">⚙️</button>
+  </div>
+  <div class="chips">
+    <div class="chip active" onclick="filterChip(this,'ventas')">Todas</div>
+    <div class="chip" onclick="filterChip(this,'ventas')">Pagado</div>
+    <div class="chip" onclick="filterChip(this,'ventas')">Pendiente</div>
+    <div class="chip" onclick="filterChip(this,'ventas')">Cancelado</div>
+  </div>
+  <div id="ventas-list"></div>
+</div>
+
+<!-- SCREEN: INVENTARIO -->
+<div class="screen" id="screen-inventario">
+  <div class="search-bar">
+    <input class="search-input" placeholder="🔍  Buscar producto..." id="inv-search" oninput="filterInv()">
+    <button class="filter-btn">⚙️</button>
+  </div>
+  <div class="chips">
+    <div class="chip active" onclick="filterChip(this,'inv')">Todos</div>
+    <div class="chip" onclick="filterChip(this,'inv')">Disponible</div>
+    <div class="chip" onclick="filterChip(this,'inv')">Stock bajo</div>
+    <div class="chip" onclick="filterChip(this,'inv')">Agotado</div>
+  </div>
+  <div id="inv-list"></div>
+</div>
+
+<!-- SCREEN: CLIENTES -->
+<div class="screen" id="screen-clientes">
+  <div class="search-bar">
+    <input class="search-input" placeholder="🔍  Buscar cliente..." id="client-search" oninput="filterClients()">
+    <button class="filter-btn">⚙️</button>
+  </div>
+  <div class="chips">
+    <div class="chip active" onclick="filterChip(this,'cli')">Todos</div>
+    <div class="chip" onclick="filterChip(this,'cli')">VIP</div>
+    <div class="chip" onclick="filterChip(this,'cli')">Regular</div>
+    <div class="chip" onclick="filterChip(this,'cli')">Nuevo</div>
+  </div>
+  <div id="client-list"></div>
+</div>
+
+<!-- SCREEN: REPORTES -->
+<div class="screen" id="screen-reportes">
+  <div class="report-tabs">
+    <div class="report-tab active" onclick="switchReportTab(this,'semana')">Semana</div>
+    <div class="report-tab" onclick="switchReportTab(this,'mes')">Mes</div>
+    <div class="report-tab" onclick="switchReportTab(this,'anio')">Año</div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="section-title" style="margin-bottom:12px">Resumen financiero</div>
+    <div class="stat-row"><span class="stat-label">Total ingresos</span><span class="stat-value up">$3,842.00</span></div>
+    <div class="stat-row"><span class="stat-label">Total pedidos</span><span class="stat-value">142</span></div>
+    <div class="stat-row"><span class="stat-label">Ticket promedio</span><span class="stat-value">$27.05</span></div>
+    <div class="stat-row"><span class="stat-label">Pedidos cancelados</span><span class="stat-value down">8</span></div>
+    <div class="stat-row"><span class="stat-label">Nuevos clientes</span><span class="stat-value up">+14</span></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>
+    <div class="top-product">
+      <div class="top-rank">#1</div>
+      <div class="top-name">Café Caracas 250g</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:100%"></div></div>
+      <div class="top-val">$620</div>
+    </div>
+    <div class="top-product">
+      <div class="top-rank">#2</div>
+      <div class="top-name">Chocolate El Rey</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:72%"></div></div>
+      <div class="top-val">$448</div>
+    </div>
+    <div class="top-product">
+      <div class="top-rank">#3</div>
+      <div class="top-name">Papelón de caña</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:55%"></div></div>
+      <div class="top-val">$341</div>
+    </div>
+    <div class="top-product">
+      <div class="top-rank">#4</div>
+      <div class="top-name">Azúcar Morena 1kg</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:38%"></div></div>
+      <div class="top-val">$234</div>
+    </div>
+    <div class="top-product">
+      <div class="top-rank">#5</div>
+      <div class="top-name">Caraotas negras</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:22%"></div></div>
+      <div class="top-val">$136</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title" style="margin-bottom:12px">Clientes top</div>
+    <div class="stat-row"><span class="stat-label">María González</span><span class="stat-value up">$310.50</span></div>
+    <div class="stat-row"><span class="stat-label">Luis Rodríguez</span><span class="stat-value up">$289.00</span></div>
+    <div class="stat-row"><span class="stat-label">Ana Martínez</span><span class="stat-value up">$245.75</span></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="nav-item active" onclick="goScreen('dashboard')" id="nav-dashboard">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">Inicio</div>
+  </div>
+  <div class="nav-item" onclick="goScreen('ventas')" id="nav-ventas">
+    <div class="nav-icon">🛒</div>
+    <div class="nav-label">Ventas</div>
+  </div>
+  <div class="nav-item" onclick="goScreen('inventario')" id="nav-inventario">
+    <div class="nav-icon">📦</div>
+    <div class="nav-label">Inventario</div>
+  </div>
+  <div class="nav-item" onclick="goScreen('clientes')" id="nav-clientes">
+    <div class="nav-icon">👥</div>
+    <div class="nav-label">Clientes</div>
+  </div>
+  <div class="nav-item" onclick="goScreen('reportes')" id="nav-reportes">
+    <div class="nav-icon">📈</div>
+    <div class="nav-label">Reportes</div>
+  </div>
+</nav>
+
+<!-- FAB -->
+<button class="fab" onclick="openModal()" id="fab-btn">＋</button>
+
+<!-- MODAL SHEET -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet" id="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="modal-title">Nueva venta</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SCRIPTS -->
+<script src="js/data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

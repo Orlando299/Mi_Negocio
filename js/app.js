@@ -28,7 +28,23 @@ function switchReportTab(el, period) {
   showToast('Mostrando datos: ' + el.textContent);
 }
 
-// ── FUNCIONES DE GUARDADO ──
+// ── TEMA OSCURO ──
+function toggleTheme() {
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  document.getElementById('theme-toggle').textContent = isDark ? '☀️' : '🌙';
+}
+
+function loadTheme() {
+  const theme = localStorage.getItem('theme');
+  if (theme === 'dark') {
+    document.body.classList.add('dark-mode');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  }
+}
+
+// ── FUNCIONES DE GUARDADO (NUEVOS) ──
 
 function guardarVenta() {
   const modalBody = document.getElementById('modal-body');
@@ -41,29 +57,14 @@ function guardarVenta() {
   const metodo = inputs[4]?.value || 'Efectivo';
   const notas = inputs[5]?.value || '';
 
-  if (!cliente) {
-    showToast('⚠️ Ingresa el nombre del cliente');
-    return;
-  }
-  if (!producto) {
-    showToast('⚠️ Ingresa el nombre del producto');
-    return;
-  }
-  if (precioUnit <= 0) {
-    showToast('⚠️ Ingresa un precio válido');
-    return;
-  }
+  if (!cliente) { showToast('⚠️ Ingresa el nombre del cliente'); return; }
+  if (!producto) { showToast('⚠️ Ingresa el nombre del producto'); return; }
+  if (precioUnit <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
   const total = precioUnit * cantidad;
   const nuevaVenta = {
-    cliente,
-    fecha: new Date().toLocaleString(),
-    items: cantidad,
-    total: '$' + total.toFixed(2),
-    status: 'pagado',
-    metodo,
-    notas,
-    producto
+    cliente, producto, items: cantidad, total: '$' + total.toFixed(2),
+    status: 'pagado', metodo, notas, fecha: new Date().toLocaleString()
   };
 
   store.addVenta(nuevaVenta);
@@ -83,39 +84,16 @@ function guardarProducto() {
   const stock = parseInt(inputs[4]?.value) || 0;
   const stockMin = parseInt(inputs[5]?.value) || 5;
 
-  if (!nombre) {
-    showToast('⚠️ Ingresa el nombre del producto');
-    return;
-  }
-  if (precioVenta <= 0) {
-    showToast('⚠️ Ingresa un precio válido');
-    return;
-  }
+  if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
+  if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
-  const iconMap = {
-    'Bebidas': '☕',
-    'Dulces': '🍫',
-    'Endulzantes': '🍯',
-    'Básicos': '🧂',
-    'Granos': '🫘',
-    'Lácteos': '🧀',
-    'Cocina': '🫙'
-  };
+  const iconMap = { 'Bebidas': '☕', 'Dulces': '🍫', 'Endulzantes': '🍯', 'Básicos': '🧂', 'Granos': '🫘', 'Lácteos': '🧀', 'Cocina': '🫙' };
   const icon = iconMap[cat] || '📦';
-
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= stockMin) estado = 'low';
 
-  const nuevoProducto = {
-    nombre,
-    cat,
-    precio: '$' + precioVenta.toFixed(2),
-    stock,
-    icon,
-    estado,
-  };
-
+  const nuevoProducto = { nombre, cat, precio: '$' + precioVenta.toFixed(2), stock, icon, estado };
   store.addProducto(nuevoProducto);
   syncGlobals();
   renderInv();
@@ -132,26 +110,13 @@ function guardarCliente() {
   const telefono = inputs[2]?.value?.trim() || '';
 
   const nombreCompleto = (nombre + ' ' + apellido).trim();
-
-  if (!nombreCompleto) {
-    showToast('⚠️ El nombre es obligatorio');
-    return;
-  }
+  if (!nombreCompleto) { showToast('⚠️ El nombre es obligatorio'); return; }
 
   const init = nombreCompleto.split(' ').map(p => p.charAt(0).toUpperCase()).join('');
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
 
-  const nuevoCliente = {
-    nombre: nombreCompleto,
-    phone: telefono,
-    compras: '$0.00',
-    pedidos: 0,
-    tag: 'nuevo',
-    color,
-    init,
-  };
-
+  const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
   store.addCliente(nuevoCliente);
   syncGlobals();
   renderClients();
@@ -159,12 +124,170 @@ function guardarCliente() {
   showToast('✅ Cliente registrado con éxito');
 }
 
-function guardarReporte() {
-  closeModal();
-  showToast('📊 Reporte generado (simulación)');
+function guardarReporte() { closeModal(); showToast('📊 Reporte generado (simulación)'); }
+
+// ── EDICIÓN ──
+
+function editVenta(id) {
+  const v = store.ventas.find(item => item.id === id);
+  if (!v) return showToast('Venta no encontrada');
+  const body = `
+    <div class="field"><label>Cliente</label><input type="text" value="${v.cliente}" id="edit-cliente"></div>
+    <div class="field"><label>Producto</label><input type="text" value="${v.producto || ''}" id="edit-producto"></div>
+    <div class="row">
+      <div class="field"><label>Cantidad</label><input type="number" value="${v.items}" id="edit-cantidad"></div>
+      <div class="field"><label>Precio unit.</label><input type="text" value="${(parseFloat(v.total.replace('$','')) / v.items).toFixed(2)}" id="edit-precio"></div>
+    </div>
+    <div class="field"><label>Método de pago</label>
+      <select id="edit-metodo">
+        <option ${v.metodo === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
+        <option ${v.metodo === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
+        <option ${v.metodo === 'Pago Móvil' ? 'selected' : ''}>Pago Móvil</option>
+        <option ${v.metodo === 'Divisas' ? 'selected' : ''}>Divisas</option>
+      </select>
+    </div>
+    <div class="field"><label>Notas</label><textarea id="edit-notas">${v.notas || ''}</textarea></div>
+    <button class="btn btn-primary" onclick="updateVentaFromModal('${id}')">Actualizar venta</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar venta', body);
 }
 
-// ── MODALES ──
+function updateVentaFromModal(id) {
+  const cliente = document.getElementById('edit-cliente').value.trim();
+  const producto = document.getElementById('edit-producto').value.trim();
+  const cantidad = parseInt(document.getElementById('edit-cantidad').value) || 1;
+  const precioUnit = parseFloat(document.getElementById('edit-precio').value.replace('$','')) || 0;
+  const metodo = document.getElementById('edit-metodo').value;
+  const notas = document.getElementById('edit-notas').value;
+  const total = precioUnit * cantidad;
+
+  if (!cliente) { showToast('⚠️ El cliente es obligatorio'); return; }
+  const updates = { cliente, producto, items: cantidad, total: '$' + total.toFixed(2), metodo, notas };
+  store.updateVenta(id, updates);
+  syncGlobals();
+  renderVentas();
+  closeModal();
+  showToast('✅ Venta actualizada');
+}
+
+function editProducto(nombre) {
+  const p = store.inventario.find(item => item.nombre === nombre);
+  if (!p) return showToast('Producto no encontrado');
+  const body = `
+    <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
+    <div class="field"><label>Categoría</label>
+      <select id="edit-cat">
+        <option ${p.cat === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
+        <option ${p.cat === 'Dulces' ? 'selected' : ''}>Dulces</option>
+        <option ${p.cat === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
+        <option ${p.cat === 'Básicos' ? 'selected' : ''}>Básicos</option>
+        <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
+        <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
+        <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="field"><label>Precio</label><input type="text" value="${p.precio.replace('$','')}" id="edit-precio"></div>
+      <div class="field"><label>Stock</label><input type="number" value="${p.stock}" id="edit-stock"></div>
+    </div>
+    <button class="btn btn-primary" onclick="updateProductoFromModal('${nombre}')">Actualizar producto</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar producto', body);
+}
+
+function updateProductoFromModal(nombreOriginal) {
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const cat = document.getElementById('edit-cat').value;
+  const precio = parseFloat(document.getElementById('edit-precio').value) || 0;
+  const stock = parseInt(document.getElementById('edit-stock').value) || 0;
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  let estado = 'ok';
+  if (stock === 0) estado = 'out';
+  else if (stock <= 5) estado = 'low';
+  const updates = { nombre, cat, precio: '$' + precio.toFixed(2), stock, estado };
+  // Si el nombre cambió, debemos eliminar el antiguo y agregar el nuevo
+  if (nombre !== nombreOriginal) {
+    store.deleteProducto(nombreOriginal);
+    store.addProducto({ ...updates, icon: '📦' });
+  } else {
+    store.updateProducto(nombreOriginal, updates);
+  }
+  syncGlobals();
+  renderInv();
+  closeModal();
+  showToast('✅ Producto actualizado');
+}
+
+function editCliente(nombre) {
+  const c = store.clientes.find(item => item.nombre === nombre);
+  if (!c) return showToast('Cliente no encontrado');
+  const body = `
+    <div class="field"><label>Nombre</label><input type="text" value="${c.nombre}" id="edit-nombre"></div>
+    <div class="field"><label>Teléfono</label><input type="text" value="${c.phone}" id="edit-phone"></div>
+    <div class="field"><label>Etiqueta</label>
+      <select id="edit-tag">
+        <option ${c.tag === 'vip' ? 'selected' : ''}>vip</option>
+        <option ${c.tag === 'regular' ? 'selected' : ''}>regular</option>
+        <option ${c.tag === 'nuevo' ? 'selected' : ''}>nuevo</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="updateClienteFromModal('${nombre}')">Actualizar cliente</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar cliente', body);
+}
+
+function updateClienteFromModal(nombreOriginal) {
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const phone = document.getElementById('edit-phone').value.trim();
+  const tag = document.getElementById('edit-tag').value;
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  const updates = { nombre, phone, tag };
+  if (nombre !== nombreOriginal) {
+    store.deleteCliente(nombreOriginal);
+    const nuevo = { ...updates, compras: '$0.00', pedidos: 0, color: '#6B7280', init: nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('') };
+    store.addCliente(nuevo);
+  } else {
+    store.updateCliente(nombreOriginal, updates);
+  }
+  syncGlobals();
+  renderClients();
+  closeModal();
+  showToast('✅ Cliente actualizado');
+}
+
+// ── ELIMINACIÓN CON CONFIRMACIÓN ──
+
+function confirmDeleteVenta(id) {
+  openConfirmModal('¿Seguro que deseas eliminar esta venta?', () => {
+    store.deleteVenta(id);
+    syncGlobals();
+    renderVentas();
+    showToast('🗑️ Venta eliminada');
+  });
+}
+
+function confirmDeleteProducto(nombre) {
+  openConfirmModal('¿Seguro que deseas eliminar este producto?', () => {
+    store.deleteProducto(nombre);
+    syncGlobals();
+    renderInv();
+    showToast('🗑️ Producto eliminado');
+  });
+}
+
+function confirmDeleteCliente(nombre) {
+  openConfirmModal('¿Seguro que deseas eliminar este cliente?', () => {
+    store.deleteCliente(nombre);
+    syncGlobals();
+    renderClients();
+    showToast('🗑️ Cliente eliminado');
+  });
+}
+
+// ── MODALES EXISTENTES (sin cambios, pero referencian las funciones) ──
 
 const modals = {
   ventas: {
@@ -262,11 +385,6 @@ function closeModal(e) {
   }
 }
 
-function saveAndClose(msg) {
-  closeModal();
-  setTimeout(() => showToast(msg), 150);
-}
-
 // ── INICIALIZACIÓN ──
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -275,6 +393,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const hoy = new Date();
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
+
+  // Cargar tema guardado
+  loadTheme();
 
   // Sincronizar variables globales
   syncGlobals();

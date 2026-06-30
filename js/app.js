@@ -26,10 +26,28 @@ function filterChip(el, ctx) {
   showToast('Filtro: ' + el.textContent);
 }
 
-function switchReportTab(el, period) {
-  document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
+function filterChip(el, ctx) {
+  // Quitar clase active de todos los chips del mismo grupo
+  const chips = el.closest('.chips').querySelectorAll('.chip');
+  chips.forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  showToast('Mostrando datos: ' + el.textContent);
+
+  // Obtener el valor del filtro (texto del chip)
+  const valor = el.textContent.toLowerCase();
+
+  // Guardar el filtro según el contexto y renderizar
+  if (ctx === 'ventas') {
+    filtroVentas = valor === 'todas' ? 'todas' : valor;
+    renderVentas(document.getElementById('venta-search').value, filtroVentas);
+  } else if (ctx === 'inv') {
+    filtroInv = valor === 'todos' ? 'todos' : valor;
+    renderInv(document.getElementById('inv-search').value, filtroInv);
+  } else if (ctx === 'cli') {
+    filtroCli = valor === 'todos' ? 'todos' : valor;
+    renderClients(document.getElementById('client-search').value, filtroCli);
+  }
+
+  showToast('Filtro: ' + el.textContent);
 }
 
 // ── TEMA OSCURO ──

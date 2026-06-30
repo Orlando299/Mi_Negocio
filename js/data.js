@@ -162,3 +162,37 @@ function syncGlobals() {
   inventario = store.inventario;
   clientes = store.clientes;
 }
+
+// ── ESTADO DE CLIENTE Y CARRITO ──
+let clienteActual = null;
+let carrito = [];
+
+function guardarSesion() {
+  localStorage.setItem('clienteActual', JSON.stringify(clienteActual));
+}
+
+function cargarSesion() {
+  const saved = localStorage.getItem('clienteActual');
+  if (saved) {
+    try {
+      clienteActual = JSON.parse(saved);
+      return true;
+    } catch { return false; }
+  }
+  return false;
+}
+
+function guardarCarrito() {
+  localStorage.setItem('carrito', JSON.stringify(carrito));
+}
+
+function cargarCarrito() {
+  const saved = localStorage.getItem('carrito');
+  if (saved) {
+    try {
+      carrito = JSON.parse(saved);
+      return true;
+    } catch { return false; }
+  }
+  return false;
+}

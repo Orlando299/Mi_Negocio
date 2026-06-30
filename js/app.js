@@ -2,10 +2,11 @@
 
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes'];
+
 // Filtros activos por módulo
-let filtroVentas = 'todas';   // 'todas', 'pagado', 'pendiente', 'cancelado'
-let filtroInv = 'todos';      // 'todos', 'ok', 'low', 'out'
-let filtroCli = 'todos';      // 'todos', 'vip', 'regular', 'nuevo'
+let filtroVentas = 'todas';
+let filtroInv = 'todos';
+let filtroCli = 'todos';
 
 function goScreen(name) {
   screens.forEach(s => {
@@ -15,27 +16,19 @@ function goScreen(name) {
   currentScreen = name;
   const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇' };
   document.getElementById('fab-btn').textContent = fabLabels[name] || '＋';
-  if (name === 'ventas') renderVentas();
-  if (name === 'inventario') renderInv();
-  if (name === 'clientes') renderClients();
+  if (name === 'ventas') renderVentas('', filtroVentas);
+  if (name === 'inventario') renderInv('', filtroInv);
+  if (name === 'clientes') renderClients('', filtroCli);
 }
 
+// ── FILTROS POR CHIP ──
 function filterChip(el, ctx) {
-  el.closest('.chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  showToast('Filtro: ' + el.textContent);
-}
-
-function filterChip(el, ctx) {
-  // Quitar clase active de todos los chips del mismo grupo
   const chips = el.closest('.chips').querySelectorAll('.chip');
   chips.forEach(c => c.classList.remove('active'));
   el.classList.add('active');
 
-  // Obtener el valor del filtro (texto del chip)
   const valor = el.textContent.toLowerCase();
 
-  // Guardar el filtro según el contexto y renderizar
   if (ctx === 'ventas') {
     filtroVentas = valor === 'todas' ? 'todas' : valor;
     renderVentas(document.getElementById('venta-search').value, filtroVentas);
@@ -50,15 +43,31 @@ function filterChip(el, ctx) {
   showToast('Filtro: ' + el.textContent);
 }
 
+// ── BÚSQUEDA CON FILTRO ──
+function filterVentas() {
+  renderVentas(document.getElementById('venta-search').value, filtroVentas);
+}
+function filterInv() {
+  renderInv(document.getElementById('inv-search').value, filtroInv);
+}
+function filterClients() {
+  renderClients(document.getElementById('client-search').value, filtroCli);
+}
+
+// ── REPORT TABS ──
+function switchReportTab(el, period) {
+  document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  showToast('Mostrando datos: ' + el.textContent);
+}
+
 // ── TEMA OSCURO ──
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
   const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn) {
-    themeBtn.textContent = isDark ? '☀️' : '🌙';
-  }
+  if (themeBtn) themeBtn.textContent = isDark ? '☀️' : '🌙';
 }
 
 function loadTheme() {
@@ -66,9 +75,7 @@ function loadTheme() {
   if (theme === 'dark') {
     document.body.classList.add('dark-mode');
     const themeBtn = document.getElementById('theme-toggle');
-    if (themeBtn) {
-      themeBtn.textContent = '☀️';
-    }
+    if (themeBtn) themeBtn.textContent = '☀️';
   }
 }
 
@@ -91,19 +98,13 @@ function guardarVenta() {
 
   const total = precioUnit * cantidad;
   const nuevaVenta = {
-    cliente,
-    producto,
-    items: cantidad,
-    total: '$' + total.toFixed(2),
-    status: 'pagado',
-    metodo,
-    notas,
-    fecha: new Date().toLocaleString()
+    cliente, producto, items: cantidad, total: '$' + total.toFixed(2),
+    status: 'pagado', metodo, notas, fecha: new Date().toLocaleString()
   };
 
   store.addVenta(nuevaVenta);
   syncGlobals();
-  renderVentas();
+  renderVentas('', filtroVentas);
   closeModal();
   showToast('✅ Venta registrada con éxito');
 }
@@ -121,33 +122,16 @@ function guardarProducto() {
   if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
-  const iconMap = {
-    'Bebidas': '☕',
-    'Dulces': '🍫',
-    'Endulzantes': '🍯',
-    'Básicos': '🧂',
-    'Granos': '🫘',
-    'Lácteos': '🧀',
-    'Cocina': '🫙'
-  };
+  const iconMap = { 'Bebidas': '☕', 'Dulces': '🍫', 'Endulzantes': '🍯', 'Básicos': '🧂', 'Granos': '🫘', 'Lácteos': '🧀', 'Cocina': '🫙' };
   const icon = iconMap[cat] || '📦';
-
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= stockMin) estado = 'low';
 
-  const nuevoProducto = {
-    nombre,
-    cat,
-    precio: '$' + precioVenta.toFixed(2),
-    stock,
-    icon,
-    estado
-  };
-
+  const nuevoProducto = { nombre, cat, precio: '$' + precioVenta.toFixed(2), stock, icon, estado };
   store.addProducto(nuevoProducto);
   syncGlobals();
-  renderInv();
+  renderInv('', filtroInv);
   closeModal();
   showToast('✅ Producto agregado con éxito');
 }
@@ -167,27 +151,15 @@ function guardarCliente() {
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
 
-  const nuevoCliente = {
-    nombre: nombreCompleto,
-    phone: telefono,
-    compras: '$0.00',
-    pedidos: 0,
-    tag: 'nuevo',
-    color,
-    init
-  };
-
+  const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
   store.addCliente(nuevoCliente);
   syncGlobals();
-  renderClients();
+  renderClients('', filtroCli);
   closeModal();
   showToast('✅ Cliente registrado con éxito');
 }
 
-function guardarReporte() {
-  closeModal();
-  showToast('📊 Reporte generado (simulación)');
-}
+function guardarReporte() { closeModal(); showToast('📊 Reporte generado (simulación)'); }
 
 // ── EDICIÓN ──
 
@@ -229,7 +201,7 @@ function updateVentaFromModal(id) {
   const updates = { cliente, producto, items: cantidad, total: '$' + total.toFixed(2), metodo, notas };
   store.updateVenta(id, updates);
   syncGlobals();
-  renderVentas();
+  renderVentas('', filtroVentas);
   closeModal();
   showToast('✅ Venta actualizada');
 }
@@ -277,7 +249,7 @@ function updateProductoFromModal(nombreOriginal) {
     store.updateProducto(nombreOriginal, updates);
   }
   syncGlobals();
-  renderInv();
+  renderInv('', filtroInv);
   closeModal();
   showToast('✅ Producto actualizado');
 }
@@ -315,7 +287,7 @@ function updateClienteFromModal(nombreOriginal) {
     store.updateCliente(nombreOriginal, updates);
   }
   syncGlobals();
-  renderClients();
+  renderClients('', filtroCli);
   closeModal();
   showToast('✅ Cliente actualizado');
 }
@@ -326,7 +298,7 @@ function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', () => {
     store.deleteVenta(id);
     syncGlobals();
-    renderVentas();
+    renderVentas('', filtroVentas);
     showToast('🗑️ Venta eliminada');
   });
 }
@@ -335,7 +307,7 @@ function confirmDeleteProducto(nombre) {
   openConfirmModal('¿Seguro que deseas eliminar este producto?', () => {
     store.deleteProducto(nombre);
     syncGlobals();
-    renderInv();
+    renderInv('', filtroInv);
     showToast('🗑️ Producto eliminado');
   });
 }
@@ -344,7 +316,7 @@ function confirmDeleteCliente(nombre) {
   openConfirmModal('¿Seguro que deseas eliminar este cliente?', () => {
     store.deleteCliente(nombre);
     syncGlobals();
-    renderClients();
+    renderClients('', filtroCli);
     showToast('🗑️ Cliente eliminado');
   });
 }
@@ -447,6 +419,29 @@ function closeModal(e) {
   }
 }
 
+// ── MODAL DE CONFIRMACIÓN ──
+function openConfirmModal(message, onConfirm) {
+  window._confirmAction = onConfirm;
+  const body = `
+    <p style="margin-bottom: 16px;">${message}</p>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="confirmAction()">Confirmar</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Cancelar</button>
+    </div>
+  `;
+  document.getElementById('modal-title').textContent = 'Confirmar';
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal').classList.add('open');
+}
+
+function confirmAction() {
+  if (typeof window._confirmAction === 'function') {
+    window._confirmAction();
+    window._confirmAction = null;
+  }
+  closeModal();
+}
+
 function openModalWithContent(title, bodyHTML) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHTML;
@@ -456,22 +451,15 @@ function openModalWithContent(title, bodyHTML) {
 // ── INICIALIZACIÓN ──
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Fecha actual
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const hoy = new Date();
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
 
-  // Cargar tema guardado
   loadTheme();
-
-  // Sincronizar variables globales
   syncGlobals();
-
-  // Renderizar listas
-  renderVentas();
-  renderInv();
-  renderClients();
-
+  renderVentas('', filtroVentas);
+  renderInv('', filtroInv);
+  renderClients('', filtroCli);
   console.log('🚀 App inicializada correctamente');
 });

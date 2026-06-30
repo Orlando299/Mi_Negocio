@@ -1,14 +1,21 @@
-// ── FUNCIONES DE RENDERIZADO ──
+// ── FUNCIONES DE RENDERIZADO CON FILTROS ──
 
-function renderVentas(filter = '') {
+function renderVentas(textFilter = '', statusFilter = 'todas') {
   const list = document.getElementById('ventas-list');
-  const q = filter.toLowerCase();
-  const data = ventas.filter(v => !q || v.cliente.toLowerCase().includes(q) || v.id.includes(q));
+  const q = textFilter.toLowerCase();
+
+  let data = ventas.filter(v => {
+    const matchText = !q || v.cliente.toLowerCase().includes(q) || v.id.includes(q);
+    const matchStatus = statusFilter === 'todas' || v.status === statusFilter;
+    return matchText && matchStatus;
+  });
+
   if (!data.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No se encontraron ventas</div></div>`;
     updateKPIs();
     return;
   }
+
   list.innerHTML = data.map(v => `
     <div class="sale-card">
       <div class="sale-header">
@@ -31,18 +38,26 @@ function renderVentas(filter = '') {
 }
 
 function filterVentas() {
-  renderVentas(document.getElementById('venta-search').value);
+  // Esta función está en app.js, pero la dejamos aquí por si acaso
+  renderVentas(document.getElementById('venta-search').value, filtroVentas);
 }
 
-function renderInv(filter = '') {
+function renderInv(textFilter = '', stockFilter = 'todos') {
   const list = document.getElementById('inv-list');
-  const q = filter.toLowerCase();
-  const data = inventario.filter(p => !q || p.nombre.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q));
+  const q = textFilter.toLowerCase();
+
+  let data = inventario.filter(p => {
+    const matchText = !q || p.nombre.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+    const matchStock = stockFilter === 'todos' || p.estado === stockFilter;
+    return matchText && matchStock;
+  });
+
   if (!data.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No se encontraron productos</div></div>`;
     updateKPIs();
     return;
   }
+
   list.innerHTML = data.map(p => `
     <div class="inv-card">
       <div class="inv-img">${p.icon}</div>
@@ -64,18 +79,25 @@ function renderInv(filter = '') {
 }
 
 function filterInv() {
-  renderInv(document.getElementById('inv-search').value);
+  renderInv(document.getElementById('inv-search').value, filtroInv);
 }
 
-function renderClients(filter = '') {
+function renderClients(textFilter = '', tagFilter = 'todos') {
   const list = document.getElementById('client-list');
-  const q = filter.toLowerCase();
-  const data = clientes.filter(c => !q || c.nombre.toLowerCase().includes(q) || c.phone.includes(q));
+  const q = textFilter.toLowerCase();
+
+  let data = clientes.filter(c => {
+    const matchText = !q || c.nombre.toLowerCase().includes(q) || c.phone.includes(q);
+    const matchTag = tagFilter === 'todos' || c.tag === tagFilter;
+    return matchText && matchTag;
+  });
+
   if (!data.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No se encontraron clientes</div></div>`;
     updateKPIs();
     return;
   }
+
   const tagLabel = { vip: 'VIP', regular: 'Regular', nuevo: 'Nuevo' };
   list.innerHTML = data.map(c => `
     <div class="client-card">
@@ -99,7 +121,7 @@ function renderClients(filter = '') {
 }
 
 function filterClients() {
-  renderClients(document.getElementById('client-search').value);
+  renderClients(document.getElementById('client-search').value, filtroCli);
 }
 
 // ── ACTUALIZAR KPIs ──
@@ -132,7 +154,7 @@ function updateKPIs() {
   const kpiClientes = document.querySelector('.kpi-card.purple .kpi-value');
   if (kpiClientes) kpiClientes.textContent = totalClientes;
 
-  // Actualizar también los subtítulos (opcional)
+  // Actualizar subtítulos
   const pendientes = ventas.filter(v => v.status === 'pendiente').length;
   const subPedidos = document.getElementById('kpi-sub-pedidos');
   if (subPedidos) subPedidos.textContent = pendientes + ' pendientes';

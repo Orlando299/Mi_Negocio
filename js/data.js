@@ -1,151 +1,216 @@
-// ── DATA STORE CON LOCALSTORAGE ──
-
-const DEFAULT_DATA = {
-  ventas: [
-    { id: '#V-0001', cliente: 'María González', fecha: 'Hoy, 10:32', items: 3, total: '$45.00', status: 'pagado', metodo: 'Efectivo', producto: 'Café', notas: '' },
-    { id: '#V-0002', cliente: 'Carlos Pérez', fecha: 'Hoy, 09:15', items: 1, total: '$18.50', status: 'pagado', metodo: 'Transferencia', producto: 'Chocolate', notas: '' },
-    { id: '#V-0003', cliente: 'Ana Martínez', fecha: 'Hoy, 08:47', items: 5, total: '$92.00', status: 'pendiente', metodo: 'Pago Móvil', producto: 'Varios', notas: '' },
-    { id: '#V-0004', cliente: 'Luis Rodríguez', fecha: 'Ayer, 17:20', items: 2, total: '$34.00', status: 'pagado', metodo: 'Efectivo', producto: 'Azúcar', notas: '' },
-    { id: '#V-0005', cliente: 'Rosa Salcedo', fecha: 'Ayer, 14:05', items: 1, total: '$12.00', status: 'cancelado', metodo: 'Efectivo', producto: 'Pan', notas: '' },
-    { id: '#V-0006', cliente: 'Pedro Gómez', fecha: 'Ayer, 11:30', items: 4, total: '$67.50', status: 'pendiente', metodo: 'Divisas', producto: 'Queso', notas: '' },
-    { id: '#V-0007', cliente: 'Luisa Herrera', fecha: 'Hace 2 días', items: 2, total: '$29.00', status: 'pagado', metodo: 'Efectivo', producto: 'Aceite', notas: '' },
-  ],
-  inventario: [
-    { nombre: 'Café Caracas 250g', cat: 'Bebidas', precio: '$8.50', stock: 42, icon: '☕', estado: 'ok' },
-    { nombre: 'Chocolate El Rey', cat: 'Dulces', precio: '$6.00', stock: 28, icon: '🍫', estado: 'ok' },
-    { nombre: 'Papelón de caña', cat: 'Endulzantes', precio: '$3.50', stock: 15, icon: '🍯', estado: 'ok' },
-    { nombre: 'Azúcar Morena 1kg', cat: 'Básicos', precio: '$4.20', stock: 2, icon: '🧂', estado: 'low' },
-    { nombre: 'Caraotas negras', cat: 'Granos', precio: '$5.00', stock: 8, icon: '🫘', estado: 'low' },
-    { nombre: 'Harina PAN 1kg', cat: 'Básicos', precio: '$3.80', stock: 0, icon: '🌽', estado: 'out' },
-    { nombre: 'Queso blanco', cat: 'Lácteos', precio: '$9.00', stock: 11, icon: '🧀', estado: 'ok' },
-    { nombre: 'Aceite vegetal 1L', cat: 'Cocina', precio: '$7.50', stock: 6, icon: '🫙', estado: 'low' },
-  ],
-  clientes: [
-    { nombre: 'María González', phone: '+58 414 111 2233', compras: '$310.50', pedidos: 12, tag: 'vip', color: '#7C3AED', init: 'MG' },
-    { nombre: 'Luis Rodríguez', phone: '+58 416 555 6677', compras: '$289.00', pedidos: 9, tag: 'vip', color: '#2563EB', init: 'LR' },
-    { nombre: 'Ana Martínez', phone: '+58 412 333 4455', compras: '$245.75', pedidos: 8, tag: 'regular', color: '#059669', init: 'AM' },
-    { nombre: 'Carlos Pérez', phone: '+58 426 777 8899', compras: '$134.00', pedidos: 5, tag: 'regular', color: '#D97706', init: 'CP' },
-    { nombre: 'Rosa Salcedo', phone: '+58 414 222 3344', compras: '$87.00', pedidos: 3, tag: 'regular', color: '#DC2626', init: 'RS' },
-    { nombre: 'Pedro Gómez', phone: '+58 418 444 5566', compras: '$32.00', pedidos: 2, tag: 'nuevo', color: '#0891B2', init: 'PG' },
-    { nombre: 'Luisa Herrera', phone: '+58 412 999 0011', compras: '$29.00', pedidos: 1, tag: 'nuevo', color: '#9333EA', init: 'LH' },
-  ]
-};
+// ── DATA STORE CON FIRESTORE ──
 
 class DataStore {
   constructor() {
-    this.key = 'miNegocioData';
-    this.load();
+    this.db = window.db;
+    this.auth = window.auth;
+    this.ventas = [];
+    this.inventario = [];
+    this.clientes = [];
+    this.cargado = false;
   }
 
-  load() {
-    const saved = localStorage.getItem(this.key);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        this.ventas = data.ventas || DEFAULT_DATA.ventas;
-        this.inventario = data.inventario || DEFAULT_DATA.inventario;
-        this.clientes = data.clientes || DEFAULT_DATA.clientes;
-        console.log('📦 Datos cargados desde localStorage:', this.ventas.length, 'ventas');
-      } catch (e) {
-        console.warn('Error al parsear localStorage, usando datos por defecto');
-        this.resetToDefaults();
-      }
-    } else {
-      console.log('🆕 No hay datos en localStorage, usando datos por defecto');
-      this.resetToDefaults();
+  // ── CARGAR DATOS DESDE FIRESTORE ──
+  async cargarDatos() {
+    try {
+      const [ventasSnap, invSnap, clientesSnap] = await Promise.all([
+        this.db.collection('ventas').orderBy('fecha', 'desc').get(),
+        this.db.collection('inventario').get(),
+        this.db.collection('clientes').get()
+      ]);
+
+      this.ventas = ventasSnap.docs.map(doc => {
+        const data = doc.data();
+        // Convertir timestamp a string si existe
+        if (data.fecha && data.fecha.toDate) {
+          data.fecha = data.fecha.toDate().toLocaleString();
+        }
+        return { id: doc.id, ...data };
+      });
+
+      this.inventario = invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      this.clientes = clientesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      this.cargado = true;
+      console.log('📦 Datos cargados desde Firestore:', this.ventas.length, 'ventas');
+      return true;
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      return false;
     }
-  }
-
-  save() {
-    localStorage.setItem(this.key, JSON.stringify({
-      ventas: this.ventas,
-      inventario: this.inventario,
-      clientes: this.clientes
-    }));
-    console.log('💾 Datos guardados en localStorage:', this.ventas.length, 'ventas');
-  }
-
-  resetToDefaults() {
-    this.ventas = JSON.parse(JSON.stringify(DEFAULT_DATA.ventas));
-    this.inventario = JSON.parse(JSON.stringify(DEFAULT_DATA.inventario));
-    this.clientes = JSON.parse(JSON.stringify(DEFAULT_DATA.clientes));
-    this.save();
   }
 
   // ── CRUD VENTAS ──
-  addVenta(venta) {
-    const lastId = this.ventas.reduce((max, v) => {
-      const num = parseInt(v.id.replace('#V-', ''));
-      return num > max ? num : max;
-    }, 0);
-    const newId = '#V-' + String(lastId + 1).padStart(4, '0');
-    venta.id = newId;
-    this.ventas.unshift(venta);
-    this.save();
-    return venta;
-  }
-
-  updateVenta(id, updates) {
-    const index = this.ventas.findIndex(v => v.id === id);
-    if (index !== -1) {
-      this.ventas[index] = { ...this.ventas[index], ...updates };
-      this.save();
-      return true;
+  async addVenta(venta) {
+    try {
+      const docRef = await this.db.collection('ventas').add({
+        ...venta,
+        fecha: new Date().toISOString()
+      });
+      const nuevaVenta = { id: docRef.id, ...venta, fecha: new Date().toLocaleString() };
+      this.ventas.unshift(nuevaVenta);
+      return nuevaVenta;
+    } catch (error) {
+      console.error('Error al agregar venta:', error);
+      throw error;
     }
-    return false;
   }
 
-  deleteVenta(id) {
-    this.ventas = this.ventas.filter(v => v.id !== id);
-    this.save();
+  async updateVenta(id, updates) {
+    try {
+      await this.db.collection('ventas').doc(id).update(updates);
+      const index = this.ventas.findIndex(v => v.id === id);
+      if (index !== -1) {
+        this.ventas[index] = { ...this.ventas[index], ...updates };
+      }
+      return true;
+    } catch (error) {
+      console.error('Error al actualizar venta:', error);
+      throw error;
+    }
+  }
+
+  async deleteVenta(id) {
+    try {
+      await this.db.collection('ventas').doc(id).delete();
+      this.ventas = this.ventas.filter(v => v.id !== id);
+    } catch (error) {
+      console.error('Error al eliminar venta:', error);
+      throw error;
+    }
   }
 
   // ── CRUD INVENTARIO ──
-  addProducto(producto) {
-    this.inventario.unshift(producto);
-    this.save();
-    return producto;
-  }
-
-  updateProducto(nombre, updates) {
-    const index = this.inventario.findIndex(p => p.nombre === nombre);
-    if (index !== -1) {
-      this.inventario[index] = { ...this.inventario[index], ...updates };
-      this.save();
-      return true;
+  async addProducto(producto) {
+    try {
+      const docRef = await this.db.collection('inventario').add(producto);
+      const nuevoProducto = { id: docRef.id, ...producto };
+      this.inventario.unshift(nuevoProducto);
+      return nuevoProducto;
+    } catch (error) {
+      console.error('Error al agregar producto:', error);
+      throw error;
     }
-    return false;
   }
 
-  deleteProducto(nombre) {
-    this.inventario = this.inventario.filter(p => p.nombre !== nombre);
-    this.save();
+  async updateProducto(id, updates) {
+    try {
+      await this.db.collection('inventario').doc(id).update(updates);
+      const index = this.inventario.findIndex(p => p.id === id);
+      if (index !== -1) {
+        this.inventario[index] = { ...this.inventario[index], ...updates };
+      }
+      return true;
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
+      throw error;
+    }
+  }
+
+  async deleteProducto(id) {
+    try {
+      await this.db.collection('inventario').doc(id).delete();
+      this.inventario = this.inventario.filter(p => p.id !== id);
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      throw error;
+    }
   }
 
   // ── CRUD CLIENTES ──
-  addCliente(cliente) {
-    if (!cliente.init && cliente.nombre) {
-      const parts = cliente.nombre.split(' ');
-      cliente.init = parts.map(p => p.charAt(0).toUpperCase()).join('');
+  async addCliente(cliente) {
+    try {
+      // No guardamos password en Firestore por seguridad
+      const { password, ...clienteData } = cliente;
+      const docRef = await this.db.collection('clientes').add(clienteData);
+      const nuevoCliente = { id: docRef.id, ...clienteData };
+      this.clientes.unshift(nuevoCliente);
+      return nuevoCliente;
+    } catch (error) {
+      console.error('Error al agregar cliente:', error);
+      throw error;
     }
-    this.clientes.unshift(cliente);
-    this.save();
-    return cliente;
   }
 
-  updateCliente(nombre, updates) {
-    const index = this.clientes.findIndex(c => c.nombre === nombre);
-    if (index !== -1) {
-      this.clientes[index] = { ...this.clientes[index], ...updates };
-      this.save();
+  async updateCliente(id, updates) {
+    try {
+      await this.db.collection('clientes').doc(id).update(updates);
+      const index = this.clientes.findIndex(c => c.id === id);
+      if (index !== -1) {
+        this.clientes[index] = { ...this.clientes[index], ...updates };
+      }
       return true;
+    } catch (error) {
+      console.error('Error al actualizar cliente:', error);
+      throw error;
     }
-    return false;
   }
 
-  deleteCliente(nombre) {
-    this.clientes = this.clientes.filter(c => c.nombre !== nombre);
-    this.save();
+  async deleteCliente(id) {
+    try {
+      await this.db.collection('clientes').doc(id).delete();
+      this.clientes = this.clientes.filter(c => c.id !== id);
+    } catch (error) {
+      console.error('Error al eliminar cliente:', error);
+      throw error;
+    }
+  }
+
+  // ── AUTENTICACIÓN ──
+  async registrarUsuario(email, password, nombre) {
+    try {
+      const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
+      const user = userCredential.user;
+      // Crear cliente en Firestore
+      const cliente = {
+        nombre: nombre,
+        phone: email,
+        compras: '$0.00',
+        pedidos: 0,
+        tag: 'nuevo',
+        color: '#6B7280',
+        init: nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join(''),
+        uid: user.uid
+      };
+      await this.db.collection('clientes').add(cliente);
+      return user;
+    } catch (error) {
+      console.error('Error al registrar usuario:', error);
+      throw error;
+    }
+  }
+
+  async loginUsuario(email, password) {
+    try {
+      const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
+      return userCredential.user;
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      throw error;
+    }
+  }
+
+  async logoutUsuario() {
+    try {
+      await this.auth.signOut();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      throw error;
+    }
+  }
+
+  async getClientePorEmail(email) {
+    const snapshot = await this.db.collection('clientes').where('phone', '==', email).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  }
+
+  async getClientePorUid(uid) {
+    const snapshot = await this.db.collection('clientes').where('uid', '==', uid).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
   }
 }
 
@@ -153,9 +218,9 @@ class DataStore {
 const store = new DataStore();
 
 // Variables globales para render.js
-let ventas = store.ventas;
-let inventario = store.inventario;
-let clientes = store.clientes;
+let ventas = [];
+let inventario = [];
+let clientes = [];
 
 function syncGlobals() {
   ventas = store.ventas;
@@ -163,7 +228,52 @@ function syncGlobals() {
   clientes = store.clientes;
 }
 
-// ── ESTADO DE CLIENTE Y CARRITO ──
+// ── INICIALIZAR STORE (cargar datos y autenticación) ──
+async function initStore() {
+  // Cargar datos
+  await store.cargarDatos();
+  syncGlobals();
+
+  // Verificar sesión de Firebase
+  store.auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      console.log('👤 Usuario autenticado:', user.email);
+      const clienteData = await store.getClientePorUid(user.uid);
+      if (clienteData) {
+        clienteActual = clienteData;
+        guardarSesion();
+        // Si estamos en la pantalla cliente, mostrar panel
+        const screen = document.querySelector('.screen.active');
+        if (screen && screen.id === 'screen-cliente') {
+          mostrarPanelCliente();
+        }
+      }
+    } else {
+      console.log('👤 Usuario no autenticado');
+    }
+    // Renderizar después de cargar autenticación
+    if (typeof renderVentas === 'function') {
+      renderVentas('', filtroVentas || 'todas');
+      renderInv('', filtroInv || 'todos');
+      renderClients('', filtroCli || 'todos');
+      if (typeof renderActividadReciente === 'function') renderActividadReciente();
+      if (typeof updateKPIs === 'function') updateKPIs();
+    }
+  });
+
+  // Render inicial
+  if (typeof renderVentas === 'function') {
+    renderVentas('', filtroVentas || 'todas');
+    renderInv('', filtroInv || 'todos');
+    renderClients('', filtroCli || 'todos');
+    if (typeof renderActividadReciente === 'function') renderActividadReciente();
+    if (typeof updateKPIs === 'function') updateKPIs();
+  }
+
+  console.log('🚀 Store inicializado con Firestore');
+}
+
+// ── ESTADO DE CLIENTE Y CARRITO (persistencia local) ──
 let clienteActual = null;
 let carrito = [];
 

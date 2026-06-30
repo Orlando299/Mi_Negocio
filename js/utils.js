@@ -19,7 +19,6 @@ function openConfirmModal(message, onConfirm) {
       <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Cancelar</button>
     </div>
   `;
-  // Reutilizar el mismo modal
   document.getElementById('modal-title').textContent = 'Confirmar';
   document.getElementById('modal-body').innerHTML = body;
   document.getElementById('modal').classList.add('open');

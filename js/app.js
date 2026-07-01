@@ -735,6 +735,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
 
   loadTheme();
+
+// Cargar tema desde URL (para la demo del portafolio)
+const urlParams = new URLSearchParams(window.location.search);
+const temaParam = urlParams.get('tema');
+if (temaParam && window.TEMAS && TEMAS[temaParam]) {
+    aplicarTema(temaParam);
+} else {
+    cargarTemaGuardado();
+}
+
+
+  
   cargarCarrito();
 
   // Inicializar Firestore

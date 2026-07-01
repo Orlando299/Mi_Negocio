@@ -1,0 +1,15 @@
+:root {
+  --primary: #D97706;       /* Naranja cálido */
+  --primary-soft: #FEF3C7;  /* Amarillo claro */
+  --primary-mid: #F59E0B;   /* Ámbar */
+  --primary-dark: #92400E;  /* Marrón oscuro */
+  --primary-light: #FBBF24; /* Amarillo */
+  --green: #B45309;         /* Marrón verdoso */
+  --green-soft: #FFFBEB;    /* Crema */
+  --amber: #D97706;         /* Naranja */
+  --amber-soft: #FEF3C7;    /* Crema */
+  --red: #DC2626;
+  --red-soft: #FEF2F2;
+  --purple: #7C3AED;
+  --purple-soft: #F5F3FF;
+}

@@ -1,0 +1,15 @@
+:root {
+  --primary: #DC2626;       /* Rojo vibrante */
+  --primary-soft: #FEE2E2;  /* Rojo claro */
+  --primary-mid: #F87171;   /* Rojo medio */
+  --primary-dark: #991B1B;  /* Rojo oscuro */
+  --primary-light: #FCA5A5; /* Rojo claro */
+  --green: #059669;
+  --green-soft: #ECFDF5;
+  --amber: #D97706;
+  --amber-soft: #FFFBEB;
+  --red: #DC2626;
+  --red-soft: #FEF2F2;
+  --purple: #7C3AED;
+  --purple-soft: #F5F3FF;
+}

@@ -593,7 +593,6 @@ function renderCatalogo() {
   `).join('');
 }
 
-// Función auxiliar para recargar manualmente
 async function recargarCatalogo() {
   showToast('🔄 Recargando productos...');
   await store.cargarDatos();
@@ -736,21 +735,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadTheme();
 
-// Cargar tema desde URL (para la demo del portafolio)
-const urlParams = new URLSearchParams(window.location.search);
-const temaParam = urlParams.get('tema');
-if (temaParam && window.TEMAS && TEMAS[temaParam]) {
+  // ============================================================
+  // NUEVO: Cargar tema desde URL (para la demo del portafolio)
+  // ============================================================
+  const urlParams = new URLSearchParams(window.location.search);
+  const temaParam = urlParams.get('tema');
+  if (temaParam && window.TEMAS && TEMAS[temaParam]) {
+    // Aplicar el tema recibido por URL
     aplicarTema(temaParam);
-} else {
+    // Guardar en localStorage para que persista
+    localStorage.setItem('temaSeleccionado', temaParam);
+  } else {
+    // Si no viene por URL, cargar el tema guardado o el predeterminado
     cargarTemaGuardado();
-}
+  }
 
-
-  
   cargarCarrito();
 
   // Inicializar Firestore
   initStore();
 
   console.log('🚀 App inicializada con Firebase');
+});
+
+// Escuchar mensajes desde el portafolio para cambiar tema sin recargar (postMessage)
+window.addEventListener('message', function(event) {
+  // Validar origen (opcional, pero recomendado para seguridad)
+  // if (event.origin !== 'https://orlando299.github.io') return;
+  try {
+    const data = JSON.parse(event.data);
+    if (data.type === 'cambiarTema' && data.tema) {
+      if (window.TEMAS && TEMAS[data.tema]) {
+        aplicarTema(data.tema);
+        localStorage.setItem('temaSeleccionado', data.tema);
+        console.log('🎨 Tema cambiado a:', data.tema);
+        // Responder al portafolio para confirmar
+        event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
+      }
+    }
+  } catch (e) {
+    // No es un mensaje válido, ignorar
+  }
 });

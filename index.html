@@ -295,9 +295,6 @@
 <!-- ========== PAGE AGENT ========== -->
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
-<script><!-- ========== PAGE AGENT + WEBSOCKET ========== -->
-<script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
-
 <script>
   // ============================================================
   //  PAGE AGENT - Configuración
@@ -313,8 +310,7 @@
   // ============================================================
 
   function connectWebSocket() {
-    // Usar host.docker.internal si OpenWebUI está en Docker
-    const wsUrl = 'ws://localhost:3002';
+    const wsUrl = 'ws://localhost:3001';
     
     ws = new WebSocket(wsUrl);
 
@@ -330,10 +326,7 @@
         console.log('📩 Comando recibido del puente:', data);
 
         if (data.type === 'command' && data.command) {
-          // Ejecutar el comando en Page Agent
           const result = await executeAgentCommand(data.command);
-          
-          // Enviar respuesta al puente
           ws.send(JSON.stringify({
             type: 'response',
             result: result || 'Comando ejecutado correctamente'
@@ -348,7 +341,6 @@
       wsConnected = false;
       console.log('❌ Desconectado del puente. Intentando reconectar...');
       document.getElementById('agent-response').innerHTML = '⚠️ Desconectado del puente. Reconectando...';
-      // Intentar reconectar cada 5 segundos
       setTimeout(connectWebSocket, 5000);
     };
 
@@ -375,7 +367,10 @@
     }
   }
 
-  // Inicializar
+  // ============================================================
+  //  INICIALIZACIÓN
+  // ============================================================
+
   document.addEventListener('DOMContentLoaded', function() {
     // Inicializar Page Agent
     try {
@@ -394,17 +389,15 @@
   });
 
   // ============================================================
-  //  FUNCIONES PARA PRUEBA DESDE CONSOLA
+  //  FUNCIONES PARA PRUEBA
   // ============================================================
 
-  // Función para ejecutar comandos manualmente (desde consola)
   async function agentCommand(comando) {
     const result = await executeAgentCommand(comando);
     document.getElementById('agent-response').innerHTML = result;
     return result;
   }
 
-  // Enviar comando desde el input del panel
   function sendAgentCommand() {
     const input = document.getElementById('agent-input');
     const comando = input.value.trim();
@@ -414,7 +407,6 @@
     }
   }
 
-  // Mostrar/ocultar panel del agente
   function toggleAgentPanel() {
     const panel = document.getElementById('agent-panel');
     panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
@@ -425,10 +417,6 @@
   window.sendAgentCommand = sendAgentCommand;
   window.toggleAgentPanel = toggleAgentPanel;
   window.executeAgentCommand = executeAgentCommand;
-
-  // ============================================================
-  //  FIN PAGE AGENT + WEBSOCKET
-  // ============================================================
 </script>
 
 <!-- Lógica de la aplicación -->

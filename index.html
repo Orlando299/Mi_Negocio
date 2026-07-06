@@ -295,51 +295,116 @@
 <!-- ========== PAGE AGENT ========== -->
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
+<script><!-- ========== PAGE AGENT + WEBSOCKET ========== -->
+<script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
+
 <script>
   // ============================================================
-  //  PAGE AGENT - Configuración y comandos personalizados
+  //  PAGE AGENT - Configuración
   // ============================================================
 
   let agent = null;
   let agentReady = false;
+  let ws = null;
+  let wsConnected = false;
 
+  // ============================================================
+  //  WEBSOCKET - Conexión con el puente
+  // ============================================================
+
+  function connectWebSocket() {
+    // Usar host.docker.internal si OpenWebUI está en Docker
+    const wsUrl = 'ws://localhost:3002';
+    
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = function() {
+      wsConnected = true;
+      console.log('✅ Conectado al servidor puente');
+      document.getElementById('agent-response').innerHTML = '✅ Conectado al puente. Agente listo.';
+    };
+
+    ws.onmessage = async function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📩 Comando recibido del puente:', data);
+
+        if (data.type === 'command' && data.command) {
+          // Ejecutar el comando en Page Agent
+          const result = await executeAgentCommand(data.command);
+          
+          // Enviar respuesta al puente
+          ws.send(JSON.stringify({
+            type: 'response',
+            result: result || 'Comando ejecutado correctamente'
+          }));
+        }
+      } catch (error) {
+        console.error('Error procesando mensaje del puente:', error);
+      }
+    };
+
+    ws.onclose = function() {
+      wsConnected = false;
+      console.log('❌ Desconectado del puente. Intentando reconectar...');
+      document.getElementById('agent-response').innerHTML = '⚠️ Desconectado del puente. Reconectando...';
+      // Intentar reconectar cada 5 segundos
+      setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onerror = function(error) {
+      console.error('Error en WebSocket:', error);
+    };
+  }
+
+  // ============================================================
+  //  PAGE AGENT - Comandos
+  // ============================================================
+
+  async function executeAgentCommand(comando) {
+    if (!agentReady || !agent) {
+      return '❌ El agente no está listo';
+    }
+
+    try {
+      const result = await agent.execute(comando);
+      return result || '✅ Comando ejecutado correctamente';
+    } catch (error) {
+      console.error('Error ejecutando comando:', error);
+      return '❌ Error: ' + (error.message || 'Comando no reconocido');
+    }
+  }
+
+  // Inicializar
   document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Page Agent con la versión demo (sin API key)
+    // Inicializar Page Agent
     try {
       agent = new window.PageAgent({
         language: 'es-ES'
       });
       agentReady = true;
       console.log('🤖 Page Agent listo!');
-      document.getElementById('agent-response').innerHTML = '✅ Agente listo. Escribe un comando.';
     } catch (e) {
       console.error('Error al inicializar Page Agent:', e);
       document.getElementById('agent-response').innerHTML = '❌ Error al iniciar agente.';
     }
+
+    // Conectar WebSocket
+    connectWebSocket();
   });
 
-  // Función para enviar comandos al agente
+  // ============================================================
+  //  FUNCIONES PARA PRUEBA DESDE CONSOLA
+  // ============================================================
+
+  // Función para ejecutar comandos manualmente (desde consola)
   async function agentCommand(comando) {
-    if (!agentReady || !agent) {
-      showToast('⚠️ El agente no está listo');
-      return;
-    }
-
-    const responseDiv = document.getElementById('agent-response');
-    responseDiv.innerHTML = '⏳ Procesando...';
-
-    try {
-      const result = await agent.execute(comando);
-      responseDiv.innerHTML = '✅ ' + (result || 'Comando ejecutado correctamente');
-      showToast('✅ Comando ejecutado: ' + comando);
-    } catch (error) {
-      console.error('Error ejecutando comando:', error);
-      responseDiv.innerHTML = '❌ Error: ' + (error.message || 'Comando no reconocido');
-      showToast('❌ Error: ' + (error.message || 'Comando no reconocido'));
-    }
+    const result = await executeAgentCommand(comando);
+    document.getElementById('agent-response').innerHTML = result;
+    return result;
   }
 
-  // Enviar comando desde el input
+  // Enviar comando desde el input del panel
   function sendAgentCommand() {
     const input = document.getElementById('agent-input');
     const comando = input.value.trim();
@@ -355,25 +420,14 @@
     panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
   }
 
-  // Comandos rápidos personalizados para tu negocio
-  async function comandosRapidos(accion) {
-    const comandos = {
-      'ventas': 'Navega a la pantalla de ventas y muéstrame el resumen',
-      'inventario': 'Muéstrame el inventario de productos',
-      'clientes': 'Abre el panel de clientes',
-      'reportes': 'Muéstrame los reportes de hoy'
-    };
-    await agentCommand(comandos[accion] || accion);
-  }
-
   // Exponer funciones globalmente
   window.agentCommand = agentCommand;
   window.sendAgentCommand = sendAgentCommand;
   window.toggleAgentPanel = toggleAgentPanel;
-  window.comandosRapidos = comandosRapidos;
+  window.executeAgentCommand = executeAgentCommand;
 
   // ============================================================
-  //  FIN PAGE AGENT
+  //  FIN PAGE AGENT + WEBSOCKET
   // ============================================================
 </script>
 

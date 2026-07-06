@@ -252,6 +252,25 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" id="fab-btn">＋</button>
 
+<!-- PAGE AGENT - FLOATING CONTROL PANEL -->
+<div id="agent-panel" style="position:fixed; bottom:100px; right:20px; z-index:9999; background:var(--bg-primary, #1e1e2f); border-radius:16px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); max-width:300px; display:none; border:1px solid var(--border-color, #333);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <span style="font-weight:600; font-size:14px;">🤖 Agente IA</span>
+    <button onclick="toggleAgentPanel()" style="background:none; border:none; color:var(--text-secondary, #aaa); cursor:pointer; font-size:18px;">✕</button>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Navega a la pantalla de ventas')">📊 Ventas</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Muéstrame el inventario')">📦 Inventario</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Abre el panel de clientes')">👥 Clientes</button>
+  </div>
+  <input type="text" id="agent-input" placeholder="Escribe un comando..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color, #444); background:var(--bg-secondary, #2a2a3a); color:var(--text-primary, #eee); font-size:13px;" onkeydown="if(event.key==='Enter') sendAgentCommand()">
+  <button onclick="sendAgentCommand()" style="width:100%; margin-top:8px; padding:6px; border-radius:8px; border:none; background:var(--accent-color, #2c7be5); color:white; font-weight:600; cursor:pointer;">Enviar comando</button>
+  <div id="agent-response" style="margin-top:10px; font-size:12px; color:var(--text-secondary, #aaa); max-height:80px; overflow-y:auto;"></div>
+</div>
+
+<!-- FAB para abrir el panel de agente -->
+<button onclick="toggleAgentPanel()" style="position:fixed; bottom:100px; right:80px; z-index:9998; background:var(--accent-color, #2c7be5); border:none; border-radius:50%; width:48px; height:48px; font-size:22px; color:white; box-shadow:0 4px 16px rgba(44,123,229,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center;">🤖</button>
+
 <!-- MODAL SHEET -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal-sheet" id="modal-sheet">
@@ -273,11 +292,97 @@
 <!-- Configuración de Firebase -->
 <script src="js/firebase.js"></script>
 
+<!-- ========== PAGE AGENT ========== -->
+<script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
+
+<script>
+  // ============================================================
+  //  PAGE AGENT - Configuración y comandos personalizados
+  // ============================================================
+
+  let agent = null;
+  let agentReady = false;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Page Agent con la versión demo (sin API key)
+    try {
+      agent = new window.PageAgent({
+        language: 'es-ES'
+      });
+      agentReady = true;
+      console.log('🤖 Page Agent listo!');
+      document.getElementById('agent-response').innerHTML = '✅ Agente listo. Escribe un comando.';
+    } catch (e) {
+      console.error('Error al inicializar Page Agent:', e);
+      document.getElementById('agent-response').innerHTML = '❌ Error al iniciar agente.';
+    }
+  });
+
+  // Función para enviar comandos al agente
+  async function agentCommand(comando) {
+    if (!agentReady || !agent) {
+      showToast('⚠️ El agente no está listo');
+      return;
+    }
+
+    const responseDiv = document.getElementById('agent-response');
+    responseDiv.innerHTML = '⏳ Procesando...';
+
+    try {
+      const result = await agent.execute(comando);
+      responseDiv.innerHTML = '✅ ' + (result || 'Comando ejecutado correctamente');
+      showToast('✅ Comando ejecutado: ' + comando);
+    } catch (error) {
+      console.error('Error ejecutando comando:', error);
+      responseDiv.innerHTML = '❌ Error: ' + (error.message || 'Comando no reconocido');
+      showToast('❌ Error: ' + (error.message || 'Comando no reconocido'));
+    }
+  }
+
+  // Enviar comando desde el input
+  function sendAgentCommand() {
+    const input = document.getElementById('agent-input');
+    const comando = input.value.trim();
+    if (comando) {
+      agentCommand(comando);
+      input.value = '';
+    }
+  }
+
+  // Mostrar/ocultar panel del agente
+  function toggleAgentPanel() {
+    const panel = document.getElementById('agent-panel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+  }
+
+  // Comandos rápidos personalizados para tu negocio
+  async function comandosRapidos(accion) {
+    const comandos = {
+      'ventas': 'Navega a la pantalla de ventas y muéstrame el resumen',
+      'inventario': 'Muéstrame el inventario de productos',
+      'clientes': 'Abre el panel de clientes',
+      'reportes': 'Muéstrame los reportes de hoy'
+    };
+    await agentCommand(comandos[accion] || accion);
+  }
+
+  // Exponer funciones globalmente
+  window.agentCommand = agentCommand;
+  window.sendAgentCommand = sendAgentCommand;
+  window.toggleAgentPanel = toggleAgentPanel;
+  window.comandosRapidos = comandosRapidos;
+
+  // ============================================================
+  //  FIN PAGE AGENT
+  // ============================================================
+</script>
+
 <!-- Lógica de la aplicación -->
 <script src="js/temas.js"></script>  
 <script src="js/data.js"></script>
 <script src="js/render.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/app.js"></script>
+
 </body>
 </html>

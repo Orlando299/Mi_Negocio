@@ -241,6 +241,20 @@ async function updateVentaFromModal(id) {
 function editProducto(nombre) {
   const p = store.inventario.find(item => item.nombre === nombre);
   if (!p) return showToast('Producto no encontrado');
+  
+  // 🔥 CORRECCIÓN: Asegurar que precio sea string antes de usar replace
+  let precioStr = p.precio;
+  if (typeof precioStr !== 'string') {
+    // Si es número, convertirlo a string con formato $0.00
+    precioStr = '$' + Number(precioStr).toFixed(2);
+  }
+  // Si ya es string pero no tiene $, se lo añadimos (por si acaso)
+  if (!precioStr.startsWith('$')) {
+    precioStr = '$' + precioStr;
+  }
+  // Ahora podemos hacer replace de forma segura
+  const precioNum = parseFloat(precioStr.replace('$', '')) || 0;
+  
   const body = `
     <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
     <div class="field"><label>Categoría</label>
@@ -252,10 +266,13 @@ function editProducto(nombre) {
         <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
         <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
         <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
+        <option ${p.cat === 'Salsas' ? 'selected' : ''}>Salsas</option>
+        <option ${p.cat === 'Harinas' ? 'selected' : ''}>Harinas</option>
+        <option ${p.cat === 'Conservas' ? 'selected' : ''}>Conservas</option>
       </select>
     </div>
     <div class="row">
-      <div class="field"><label>Precio</label><input type="text" value="${p.precio.replace('$','')}" id="edit-precio"></div>
+      <div class="field"><label>Precio</label><input type="text" value="${precioNum}" id="edit-precio"></div>
       <div class="field"><label>Stock</label><input type="number" value="${p.stock}" id="edit-stock"></div>
     </div>
     <button class="btn btn-primary" onclick="updateProductoFromModal('${nombre}')">Actualizar producto</button>

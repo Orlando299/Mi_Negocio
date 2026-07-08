@@ -29,7 +29,8 @@ function goScreen(name) {
   if (name === 'clientes') renderClients('', filtroCli);
 
   if (name === 'cliente') {
-    if (clienteActual) {
+    // Verificar si hay sesión activa
+    if (sessionStorage.getItem('empresaId')) {
       mostrarPanelCliente();
     } else {
       const loginDiv = document.getElementById('cliente-login');
@@ -459,108 +460,243 @@ function confirmAction() {
   closeModal();
 }
 
-// ── MÓDULO CLIENTE (con autenticación Firebase) ──
+// ============================================================
+//  LOGIN MULTI-TENANT (VERSIÓN CORRECTA)
+// ============================================================
 
-function toggleCliente() {
-  const current = document.querySelector('.screen.active');
-  if (current && current.id === 'screen-cliente') {
-    goScreen('dashboard');
-  } else {
-    goScreen('cliente');
-    if (clienteActual) {
-      mostrarPanelCliente();
-    } else {
-      document.getElementById('cliente-login').style.display = 'block';
-      document.getElementById('cliente-panel').style.display = 'none';
+async function loginCliente() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-pass').value;
+
+    if (!email || !password) {
+        showToast('❌ Ingresa correo y contraseña');
+        return;
     }
-    cargarCarrito();
-    actualizarCarritoCount();
-  }
+
+    try {
+        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        console.log('✅ Usuario autenticado:', user.uid);
+
+        const empresasSnapshot = await firebase.firestore()
+            .collectionGroup('usuarios')
+            .where('uid', '==', user.uid)
+            .get();
+
+        if (empresasSnapshot.empty) {
+            showToast('❌ Usuario no tiene empresa asignada');
+            await firebase.auth().signOut();
+            return;
+        }
+
+        const usuarioDoc = empresasSnapshot.docs[0];
+        const empresaId = usuarioDoc.ref.parent.parent.id;
+        const usuarioData = usuarioDoc.data();
+
+        console.log('🏢 Empresa encontrada:', empresaId);
+
+        sessionStorage.setItem('empresaId', empresaId);
+        sessionStorage.setItem('userEmail', email);
+        sessionStorage.setItem('userName', usuarioData.nombre || email);
+        sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
+
+        await cargarDatosEmpresa(empresaId);
+        mostrarPanelCliente();
+
+        showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+
+    } catch (error) {
+        console.error('❌ Error en login:', error);
+        if (error.code === 'auth/user-not-found') {
+            showToast('❌ Usuario no registrado');
+        } else if (error.code === 'auth/wrong-password') {
+            showToast('❌ Contraseña incorrecta');
+        } else {
+            showToast('❌ Error: ' + error.message);
+        }
+    }
 }
 
-function mostrarLogin() {
-  document.getElementById('login-form').style.display = 'block';
-  document.getElementById('registro-form').style.display = 'none';
+// ============================================================
+//  FUNCIONES MULTI-TENANT
+// ============================================================
+
+async function cargarDatosEmpresa(entrepriseId) {
+    console.log('📦 Cargando datos para empresa:', entrepriseId);
+    
+    try {
+        const inventarioSnapshot = await firebase.firestore()
+            .collection('empresas')
+            .doc(entrepriseId)
+            .collection('inventario')
+            .get();
+        
+        const inventario = [];
+        inventarioSnapshot.forEach(doc => {
+            inventario.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('📦 Inventario cargado:', inventario.length, 'productos');
+        
+        const clientesSnapshot = await firebase.firestore()
+            .collection('empresas')
+            .doc(entrepriseId)
+            .collection('clientes')
+            .get();
+        
+        const clientes = [];
+        clientesSnapshot.forEach(doc => {
+            clientes.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('👥 Clientes cargados:', clientes.length);
+        
+        const ventasSnapshot = await firebase.firestore()
+            .collection('empresas')
+            .doc(entrepriseId)
+            .collection('ventas')
+            .get();
+        
+        const ventas = [];
+        ventasSnapshot.forEach(doc => {
+            ventas.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('🛒 Ventas cargadas:', ventas.length);
+        
+        localStorage.setItem('entrepriseInventario', JSON.stringify(inventario));
+        localStorage.setItem('entrepriseClientes', JSON.stringify(clientes));
+        localStorage.setItem('entrepriseVentas', JSON.stringify(ventas));
+        
+        actualizarUIEmpresa(inventario, clientes, ventas);
+        
+    } catch (error) {
+        console.error('❌ Error cargando datos:', error);
+        showToast('⚠️ Error cargando datos de la empresa');
+    }
+}
+
+function actualizarUIEmpresa(inventario, clientes, ventas) {
+    const kpiValues = document.querySelectorAll('.kpi-value');
+    if (kpiValues.length >= 4) {
+        const totalVentas = ventas.reduce((sum, v) => sum + (v.monto || 0), 0);
+        kpiValues[0].textContent = `$${totalVentas.toFixed(2)}`;
+        kpiValues[1].textContent = ventas.length;
+        kpiValues[2].textContent = inventario.filter(p => p.stock < 10).length;
+        kpiValues[3].textContent = clientes.length;
+    }
+}
+
+function mostrarPanelCliente() {
+    const loginDiv = document.getElementById('cliente-login');
+    const panelDiv = document.getElementById('cliente-panel');
+    const nombreSpan = document.getElementById('cliente-nombre');
+    
+    if (loginDiv) loginDiv.style.display = 'none';
+    if (panelDiv) panelDiv.style.display = 'block';
+    if (nombreSpan) {
+        const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
+        nombreSpan.textContent = nombre;
+    }
+    
+    const entrepriseId = sessionStorage.getItem('empresaId');
+    if (entrepriseId) {
+        const nombreEmpresa = entrepriseId.replace(/-/g, ' ').toUpperCase();
+        const logo = document.querySelector('.nav-logo span');
+        if (logo) {
+            logo.textContent = ' ' + nombreEmpresa;
+        }
+    }
+}
+
+function toggleCliente() {
+    if (sessionStorage.getItem('empresaId')) {
+        const loginDiv = document.getElementById('cliente-login');
+        const panelDiv = document.getElementById('cliente-panel');
+        const nombreSpan = document.getElementById('cliente-nombre');
+        
+        if (loginDiv) loginDiv.style.display = 'none';
+        if (panelDiv) panelDiv.style.display = 'block';
+        if (nombreSpan) nombreSpan.textContent = sessionStorage.getItem('userName');
+    } else {
+        const loginDiv = document.getElementById('cliente-login');
+        const panelDiv = document.getElementById('cliente-panel');
+        
+        if (loginDiv) loginDiv.style.display = 'block';
+        if (panelDiv) panelDiv.style.display = 'none';
+    }
+}
+
+function cerrarSesionCliente() {
+    firebase.auth().signOut();
+    sessionStorage.clear();
+    localStorage.removeItem('entrepriseInventario');
+    localStorage.removeItem('entrepriseClientes');
+    localStorage.removeItem('entrepriseVentas');
+    
+    const loginDiv = document.getElementById('cliente-login');
+    const panelDiv = document.getElementById('cliente-panel');
+    
+    if (loginDiv) loginDiv.style.display = 'block';
+    if (panelDiv) panelDiv.style.display = 'none';
+    
+    // Restaurar logo
+    const logo = document.querySelector('.nav-logo span');
+    if (logo) {
+        logo.textContent = 'Negocio';
+    }
+    
+    showToast('👋 Sesión cerrada');
 }
 
 function mostrarRegistro() {
-  document.getElementById('login-form').style.display = 'none';
-  document.getElementById('registro-form').style.display = 'block';
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('registro-form').style.display = 'block';
 }
 
-async function loginCliente() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  if (!email || !pass) { showToast('⚠️ Completa todos los campos'); return; }
-
-  try {
-    const user = await store.loginUsuario(email, pass);
-    const clienteData = await store.getClientePorUid(user.uid);
-    if (clienteData) {
-      clienteActual = clienteData;
-      guardarSesion();
-      mostrarPanelCliente();
-      showToast('✅ Bienvenido ' + clienteActual.nombre);
-    } else {
-      showToast('❌ No se encontró perfil de cliente');
-    }
-  } catch (error) {
-    showToast('❌ Error al iniciar sesión: ' + error.message);
-  }
+function mostrarLogin() {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('registro-form').style.display = 'none';
 }
 
 async function registrarCliente() {
-  const nombre = document.getElementById('reg-nombre').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
-  const pass = document.getElementById('reg-pass').value.trim();
-  if (!nombre || !email || !pass) { showToast('⚠️ Completa todos los campos'); return; }
+    const nombre = document.getElementById('reg-nombre').value;
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-pass').value;
 
-  try {
-    const existing = await store.getClientePorEmail(email);
-    if (existing) {
-      showToast('⚠️ Ese correo ya está registrado');
-      return;
+    if (!nombre || !email || !password) {
+        showToast('❌ Completa todos los campos');
+        return;
     }
-    await store.registrarUsuario(email, pass, nombre);
-    showToast('✅ Registro exitoso, inicia sesión');
-    mostrarLogin();
-    document.getElementById('login-email').value = email;
-  } catch (error) {
-    showToast('❌ Error al registrar: ' + error.message);
-  }
-}
 
-async function mostrarPanelCliente() {
-  document.getElementById('cliente-login').style.display = 'none';
-  document.getElementById('cliente-panel').style.display = 'block';
-  document.getElementById('cliente-nombre').textContent = clienteActual.nombre;
+    try {
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
 
-  // Si los datos no están cargados, cargarlos y esperar
-  if (!store.cargado) {
-    showToast('⏳ Cargando productos...');
-    await store.cargarDatos();
-    syncGlobals();
-  }
+        const entrepriseId = 'empresa-' + Date.now();
+        await firebase.firestore().collection('empresas').doc(entrepriseId).set({
+            nombre: 'Mi Negocio',
+            fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
-  renderCatalogo();
-  renderHistorial();
-  actualizarCarritoCount();
-}
+        await firebase.firestore().collection('empresas').doc(entrepriseId)
+            .collection('usuarios').doc(email).set({
+                nombre: nombre,
+                email: email,
+                rol: 'admin',
+                empresaId: entrepriseId,
+                uid: user.uid,
+                creado: firebase.firestore.FieldValue.serverTimestamp()
+            });
 
-async function cerrarSesionCliente() {
-  try {
-    await store.logoutUsuario();
-    clienteActual = null;
-    carrito = [];
-    localStorage.removeItem('clienteActual');
-    localStorage.removeItem('carrito');
-    document.getElementById('cliente-panel').style.display = 'none';
-    document.getElementById('cliente-login').style.display = 'block';
-    showToast('👋 Sesión cerrada');
-    goScreen('dashboard');
-  } catch (error) {
-    showToast('❌ Error al cerrar sesión: ' + error.message);
-  }
+        sessionStorage.setItem('empresaId', entrepriseId);
+        sessionStorage.setItem('userEmail', email);
+        sessionStorage.setItem('userName', nombre);
+
+        mostrarPanelCliente();
+        showToast(`✅ ¡Bienvenido, ${nombre}!`);
+
+    } catch (error) {
+        console.error('❌ Error en registro:', error);
+        showToast('❌ Error: ' + error.message);
+    }
 }
 
 // ── FUNCIONES DE CATÁLOGO Y CARRITO ──
@@ -587,447 +723,4 @@ function renderCatalogo() {
       </div>
       <div class="inv-right">
         <div class="inv-price">${p.precio}</div>
-        ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${p.nombre}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
-      </div>
-    </div>
-  `).join('');
-}
-
-async function recargarCatalogo() {
-  showToast('🔄 Recargando productos...');
-  await store.cargarDatos();
-  syncGlobals();
-  renderCatalogo();
-  showToast('✅ Productos cargados');
-}
-
-function agregarAlCarrito(nombre) {
-  const producto = inventario.find(p => p.nombre === nombre);
-  if (!producto || producto.estado === 'out') return showToast('⚠️ Producto no disponible');
-  const item = carrito.find(c => c.nombre === nombre);
-  if (item) {
-    item.cantidad++;
-  } else {
-    carrito.push({ nombre: nombre, cantidad: 1, precio: parseFloat(producto.precio.replace('$', '')) });
-  }
-  guardarCarrito();
-  actualizarCarritoCount();
-  showToast(`➕ ${nombre} agregado al carrito`);
-}
-
-function actualizarCarritoCount() {
-  const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-  document.getElementById('carrito-count').textContent = total;
-}
-
-function verCarrito() {
-  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
-  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-  let html = `
-    <div style="margin-bottom:12px;">
-      <h3>🛒 Tu pedido</h3>
-      ${carrito.map(item => `
-        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
-          <span>${item.nombre} x ${item.cantidad}</span>
-          <span>$${(item.cantidad * item.precio).toFixed(2)}</span>
-        </div>
-      `).join('')}
-      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
-        <span>Total</span>
-        <span>$${total.toFixed(2)}</span>
-      </div>
-      <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
-      <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
-    </div>
-  `;
-  openModalWithContent('Carrito', html);
-}
-
-function vaciarCarrito() {
-  carrito = [];
-  guardarCarrito();
-  actualizarCarritoCount();
-  closeModal();
-  showToast('🗑️ Carrito vacío');
-}
-
-async function realizarPedido() {
-  if (!clienteActual) { showToast('⚠️ Inicia sesión primero'); return; }
-  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
-  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-  const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-
-  const pedido = {
-    cliente: clienteActual.nombre,
-    fecha: new Date().toLocaleString(),
-    items: items,
-    total: '$' + total.toFixed(2),
-    status: 'pendiente',
-    metodo: 'Cliente app',
-    notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
-    producto: 'Pedido desde app cliente'
-  };
-
-  await store.addVenta(pedido);
-  syncGlobals();
-  carrito = [];
-  guardarCarrito();
-  actualizarCarritoCount();
-  closeModal();
-  renderHistorial();
-  renderActividadReciente();
-  updateKPIs();
-  showToast('✅ Pedido realizado con éxito, espera confirmación');
-}
-
-function renderHistorial() {
-  const container = document.getElementById('historial-pedidos');
-  if (!clienteActual) return;
-  const misPedidos = ventas.filter(v => v.cliente === clienteActual.nombre);
-  if (!misPedidos.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
-    return;
-  }
-  container.innerHTML = misPedidos.map(v => `
-    <div class="sale-card" style="cursor:default;">
-      <div class="sale-header">
-        <span class="sale-id">${v.id}</span>
-        <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
-      </div>
-      <div style="display:flex; justify-content:space-between; margin-top:4px;">
-        <span>${v.fecha}</span>
-        <span class="sale-total">${v.total}</span>
-      </div>
-      <div style="font-size:12px; color:var(--text3);">${v.notas || 'Sin detalles'}</div>
-    </div>
-  `).join('');
-}
-
-// ── RENDER ACTIVIDAD RECIENTE ──
-function renderActividadReciente() {
-  const container = document.getElementById('actividad-list');
-  if (!container) return;
-  const ultimas = ventas.slice(0, 5);
-  if (!ultimas.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
-    return;
-  }
-  container.innerHTML = ultimas.map(v => `
-    <div class="activity-item">
-      <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
-      <div class="act-info">
-        <div class="act-name">${v.cliente}</div>
-        <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
-      </div>
-      <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
-    </div>
-  `).join('');
-}
-
-// ── INICIALIZACIÓN ──
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Fecha actual
-  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const hoy = new Date();
-  document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
-
-  loadTheme();
-
-  // ============================================================
-  // NUEVO: Cargar tema desde URL (para la demo del portafolio)
-  // ============================================================
-  const urlParams = new URLSearchParams(window.location.search);
-  const temaParam = urlParams.get('tema');
-  if (temaParam && window.TEMAS && TEMAS[temaParam]) {
-    // Aplicar el tema recibido por URL
-    aplicarTema(temaParam);
-    // Guardar en localStorage para que persista
-    localStorage.setItem('temaSeleccionado', temaParam);
-  } else {
-    // Si no viene por URL, cargar el tema guardado o el predeterminado
-    cargarTemaGuardado();
-  }
-
-  cargarCarrito();
-
-  // Inicializar Firestore
-  initStore();
-
-  console.log('🚀 App inicializada con Firebase');
-});
-
-// Escuchar mensajes desde el portafolio para cambiar tema sin recargar (postMessage)
-window.addEventListener('message', function(event) {
-  // Validar origen (opcional, pero recomendado para seguridad)
-  // if (event.origin !== 'https://orlando299.github.io') return;
-  try {
-    const data = JSON.parse(event.data);
-    if (data.type === 'cambiarTema' && data.tema) {
-      if (window.TEMAS && TEMAS[data.tema]) {
-        aplicarTema(data.tema);
-        localStorage.setItem('temaSeleccionado', data.tema);
-        console.log('🎨 Tema cambiado a:', data.tema);
-        // Responder al portafolio para confirmar
-        event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
-      }
-    }
-  } catch (e) {
-    // No es un mensaje válido, ignorar
-  }
-
-// ============================================================
-//  LOGIN MULTI-TENANT
-// ============================================================
-
-async function loginCliente() {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-pass').value;
-
-    if (!email || !password) {
-        showToast('❌ Ingresa correo y contraseña');
-        return;
-    }
-
-    try {
-        // 1. Autenticar con Firebase Authentication
-        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        console.log('✅ Usuario autenticado:', user.uid);
-
-        // 2. Buscar a qué empresa pertenece el usuario
-        const empresasSnapshot = await firebase.firestore()
-            .collectionGroup('usuarios')
-            .where('uid', '==', user.uid)
-            .get();
-
-        if (empresasSnapshot.empty) {
-            showToast('❌ Usuario no tiene empresa asignada');
-            await firebase.auth().signOut();
-            return;
-        }
-
-        // 3. Obtener el ID de la empresa
-        const usuarioDoc = empresasSnapshot.docs[0];
-        const empresaId = usuarioDoc.ref.parent.parent.id;
-        const usuarioData = usuarioDoc.data();
-
-        console.log('🏢 Empresa encontrada:', empresaId);
-
-        // 4. Guardar datos en sesión
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', email);
-        sessionStorage.setItem('userName', usuarioData.nombre || email);
-        sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
-
-        // 5. Cargar datos de la empresa
-        await cargarDatosEmpresa(empresaId);
-
-        // 6. Mostrar panel de cliente
-        mostrarPanelCliente();
-
-        showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
-
-    } catch (error) {
-        console.error('❌ Error en login:', error);
-        if (error.code === 'auth/user-not-found') {
-            showToast('❌ Usuario no registrado');
-        } else if (error.code === 'auth/wrong-password') {
-            showToast('❌ Contraseña incorrecta');
-        } else {
-            showToast('❌ Error: ' + error.message);
-        }
-    }
-}
-
-// ============================================================
-//  FUNCIONES MULTI-TENANT
-// ============================================================
-
-async function cargarDatosEmpresa(empresaId) {
-    console.log('📦 Cargando datos para empresa:', empresaId);
-    
-    try {
-        // Cargar inventario
-        const inventarioSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('inventario')
-            .get();
-        
-        const inventario = [];
-        inventarioSnapshot.forEach(doc => {
-            inventario.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('📦 Inventario cargado:', inventario.length, 'productos');
-        
-        // Cargar clientes
-        const clientesSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('clientes')
-            .get();
-        
-        const clientes = [];
-        clientesSnapshot.forEach(doc => {
-            clientes.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('👥 Clientes cargados:', clientes.length);
-        
-        // Cargar ventas
-        const ventasSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('ventas')
-            .get();
-        
-        const ventas = [];
-        ventasSnapshot.forEach(doc => {
-            ventas.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('🛒 Ventas cargadas:', ventas.length);
-        
-        // Guardar en localStorage para uso en la app
-        localStorage.setItem('empresaInventario', JSON.stringify(inventario));
-        localStorage.setItem('empresaClientes', JSON.stringify(clientes));
-        localStorage.setItem('empresaVentas', JSON.stringify(ventas));
-        
-        // Actualizar la UI
-        actualizarUIEmpresa(inventario, clientes, ventas);
-        
-    } catch (error) {
-        console.error('❌ Error cargando datos:', error);
-        showToast('⚠️ Error cargando datos de la empresa');
-    }
-}
-
-function actualizarUIEmpresa(inventario, clientes, ventas) {
-    // Actualizar contadores en el dashboard
-    const kpiValues = document.querySelectorAll('.kpi-value');
-    if (kpiValues.length >= 4) {
-        // Ventas hoy
-        const totalVentas = ventas.reduce((sum, v) => sum + (v.monto || 0), 0);
-        kpiValues[0].textContent = `$${totalVentas.toFixed(2)}`;
-        // Pedidos
-        kpiValues[1].textContent = ventas.length;
-        // Stock bajo
-        kpiValues[2].textContent = inventario.filter(p => p.stock < 10).length;
-        // Clientes
-        kpiValues[3].textContent = clientes.length;
-    }
-}
-
-function mostrarPanelCliente() {
-    document.getElementById('cliente-login').style.display = 'none';
-    document.getElementById('cliente-panel').style.display = 'block';
-    
-    const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
-    document.getElementById('cliente-nombre').textContent = nombre;
-    
-    // Mostrar nombre de la empresa
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-        const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
-        const logo = document.querySelector('.nav-logo span');
-        if (logo) {
-            logo.textContent = ' ' + nombreEmpresa;
-        }
-    }
-}
-
-function toggleCliente() {
-    // Si ya está autenticado, mostrar panel, si no, mostrar login
-    if (sessionStorage.getItem('empresaId')) {
-        const loginDiv = document.getElementById('cliente-login');
-        const panelDiv = document.getElementById('cliente-panel');
-        const nombreSpan = document.getElementById('cliente-nombre');
-        
-        if (loginDiv) loginDiv.style.display = 'none';
-        if (panelDiv) panelDiv.style.display = 'block';
-        if (nombreSpan) nombreSpan.textContent = sessionStorage.getItem('userName');
-    } else {
-        const loginDiv = document.getElementById('cliente-login');
-        const panelDiv = document.getElementById('cliente-panel');
-        
-        if (loginDiv) loginDiv.style.display = 'block';
-        if (panelDiv) panelDiv.style.display = 'none';
-    }
-}
-
-function cerrarSesionCliente() {
-    firebase.auth().signOut();
-    sessionStorage.clear();
-    localStorage.removeItem('empresaInventario');
-    localStorage.removeItem('empresaClientes');
-    localStorage.removeItem('empresaVentas');
-    
-    const loginDiv = document.getElementById('cliente-login');
-    const panelDiv = document.getElementById('cliente-panel');
-    
-    if (loginDiv) loginDiv.style.display = 'block';
-    if (panelDiv) panelDiv.style.display = 'none';
-    
-    showToast('👋 Sesión cerrada');
-}
-
-function mostrarRegistro() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('registro-form').style.display = 'block';
-}
-
-function mostrarLogin() {
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('registro-form').style.display = 'none';
-}
-
-async function registrarCliente() {
-    const nombre = document.getElementById('reg-nombre').value;
-    const email = document.getElementById('reg-email').value;
-    const password = document.getElementById('reg-pass').value;
-
-    if (!nombre || !email || !password) {
-        showToast('❌ Completa todos los campos');
-        return;
-    }
-
-    try {
-        // Crear usuario en Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-
-        // Crear una nueva empresa para este usuario
-        const empresaId = 'empresa-' + Date.now();
-        await firebase.firestore().collection('empresas').doc(empresaId).set({
-            nombre: 'Mi Negocio',
-            fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Guardar usuario en la empresa
-        await firebase.firestore().collection('empresas').doc(empresaId)
-            .collection('usuarios').doc(email).set({
-                nombre: nombre,
-                email: email,
-                rol: 'admin',
-                empresaId: empresaId,
-                uid: user.uid,
-                creado: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-        // Guardar en sesión
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', email);
-        sessionStorage.setItem('userName', nombre);
-
-        // Mostrar panel
-        mostrarPanelCliente();
-        showToast(`✅ ¡Bienvenido, ${nombre}!`);
-
-    } catch (error) {
-        console.error('❌ Error en registro:', error);
-        showToast('❌ Error: ' + error.message);
-    }
-}
-
-  
-});
+        ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="ag

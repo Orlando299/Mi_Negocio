@@ -756,11 +756,12 @@ function renderCatalogo() {
         return;
     }
     
-    // 🔥 USAR window.inventario (datos cargados desde Firebase)
+    // Usar la variable global 'inventario' que ya tiene los datos
+    // Si no existe, usar window.inventario
     const productos = window.inventario || [];
     console.log('📦 Renderizando catálogo con', productos.length, 'productos');
     
-    if (productos.length === 0) {
+    if (!productos || productos.length === 0) {
         container.innerHTML = `
             <div class="empty">
                 <div class="empty-icon">📦</div>
@@ -771,32 +772,22 @@ function renderCatalogo() {
         return;
     }
     
-    container.innerHTML = productos.map(p => {
-        // Asegurar que los campos existan
-        const nombre = p.nombre || 'Producto sin nombre';
-        const precio = p.precio || '$0.00';
-        const stock = p.stock || 0;
-        const estado = p.estado || 'ok';
-        const icon = p.icon || '📦';
-        const cat = p.cat || 'General';
-        
-        return `
-            <div class="inv-card" style="cursor:default;">
-                <div class="inv-img">${icon}</div>
-                <div class="inv-info">
-                    <div class="inv-name">${nombre}</div>
-                    <div class="inv-cat">${cat}</div>
-                    <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
-                </div>
-                <div class="inv-right">
-                    <div class="inv-price">${precio}</div>
-                    ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombre}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
-                </div>
+    container.innerHTML = productos.map(p => `
+        <div class="inv-card" style="cursor:default;">
+            <div class="inv-img">${p.icon || '📦'}</div>
+            <div class="inv-info">
+                <div class="inv-name">${p.nombre || 'Producto'}</div>
+                <div class="inv-cat">${p.cat || 'General'}</div>
+                <div class="inv-stock ${p.estado || 'ok'}">${p.estado === 'out' ? 'Agotado' : (p.stock || 0) + ' unidades'}</div>
             </div>
-        `;
-    }).join('');
+            <div class="inv-right">
+                <div class="inv-price">${p.precio || '$0.00'}</div>
+                ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${p.nombre}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+            </div>
+        </div>
+    `).join('');
     
-    console.log('✅ Catálogo renderizado con', productos.length, 'productos');
+    console.log('✅ Catálogo renderizado correctamente');
 }
 
 async function recargarCatalogo() {

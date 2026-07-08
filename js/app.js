@@ -520,47 +520,70 @@ async function cargarDatosEmpresa(empresaId) {
     console.log('📦 Cargando datos para empresa:', empresaId);
     
     try {
+        // 1. Cargar inventario
         const inventarioSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
             .collection('inventario')
             .get();
         
-        const inventario = [];
+        const inventarioCargado = [];
         inventarioSnapshot.forEach(doc => {
-            inventario.push({ id: doc.id, ...doc.data() });
+            inventarioCargado.push({ id: doc.id, ...doc.data() });
         });
-        console.log('📦 Inventario cargado:', inventario.length, 'productos');
+        console.log('📦 Inventario cargado:', inventarioCargado.length, 'productos');
         
+        // 2. Cargar clientes
         const clientesSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
             .collection('clientes')
             .get();
         
-        const clientes = [];
+        const clientesCargados = [];
         clientesSnapshot.forEach(doc => {
-            clientes.push({ id: doc.id, ...doc.data() });
+            clientesCargados.push({ id: doc.id, ...doc.data() });
         });
-        console.log('👥 Clientes cargados:', clientes.length);
+        console.log('👥 Clientes cargados:', clientesCargados.length);
         
+        // 3. Cargar ventas
         const ventasSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
             .collection('ventas')
             .get();
         
-        const ventas = [];
+        const ventasCargadas = [];
         ventasSnapshot.forEach(doc => {
-            ventas.push({ id: doc.id, ...doc.data() });
+            ventasCargadas.push({ id: doc.id, ...doc.data() });
         });
-        console.log('🛒 Ventas cargadas:', ventas.length);
+        console.log('🛒 Ventas cargadas:', ventasCargadas.length);
         
-        localStorage.setItem('empresaInventario', JSON.stringify(inventario));
-        localStorage.setItem('empresaClientes', JSON.stringify(clientes));
-        localStorage.setItem('empresaVentas', JSON.stringify(ventas));
+        // ============================================================
+        //  🔥 ASIGNAR A VARIABLES GLOBALES
+        // ============================================================
+        // Estas son las variables que usa la interfaz para mostrar datos
+        window.inventario = inventarioCargado;
+        window.clientes = clientesCargados;
+        window.ventas = ventasCargadas;
         
-        actualizarUIEmpresa(inventario, clientes, ventas);
+        // Actualizar la UI
+        actualizarUIEmpresa(inventarioCargado, clientesCargados, ventasCargadas);
+        
+        // Renderizar listas
+        if (typeof renderInv === 'function') renderInv('', filtroInv);
+        if (typeof renderClients === 'function') renderClients('', filtroCli);
+        if (typeof renderVentas === 'function') renderVentas('', filtroVentas);
+        if (typeof renderActividadReciente === 'function') renderActividadReciente();
+        if (typeof updateKPIs === 'function') updateKPIs();
+        
+        // Si estamos en la pantalla de cliente, renderizar catálogo e historial
+        if (currentScreen === 'cliente') {
+            if (typeof renderCatalogo === 'function') renderCatalogo();
+            if (typeof renderHistorial === 'function') renderHistorial();
+        }
+        
+        showToast(`✅ Datos de ${empresaId.replace(/-/g, ' ').toUpperCase()} cargados`);
         
     } catch (error) {
         console.error('❌ Error cargando datos:', error);

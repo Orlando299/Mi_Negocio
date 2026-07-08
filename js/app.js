@@ -723,4 +723,192 @@ function renderCatalogo() {
       </div>
       <div class="inv-right">
         <div class="inv-price">${p.precio}</div>
-        ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="ag
+        ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${p.nombre}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function recargarCatalogo() {
+  showToast('🔄 Recargando productos...');
+  await store.cargarDatos();
+  syncGlobals();
+  renderCatalogo();
+  showToast('✅ Productos cargados');
+}
+
+function agregarAlCarrito(nombre) {
+  const producto = inventario.find(p => p.nombre === nombre);
+  if (!producto || producto.estado === 'out') return showToast('⚠️ Producto no disponible');
+  const item = carrito.find(c => c.nombre === nombre);
+  if (item) {
+    item.cantidad++;
+  } else {
+    carrito.push({ nombre: nombre, cantidad: 1, precio: parseFloat(producto.precio.replace('$', '')) });
+  }
+  guardarCarrito();
+  actualizarCarritoCount();
+  showToast(`➕ ${nombre} agregado al carrito`);
+}
+
+function actualizarCarritoCount() {
+  const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  document.getElementById('carrito-count').textContent = total;
+}
+
+function verCarrito() {
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  let html = `
+    <div style="margin-bottom:12px;">
+      <h3>🛒 Tu pedido</h3>
+      ${carrito.map(item => `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+          <span>${item.nombre} x ${item.cantidad}</span>
+          <span>$${(item.cantidad * item.precio).toFixed(2)}</span>
+        </div>
+      `).join('')}
+      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
+        <span>Total</span>
+        <span>$${total.toFixed(2)}</span>
+      </div>
+      <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
+      <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+    </div>
+  `;
+  openModalWithContent('Carrito', html);
+}
+
+function vaciarCarrito() {
+  carrito = [];
+  guardarCarrito();
+  actualizarCarritoCount();
+  closeModal();
+  showToast('🗑️ Carrito vacío');
+}
+
+async function realizarPedido() {
+  if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+
+  const pedido = {
+    cliente: sessionStorage.getItem('userName') || 'Cliente',
+    fecha: new Date().toLocaleString(),
+    items: items,
+    total: '$' + total.toFixed(2),
+    status: 'pendiente',
+    metodo: 'Cliente app',
+    notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
+    producto: 'Pedido desde app cliente'
+  };
+
+  await store.addVenta(pedido);
+  syncGlobals();
+  carrito = [];
+  guardarCarrito();
+  actualizarCarritoCount();
+  closeModal();
+  renderHistorial();
+  renderActividadReciente();
+  updateKPIs();
+  showToast('✅ Pedido realizado con éxito, espera confirmación');
+}
+
+function renderHistorial() {
+  const container = document.getElementById('historial-pedidos');
+  const nombreCliente = sessionStorage.getItem('userName');
+  if (!nombreCliente) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
+    return;
+  }
+  const misPedidos = ventas.filter(v => v.cliente === nombreCliente);
+  if (!misPedidos.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
+    return;
+  }
+  container.innerHTML = misPedidos.map(v => `
+    <div class="sale-card" style="cursor:default;">
+      <div class="sale-header">
+        <span class="sale-id">${v.id}</span>
+        <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <span>${v.fecha}</span>
+        <span class="sale-total">${v.total}</span>
+      </div>
+      <div style="font-size:12px; color:var(--text3);">${v.notas || 'Sin detalles'}</div>
+    </div>
+  `).join('');
+}
+
+// ── RENDER ACTIVIDAD RECIENTE ──
+function renderActividadReciente() {
+  const container = document.getElementById('actividad-list');
+  if (!container) return;
+  const ultimas = ventas.slice(0, 5);
+  if (!ultimas.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
+    return;
+  }
+  container.innerHTML = ultimas.map(v => `
+    <div class="activity-item">
+      <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
+      <div class="act-info">
+        <div class="act-name">${v.cliente}</div>
+        <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
+      </div>
+      <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
+    </div>
+  `).join('');
+}
+
+// ── INICIALIZACIÓN ──
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Fecha actual
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const hoy = new Date();
+  const fechaEl = document.getElementById('fecha-hoy');
+  if (fechaEl) {
+    fechaEl.textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
+  }
+
+  loadTheme();
+
+  // Cargar tema desde URL (para la demo del portafolio)
+  const urlParams = new URLSearchParams(window.location.search);
+  const temaParam = urlParams.get('tema');
+  if (temaParam && window.TEMAS && TEMAS[temaParam]) {
+    aplicarTema(temaParam);
+    localStorage.setItem('temaSeleccionado', temaParam);
+  } else {
+    cargarTemaGuardado();
+  }
+
+  cargarCarrito();
+
+  // Inicializar Firestore
+  initStore();
+
+  console.log('🚀 App inicializada con Firebase');
+});
+
+// Escuchar mensajes desde el portafolio para cambiar tema sin recargar (postMessage)
+window.addEventListener('message', function(event) {
+  try {
+    const data = JSON.parse(event.data);
+    if (data.type === 'cambiarTema' && data.tema) {
+      if (window.TEMAS && TEMAS[data.tema]) {
+        aplicarTema(data.tema);
+        localStorage.setItem('temaSeleccionado', data.tema);
+        console.log('🎨 Tema cambiado a:', data.tema);
+        event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
+      }
+    }
+  } catch (e) {
+    // No es un mensaje válido, ignorar
+  }
+});

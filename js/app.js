@@ -233,7 +233,7 @@ async function updateVentaFromModal(id) {
 }
 
 function editProducto(nombre) {
-  const datos = inventario || [];
+  const datos = window.inventario || [];
   const p = datos.find(item => item.nombre === nombre);
   if (!p) return showToast('Producto no encontrado');
   const body = `
@@ -269,7 +269,7 @@ async function updateProductoFromModal(nombreOriginal) {
   if (stock === 0) estado = 'out';
   else if (stock <= 5) estado = 'low';
   const updates = { nombre, cat, precio: '$' + precio.toFixed(2), stock, estado };
-  const productos = inventario || [];
+  const productos = window.inventario || [];
   const producto = productos.find(p => p.nombre === nombreOriginal);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (nombre !== nombreOriginal) {
@@ -284,7 +284,7 @@ async function updateProductoFromModal(nombreOriginal) {
 }
 
 function editCliente(nombre) {
-  const datos = clientes || [];
+  const datos = window.clientes || [];
   const c = datos.find(item => item.nombre === nombre);
   if (!c) return showToast('Cliente no encontrado');
   const body = `
@@ -308,7 +308,7 @@ async function updateClienteFromModal(nombreOriginal) {
   const phone = document.getElementById('edit-phone').value.trim();
   const tag = document.getElementById('edit-tag').value;
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
-  const clientesArr = clientes || [];
+  const clientesArr = window.clientes || [];
   const cliente = clientesArr.find(c => c.nombre === nombreOriginal);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
   const updates = { nombre, phone, tag };
@@ -333,7 +333,7 @@ function confirmDeleteVenta(id) {
 }
 
 function confirmDeleteProducto(nombre) {
-  const productos = inventario || [];
+  const productos = window.inventario || [];
   const producto = productos.find(p => p.nombre === nombre);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   openConfirmModal('¿Seguro que deseas eliminar este producto?', async () => {
@@ -345,7 +345,7 @@ function confirmDeleteProducto(nombre) {
 }
 
 function confirmDeleteCliente(nombre) {
-  const clientesArr = clientes || [];
+  const clientesArr = window.clientes || [];
   const cliente = clientesArr.find(c => c.nombre === nombre);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
   openConfirmModal('¿Seguro que deseas eliminar este cliente?', async () => {
@@ -469,7 +469,7 @@ function confirmAction() {
 }
 
 // ============================================================
-//  LOGIN MULTI-TENANT (SIN cargarDatosEmpresa)
+//  LOGIN MULTI-TENANT (USANDO store.cargarDatosEmpresa)
 // ============================================================
 
 async function loginCliente() {
@@ -485,17 +485,13 @@ async function loginCliente() {
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         console.log('✅ Usuario autenticado:', user.uid);
-        console.log('🔍 Buscando empresa para el usuario:', user.uid);
 
         const empresasSnapshot = await firebase.firestore()
             .collectionGroup('usuarios')
             .where('uid', '==', user.uid)
             .get();
 
-        console.log('📊 Resultados de la consulta:', empresasSnapshot.size);
-
         if (empresasSnapshot.empty) {
-            console.warn('⚠️ No se encontró empresa para el usuario');
             showToast('❌ Usuario no tiene empresa asignada');
             await firebase.auth().signOut();
             return;
@@ -506,15 +502,14 @@ async function loginCliente() {
         const usuarioData = usuarioDoc.data();
 
         console.log('🏢 Empresa encontrada:', empresaId);
-        console.log('👤 Datos del usuario:', usuarioData);
 
         sessionStorage.setItem('empresaId', empresaId);
         sessionStorage.setItem('userEmail', email);
         sessionStorage.setItem('userName', usuarioData.nombre || email);
         sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
 
-        // 🔥 NOTA: cargarDatosEmpresa ya no se llama aquí
-        // data.js se encarga de cargar los datos automáticamente
+        // 🔥 USAR store.cargarDatosEmpresa (la de data.js)
+        await store.cargarDatosEmpresa(empresaId);
 
         mostrarPanelCliente();
 
@@ -664,7 +659,7 @@ async function registrarCliente() {
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
-  const datos = inventario || [];
+  const datos = window.inventario || []; // 🔥 USAR window.inventario
   
   if (!datos || datos.length === 0) {
     container.innerHTML = `
@@ -695,14 +690,16 @@ function renderCatalogo() {
 
 async function recargarCatalogo() {
   showToast('🔄 Recargando productos...');
-  await store.cargarDatos();
-  syncGlobals();
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (empresaId) {
+    await store.cargarDatosEmpresa(empresaId);
+  }
   renderCatalogo();
   showToast('✅ Productos cargados');
 }
 
 function agregarAlCarrito(nombre) {
-  const productos = inventario || [];
+  const productos = window.inventario || [];
   const producto = productos.find(p => p.nombre === nombre);
   if (!producto || producto.estado === 'out') return showToast('⚠️ Producto no disponible');
   const item = carrito.find(c => c.nombre === nombre);
@@ -788,7 +785,7 @@ function renderHistorial() {
     container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
     return;
   }
-  const ventasArr = ventas || [];
+  const ventasArr = window.ventas || [];
   const misPedidos = ventasArr.filter(v => v.cliente === nombreCliente);
   if (!misPedidos.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
@@ -813,7 +810,7 @@ function renderHistorial() {
 function renderActividadReciente() {
   const container = document.getElementById('actividad-list');
   if (!container) return;
-  const ventasArr = ventas || [];
+  const ventasArr = window.ventas || [];
   const ultimas = ventasArr.slice(0, 5);
   if (!ultimas.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';

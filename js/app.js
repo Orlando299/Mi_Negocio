@@ -1114,6 +1114,356 @@ window.addEventListener('message', function(event) {
 });
 
 // ============================================================
+//  CONFIGURACIÓN - PESTAÑAS Y RENDERIZADO DE TABLAS
+// ============================================================
+
+// Cambiar de pestaña en la configuración
+function cambiarTabConfiguracion(tabId) {
+    // Quitar active de todas las pestañas y paneles
+    document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
+    
+    // Activar la pestaña seleccionada
+    const tab = document.querySelector(`.config-tab[data-tab="${tabId}"]`);
+    if (tab) tab.classList.add('active');
+    
+    // Activar el panel correspondiente
+    const panel = document.getElementById('panel-' + tabId);
+    if (panel) panel.classList.add('active');
+    
+    // Si es el panel de resumen, actualizar los números
+    if (tabId === 'resumen') actualizarResumenConfiguracion();
+    if (tabId === 'productos') renderizarTablaProductos();
+    if (tabId === 'clientes') renderizarTablaClientes();
+    if (tabId === 'ventas') renderizarTablaVentas();
+}
+
+// Actualizar resumen de la configuración
+function actualizarResumenConfiguracion() {
+    const productos = window.inventario || [];
+    const clientes = window.clientes || [];
+    const ventas = window.ventas || [];
+    
+    const totalVentas = ventas.reduce((sum, v) => sum + (parseFloat(v.total?.replace('$', '')) || 0), 0);
+    
+    const elProductos = document.getElementById('resumen-productos');
+    const elClientes = document.getElementById('resumen-clientes');
+    const elVentas = document.getElementById('resumen-ventas');
+    const elTotal = document.getElementById('resumen-total-ventas');
+    
+    if (elProductos) elProductos.textContent = productos.length;
+    if (elClientes) elClientes.textContent = clientes.length;
+    if (elVentas) elVentas.textContent = ventas.length;
+    if (elTotal) elTotal.textContent = `$${totalVentas.toFixed(2)}`;
+    
+    // Actualizar nombre de empresa y usuario en el encabezado
+    const empresaEl = document.getElementById('config-empresa-nombre');
+    const usuarioEl = document.getElementById('config-usuario-nombre');
+    if (empresaEl) {
+        const empresaId = sessionStorage.getItem('empresaId');
+        empresaEl.textContent = empresaId ? empresaId.replace(/-/g, ' ').toUpperCase() : 'MI EMPRESA';
+    }
+    if (usuarioEl) {
+        const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail') || 'Usuario';
+        usuarioEl.textContent = `👤 ${nombre}`;
+    }
+}
+
+// Renderizar tabla de productos
+function renderizarTablaProductos() {
+    const tbody = document.getElementById('tabla-productos');
+    if (!tbody) return;
+    
+    const productos = window.inventario || [];
+    if (!productos.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="config-empty">No hay productos registrados</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = productos.map(p => `
+        <tr>
+            <td>${p.codigo || '—'}</td>
+            <td>${p.nombre || 'Sin nombre'}</td>
+            <td>${p.cat || 'General'}</td>
+            <td>${p.precio || '$0.00'}</td>
+            <td>${p.stock || 0}</td>
+            <td>
+                <div class="config-actions-cell">
+                    <button class="btn-sm btn-sm-edit" onclick="editarProductoConfig('${p.nombre}')">✏️</button>
+                    <button class="btn-sm btn-sm-delete" onclick="eliminarProductoConfig('${p.nombre}')">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Renderizar tabla de clientes
+function renderizarTablaClientes() {
+    const tbody = document.getElementById('tabla-clientes');
+    if (!tbody) return;
+    
+    const clientes = window.clientes || [];
+    if (!clientes.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="config-empty">No hay clientes registrados</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = clientes.map(c => `
+        <tr>
+            <td>${c.nombre || 'Sin nombre'}</td>
+            <td>${c.email || '—'}</td>
+            <td>${c.phone || '—'}</td>
+            <td>
+                <div class="config-actions-cell">
+                    <button class="btn-sm btn-sm-edit" onclick="editarClienteConfig('${c.nombre}')">✏️</button>
+                    <button class="btn-sm btn-sm-delete" onclick="eliminarClienteConfig('${c.nombre}')">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Renderizar tabla de ventas
+function renderizarTablaVentas() {
+    const tbody = document.getElementById('tabla-ventas');
+    if (!tbody) return;
+    
+    const ventas = window.ventas || [];
+    if (!ventas.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="config-empty">No hay ventas registradas</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = ventas.map(v => `
+        <tr>
+            <td>${v.cliente || '—'}</td>
+            <td>${v.producto || '—'}</td>
+            <td>${v.total || '$0.00'}</td>
+            <td>${v.fecha || '—'}</td>
+            <td><span style="color:${v.status === 'pagado' ? '#22c55e' : '#eab308'}; font-weight:600;">${v.status ? v.status.charAt(0).toUpperCase() + v.status.slice(1) : '—'}</span></td>
+            <td>
+                <div class="config-actions-cell">
+                    <button class="btn-sm btn-sm-edit" onclick="editarVentaConfig('${v.id}')">✏️</button>
+                    <button class="btn-sm btn-sm-delete" onclick="eliminarVentaConfig('${v.id}')">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ============================================================
+//  FUNCIONES PARA MODALES DE AGREGAR DESDE CONFIGURACIÓN
+// ============================================================
+
+function abrirModalProducto() {
+    // Usamos el modal existente pero con el formulario de producto
+    openModalWithContent('Agregar Producto', `
+        <div class="field"><label>Nombre</label><input type="text" id="input-nombre-config" placeholder="Nombre del producto"></div>
+        <div class="field"><label>Categoría</label>
+            <select id="input-categoria-config">
+                <option>Bebidas</option><option>Básicos</option><option>Granos</option><option>Lácteos</option><option>Dulces</option><option>Cocina</option><option>Salsas</option><option>Harinas</option><option>Conservas</option>
+            </select>
+        </div>
+        <div class="row">
+            <div class="field"><label>Precio</label><input type="text" id="input-precio-config" placeholder="$0.00"></div>
+            <div class="field"><label>Stock</label><input type="number" id="input-stock-config" placeholder="0"></div>
+        </div>
+        <div class="field"><label>Código</label><input type="text" id="input-codigo-config" placeholder="SKU-001"></div>
+        <button class="btn btn-primary" onclick="guardarProductoConfig()">Guardar producto</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `);
+}
+
+function guardarProductoConfig() {
+    const nombre = document.getElementById('input-nombre-config').value.trim();
+    const cat = document.getElementById('input-categoria-config').value;
+    const precio = parseFloat(document.getElementById('input-precio-config').value.replace('$', '')) || 0;
+    const stock = parseInt(document.getElementById('input-stock-config').value) || 0;
+    const codigo = document.getElementById('input-codigo-config').value.trim() || 'SKU-' + Date.now().toString().slice(-6);
+    
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+    if (precio <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
+    
+    const iconMap = { 'Bebidas': '☕', 'Dulces': '🍫', 'Endulzantes': '🍯', 'Básicos': '🧂', 'Granos': '🫘', 'Lácteos': '🧀', 'Cocina': '🫙', 'Salsas': '🌶️', 'Harinas': '🌾', 'Conservas': '🥫' };
+    const icon = iconMap[cat] || '📦';
+    let estado = 'ok';
+    if (stock === 0) estado = 'out';
+    else if (stock <= 5) estado = 'low';
+    
+    const nuevoProducto = { nombre, cat, precio: '$' + precio.toFixed(2), stock, icon, estado, codigo };
+    
+    store.addProducto(nuevoProducto).then(() => {
+        syncGlobals();
+        renderizarTablaProductos();
+        actualizarResumenConfiguracion();
+        closeModal();
+        showToast('✅ Producto agregado');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+function abrirModalCliente() {
+    openModalWithContent('Agregar Cliente', `
+        <div class="field"><label>Nombre</label><input type="text" id="input-cliente-nombre-config" placeholder="Nombre completo"></div>
+        <div class="field"><label>Email</label><input type="email" id="input-cliente-email-config" placeholder="correo@ejemplo.com"></div>
+        <div class="field"><label>Teléfono</label><input type="text" id="input-cliente-telefono-config" placeholder="+58 412 000 0000"></div>
+        <button class="btn btn-primary" onclick="guardarClienteConfig()">Guardar cliente</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `);
+}
+
+function guardarClienteConfig() {
+    const nombre = document.getElementById('input-cliente-nombre-config').value.trim();
+    const email = document.getElementById('input-cliente-email-config').value.trim();
+    const phone = document.getElementById('input-cliente-telefono-config').value.trim();
+    
+    if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+    
+    const init = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
+    const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
+    const color = colores[Math.floor(Math.random() * colores.length)];
+    
+    const nuevoCliente = { nombre, email, phone, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
+    
+    store.addCliente(nuevoCliente).then(() => {
+        syncGlobals();
+        renderizarTablaClientes();
+        actualizarResumenConfiguracion();
+        closeModal();
+        showToast('✅ Cliente agregado');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+function abrirModalVenta() {
+    const clientes = (window.clientes || []).map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+    const productos = (window.inventario || []).map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+    
+    openModalWithContent('Agregar Venta', `
+        <div class="field"><label>Cliente</label>
+            <select id="input-venta-cliente-config">
+                <option value="">Seleccionar cliente...</option>
+                ${clientes}
+            </select>
+        </div>
+        <div class="field"><label>Producto</label>
+            <select id="input-venta-producto-config">
+                <option value="">Seleccionar producto...</option>
+                ${productos}
+            </select>
+        </div>
+        <div class="field"><label>Monto</label><input type="text" id="input-venta-monto-config" placeholder="$0.00"></div>
+        <div class="field"><label>Estado</label>
+            <select id="input-venta-estado-config">
+                <option value="pagado">Pagado</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="cancelado">Cancelado</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="guardarVentaConfig()">Guardar venta</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `);
+}
+
+function guardarVentaConfig() {
+    const cliente = document.getElementById('input-venta-cliente-config').value;
+    const producto = document.getElementById('input-venta-producto-config').value;
+    const monto = parseFloat(document.getElementById('input-venta-monto-config').value.replace('$', '')) || 0;
+    const status = document.getElementById('input-venta-estado-config').value;
+    
+    if (!cliente) { showToast('⚠️ Selecciona un cliente'); return; }
+    if (!producto) { showToast('⚠️ Selecciona un producto'); return; }
+    if (monto <= 0) { showToast('⚠️ Ingresa un monto válido'); return; }
+    
+    const nuevaVenta = {
+        cliente, producto, items: 1,
+        total: '$' + monto.toFixed(2),
+        status: status,
+        metodo: 'Efectivo',
+        notas: '',
+        fecha: new Date().toLocaleString()
+    };
+    
+    store.addVenta(nuevaVenta).then(() => {
+        syncGlobals();
+        renderizarTablaVentas();
+        actualizarResumenConfiguracion();
+        closeModal();
+        showToast('✅ Venta agregada');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+// ============================================================
+//  FUNCIONES PARA EDITAR Y ELIMINAR DESDE CONFIGURACIÓN
+// ============================================================
+
+function editarProductoConfig(nombre) {
+    const producto = (window.inventario || []).find(p => p.nombre === nombre);
+    if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+    
+    // Reutilizar el modal de edición existente (editProducto)
+    editProducto(nombre);
+    // Después de editar, refrescar la tabla
+    setTimeout(renderizarTablaProductos, 500);
+}
+
+function eliminarProductoConfig(nombre) {
+    const producto = (window.inventario || []).find(p => p.nombre === nombre);
+    if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+    if (!confirm(`¿Eliminar "${nombre}"?`)) return;
+    
+    store.deleteProducto(producto.id).then(() => {
+        syncGlobals();
+        renderizarTablaProductos();
+        actualizarResumenConfiguracion();
+        showToast('🗑️ Producto eliminado');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+function editarClienteConfig(nombre) {
+    editCliente(nombre);
+    setTimeout(renderizarTablaClientes, 500);
+}
+
+function eliminarClienteConfig(nombre) {
+    const cliente = (window.clientes || []).find(c => c.nombre === nombre);
+    if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
+    if (!confirm(`¿Eliminar a "${nombre}"?`)) return;
+    
+    store.deleteCliente(cliente.id).then(() => {
+        syncGlobals();
+        renderizarTablaClientes();
+        actualizarResumenConfiguracion();
+        showToast('🗑️ Cliente eliminado');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+function editarVentaConfig(id) {
+    editVenta(id);
+    setTimeout(renderizarTablaVentas, 500);
+}
+
+function eliminarVentaConfig(id) {
+    if (!confirm('¿Eliminar esta venta?')) return;
+    store.deleteVenta(id).then(() => {
+        syncGlobals();
+        renderizarTablaVentas();
+        actualizarResumenConfiguracion();
+        showToast('🗑️ Venta eliminada');
+    }).catch(err => {
+        showToast('❌ Error: ' + err.message);
+    });
+}
+
+// ============================================================
 //  🔥 FORZAR FUNCIONES GLOBALES
 // ============================================================
 

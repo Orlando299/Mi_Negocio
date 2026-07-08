@@ -3,6 +3,11 @@
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente'];
 
+// Variables globales para datos de la empresa
+let inventario = [];
+let clientes = [];
+let ventas = [];
+
 // Filtros activos por módulo
 let filtroVentas = 'todas';
 let filtroInv = 'todos';

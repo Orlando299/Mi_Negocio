@@ -727,7 +727,9 @@ async function registrarCliente() {
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
-  if (!inventario || inventario.length === 0) {
+  const datos = window.inventario || inventario || [];
+  
+  if (!datos || datos.length === 0) {
     container.innerHTML = `
       <div class="empty">
         <div class="empty-icon">📦</div>
@@ -737,9 +739,10 @@ function renderCatalogo() {
     `;
     return;
   }
-  container.innerHTML = inventario.map(p => `
+  
+  container.innerHTML = datos.map(p => `
     <div class="inv-card" style="cursor:default;">
-      <div class="inv-img">${p.icon}</div>
+      <div class="inv-img">${p.icon || '📦'}</div>
       <div class="inv-info">
         <div class="inv-name">${p.nombre}</div>
         <div class="inv-cat">${p.cat}</div>

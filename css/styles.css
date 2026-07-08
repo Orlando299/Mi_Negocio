@@ -335,4 +335,306 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* ============================================================
+   CONFIGURACIÓN - GESTIÓN DE DATOS
+   ============================================================ */
+#screen-configuracion {
+  padding: 16px;
+  padding-bottom: 80px;
+}
+
+.config-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.config-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.config-sub {
+  font-size: 14px;
+  color: var(--text-secondary, #64748b);
+  margin: 4px 0 0;
+}
+
+.config-user {
+  text-align: right;
+  font-size: 14px;
+}
+
+.config-empresa {
+  display: block;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.config-usuario {
+  display: block;
+  color: var(--text-secondary, #64748b);
+}
+
+/* TABS */
+.config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: var(--bg-secondary, #f1f5f9);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.config-tab {
+  flex: 1 1 auto;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+}
+
+.config-tab:hover {
+  background: rgba(255,255,255,0.5);
+  color: var(--text-primary);
+}
+
+.config-tab.active {
+  background: var(--bg-primary, white);
+  color: var(--accent-color, #2c7be5);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* PANELES */
+.config-panel {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.config-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* TARJETAS DE RESUMEN */
+.config-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.config-card {
+  background: var(--bg-primary, white);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.config-card-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.config-card-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.config-card-label {
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+}
+
+/* TOOLBAR */
+.config-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.config-toolbar h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* TABLA */
+.config-table-wrap {
+  overflow-x: auto;
+  background: var(--bg-primary, white);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.config-table thead {
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.config-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.config-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #f1f5f9);
+  color: var(--text-primary);
+}
+
+.config-table tr:last-child td {
+  border-bottom: none;
+}
+
+.config-empty {
+  text-align: center !important;
+  color: var(--text-secondary, #94a3b8);
+  padding: 30px 16px !important;
+}
+
+/* BOTONES DE ACCIÓN EN TABLA */
+.config-actions-cell {
+  display: flex;
+  gap: 6px;
+}
+
+.config-actions-cell .btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.btn-sm-edit {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.btn-sm-edit:hover {
+  background: #bfdbfe;
+}
+
+.btn-sm-delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.btn-sm-delete:hover {
+  background: #fecaca;
+}
+
+/* JSON SECTION */
+.config-json-section {
+  background: var(--bg-primary, white);
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.config-json-section h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.config-hint {
+  font-size: 14px;
+  color: var(--text-secondary, #64748b);
+  margin-bottom: 16px;
+}
+
+.config-json-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.config-json-buttons .btn {
+  flex: 1 1 auto;
+  min-width: 160px;
+}
+
+/* BOTONES GENERALES */
+.config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.config-actions .btn {
+  flex: 1 1 auto;
+  min-width: 160px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 600px) {
+  .config-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .config-user {
+    text-align: center;
+  }
+  .config-tabs {
+    flex-wrap: wrap;
+  }
+  .config-tab {
+    flex: 1 1 45%;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+  .config-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .config-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .config-toolbar .btn {
+    width: 100%;
+  }
+}
+
 

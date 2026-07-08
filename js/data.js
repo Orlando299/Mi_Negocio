@@ -50,6 +50,18 @@ class DataStore {
       this.cargado = true;
 
       console.log('✅ Datos de empresa cargados correctamente');
+      
+      // 🔥 RENDERIZAR CATÁLOGO AUTOMÁTICAMENTE
+      if (typeof currentScreen !== 'undefined' && currentScreen === 'cliente') {
+        if (typeof renderCatalogo === 'function') {
+          renderCatalogo();
+          console.log('✅ Catálogo renderizado automáticamente');
+        }
+        if (typeof renderHistorial === 'function') {
+          renderHistorial();
+        }
+      }
+      
       return true;
     } catch (error) {
       console.error('❌ Error cargando datos de empresa:', error);
@@ -290,10 +302,14 @@ async function initStore() {
             window.mostrarPanelCliente();
           }
           
-          // Renderizar catálogo si estamos en la pantalla de cliente
-          if (currentScreen === 'cliente') {
-            renderCatalogo();
-            renderHistorial();
+          // Renderizar catálogo e historial si estamos en la pantalla de cliente
+          if (typeof currentScreen !== 'undefined' && currentScreen === 'cliente') {
+            if (typeof renderCatalogo === 'function') {
+              renderCatalogo();
+            }
+            if (typeof renderHistorial === 'function') {
+              renderHistorial();
+            }
           }
           
         } else {

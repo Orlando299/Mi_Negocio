@@ -565,27 +565,26 @@ async function cargarDatosEmpresa(empresaId) {
         console.log('🛒 Ventas cargadas:', ventasCargadas.length);
         
         // ============================================================
-        //  🔥 ASIGNAR A VARIABLES GLOBALES
+        //  🔥 ACTUALIZAR VARIABLES GLOBALES
         // ============================================================
-        // Estas son las variables que usa la interfaz para mostrar datos
-        window.inventario = inventarioCargado;
-        window.clientes = clientesCargados;
-        window.ventas = ventasCargadas;
+        inventario = inventarioCargado;
+        clientes = clientesCargados;
+        ventas = ventasCargadas;
         
         // Actualizar la UI
         actualizarUIEmpresa(inventarioCargado, clientesCargados, ventasCargadas);
         
         // Renderizar listas
-        if (typeof renderInv === 'function') renderInv('', filtroInv);
-        if (typeof renderClients === 'function') renderClients('', filtroCli);
-        if (typeof renderVentas === 'function') renderVentas('', filtroVentas);
-        if (typeof renderActividadReciente === 'function') renderActividadReciente();
-        if (typeof updateKPIs === 'function') updateKPIs();
+        renderInv('', filtroInv);
+        renderClients('', filtroCli);
+        renderVentas('', filtroVentas);
+        renderActividadReciente();
+        updateKPIs();
         
         // Si estamos en la pantalla de cliente, renderizar catálogo e historial
         if (currentScreen === 'cliente') {
-            if (typeof renderCatalogo === 'function') renderCatalogo();
-            if (typeof renderHistorial === 'function') renderHistorial();
+            renderCatalogo();
+            renderHistorial();
         }
         
         showToast(`✅ Datos de ${empresaId.replace(/-/g, ' ').toUpperCase()} cargados`);

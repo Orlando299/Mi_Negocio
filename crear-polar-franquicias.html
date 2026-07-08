@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Crear Franquicias Polar</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body style="font-family: Arial; padding: 20px; background: #f0f0f0;">
+  <div style="max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px;">
+    <h1>🏢 Crear Franquicias Polar</h1>
+    <button onclick="crearTodo()" style="background: #0056b3; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
+      Crear Franquicias
+    </button>
+    <div id="resultados" style="margin-top: 20px; font-size: 14px;"></div>
+  </div>
+
+  <script>
+    // Configuración de Firebase (usa la misma de tu proyecto)
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "TU_PROJECT.firebaseapp.com",
+      projectId: "TU_PROJECT_ID",
+      storageBucket: "TU_PROJECT.appspot.com",
+      messagingSenderId: "TU_SENDER_ID",
+      appId: "TU_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ============================================================
+    //  INVENTARIO DE PRODUCTOS POLAR
+    // ============================================================
+    const inventarioPolar = [
+      // Cervezas
+      { codigo: 'POL-001', nombre: 'Polar Pilsen (lata 355ml)', categoria: 'Cervezas', precio: 1.50, stock: 50, unidad: 'lata' },
+      { codigo: 'POL-002', nombre: 'Polar Light (lata 355ml)', categoria: 'Cervezas', precio: 1.40, stock: 40, unidad: 'lata' },
+      { codigo: 'POL-003', nombre: 'Polar Zero (lata 355ml)', categoria: 'Cervezas', precio: 1.45, stock: 35, unidad: 'lata' },
+      { codigo: 'POL-004', nombre: 'Solera Clásica (lata 355ml)', categoria: 'Cervezas', precio: 1.60, stock: 30, unidad: 'lata' },
+      { codigo: 'POL-005', nombre: 'Solera Light (lata 355ml)', categoria: 'Cervezas', precio: 1.50, stock: 30, unidad: 'lata' },
+      { codigo: 'POL-006', nombre: 'Solera Black (lata 355ml)', categoria: 'Cervezas', precio: 1.70, stock: 25, unidad: 'lata' },
+      { codigo: 'POL-007', nombre: 'Maltín Polar (lata 330ml)', categoria: 'Cervezas', precio: 1.80, stock: 45, unidad: 'lata' },
+      { codigo: 'POL-008', nombre: 'Maltín Polar Light (lata 330ml)', categoria: 'Cervezas', precio: 1.70, stock: 40, unidad: 'lata' },
+      { codigo: 'POL-009', nombre: 'Polar Pilsen (botella 330ml)', categoria: 'Cervezas', precio: 2.00, stock: 20, unidad: 'botella' },
+      { codigo: 'POL-010', nombre: 'Solera Märzen (lata 355ml)', categoria: 'Cervezas', precio: 1.90, stock: 25, unidad: 'lata' },
+      
+      // Harinas y Pastas
+      { codigo: 'PAN-001', nombre: 'Harina P.A.N. 1kg', categoria: 'Harinas', precio: 2.50, stock: 100, unidad: 'kg' },
+      { codigo: 'PAN-002', nombre: 'Harina P.A.N. 500g', categoria: 'Harinas', precio: 1.30, stock: 80, unidad: '500g' },
+      { codigo: 'PAN-003', nombre: 'Harina P.A.N. Extra Suave 1kg', categoria: 'Harinas', precio: 2.70, stock: 60, unidad: 'kg' },
+      { codigo: 'PAN-004', nombre: 'Harina Mazorca 1kg', categoria: 'Harinas', precio: 2.30, stock: 50, unidad: 'kg' },
+      { codigo: 'PAN-005', nombre: 'Harina de Maíz Integral 1kg', categoria: 'Harinas', precio: 2.80, stock: 40, unidad: 'kg' },
+      { codigo: 'PRI-001', nombre: 'Pasta Primor Spaghetti 400g', categoria: 'Pastas', precio: 1.20, stock: 70, unidad: '400g' },
+      { codigo: 'PRI-002', nombre: 'Pasta Primor Penne 400g', categoria: 'Pastas', precio: 1.20, stock: 70, unidad: '400g' },
+      { codigo: 'GRA-001', nombre: 'Pasta Gran Señora 500g', categoria: 'Pastas', precio: 1.80, stock: 40, unidad: '500g' },
+      { codigo: 'PRI-003', nombre: 'Arroz Primor 1kg', categoria: 'Arroces', precio: 2.00, stock: 60, unidad: 'kg' },
+      { codigo: 'PRI-004', nombre: 'Crema de Arroz Primor 400g', categoria: 'Arroces', precio: 1.50, stock: 35, unidad: '400g' },
+
+      // Salsas y Untables
+      { codigo: 'MAV-001', nombre: 'Mayonesa Mavesa 500g', categoria: 'Salsas', precio: 3.50, stock: 45, unidad: '500g' },
+      { codigo: 'MAV-002', nombre: 'Mayonesa Mavesa Ligera 500g', categoria: 'Salsas', precio: 3.70, stock: 35, unidad: '500g' },
+      { codigo: 'MAV-003', nombre: 'Margarina Mavesa 250g', categoria: 'Margarinas', precio: 2.80, stock: 40, unidad: '250g' },
+      { codigo: 'MAV-004', nombre: 'Margarina Mavesa Ligera 250g', categoria: 'Margarinas', precio: 3.00, stock: 30, unidad: '250g' },
+      { codigo: 'CHI-001', nombre: 'Margarina Chiffon 250g', categoria: 'Margarinas', precio: 2.60, stock: 35, unidad: '250g' },
+      { codigo: 'RIK-001', nombre: 'Queso Rikesa Cheddar 200g', categoria: 'Lácteos', precio: 4.00, stock: 25, unidad: '200g' },
+      { codigo: 'RIK-002', nombre: 'Queso Rikesa Tocineta 200g', categoria: 'Lácteos', precio: 4.20, stock: 20, unidad: '200g' },
+      { codigo: 'RIK-003', nombre: 'Queso Rikesa Parmesano 200g', categoria: 'Lácteos', precio: 4.10, stock: 22, unidad: '200g' },
+      { codigo: 'PAM-001', nombre: 'Ketchup Pampero 500g', categoria: 'Salsas', precio: 3.00, stock: 30, unidad: '500g' },
+      { codigo: 'PAM-002', nombre: 'Salsa de Tomate Pampero 500g', categoria: 'Salsas', precio: 2.80, stock: 30, unidad: '500g' },
+      { codigo: 'MAV-005', nombre: 'Vinagre Mavesa 500ml', categoria: 'Salsas', precio: 2.00, stock: 25, unidad: '500ml' },
+
+      // Conservas
+      { codigo: 'MAR-001', nombre: 'Atún Margarita en Agua 160g', categoria: 'Conservas', precio: 3.80, stock: 30, unidad: '160g' },
+      { codigo: 'MAR-002', nombre: 'Atún Margarita en Aceite 160g', categoria: 'Conservas', precio: 4.00, stock: 28, unidad: '160g' },
+      { codigo: 'MAR-003', nombre: 'Sardinas Margarita 150g', categoria: 'Conservas', precio: 2.50, stock: 35, unidad: '150g' },
+      { codigo: 'CAL-001', nombre: 'Atún California en Agua 160g', categoria: 'Conservas', precio: 3.60, stock: 25, unidad: '160g' },
+      { codigo: 'CAL-002', nombre: 'Atún California en Aceite 160g', categoria: 'Conservas', precio: 3.80, stock: 22, unidad: '160g' },
+
+      // Bebidas
+      { codigo: 'TOD-001', nombre: 'Toddy (bebida achocolatada 500g)', categoria: 'Bebidas', precio: 4.50, stock: 30, unidad: '500g' },
+      { codigo: 'QUA-001', nombre: 'Avena Quaker 500g', categoria: 'Bebidas', precio: 4.00, stock: 25, unidad: '500g' },
+      { codigo: 'GOL-001', nombre: 'Gelatina Golden 100g', categoria: 'Postres', precio: 1.80, stock: 40, unidad: '100g' },
+      { codigo: 'GAT-001', nombre: 'Gatorade (botella 500ml)', categoria: 'Bebidas', precio: 2.00, stock: 50, unidad: '500ml' },
+
+      // Helados
+      { codigo: 'EFE-001', nombre: 'Helado EFE (1 litro)', categoria: 'Helados', precio: 6.00, stock: 15, unidad: '1L' },
+      { codigo: 'MIG-001', nombre: 'Yogur MiGurt (1 litro)', categoria: 'Lácteos', precio: 4.50, stock: 20, unidad: '1L' }
+    ];
+
+    // ============================================================
+    //  FRANQUICIAS
+    // ============================================================
+    const franquicias = [
+      {
+        id: 'polar-franquicia-1',
+        nombre: 'Polar Franquicia 1',
+        direccion: 'Av. Principal, Local 1, Caracas',
+        telefono: '0212-555-0011',
+        usuarios: [
+          { email: 'admin1@polar1.com', password: 'Polar2026!', nombre: 'Admin Polar 1', rol: 'admin' },
+          { email: 'vendedor1@polar1.com', password: 'Polar2026!', nombre: 'Vendedor Polar 1A', rol: 'vendedor' },
+          { email: 'vendedor2@polar1.com', password: 'Polar2026!', nombre: 'Vendedor Polar 1B', rol: 'vendedor' }
+        ]
+      },
+      {
+        id: 'polar-franquicia-2',
+        nombre: 'Polar Franquicia 2',
+        direccion: 'Calle Comercial, Local 2, Valencia',
+        telefono: '0241-555-0022',
+        usuarios: [
+          { email: 'admin2@polar2.com', password: 'Polar2026!', nombre: 'Admin Polar 2', rol: 'admin' },
+          { email: 'vendedor3@polar2.com', password: 'Polar2026!', nombre: 'Vendedor Polar 2A', rol: 'vendedor' },
+          { email: 'vendedor4@polar2.com', password: 'Polar2026!', nombre: 'Vendedor Polar 2B', rol: 'vendedor' }
+        ]
+      }
+    ];
+
+    // ============================================================
+    //  FUNCIONES
+    // ============================================================
+    async function crearTodo() {
+      const resultados = document.getElementById('resultados');
+      resultados.innerHTML = '⏳ Creando franquicias...<br>';
+
+      for (const franquicia of franquicias) {
+        resultados.innerHTML += `<br><strong>🏢 ${franquicia.nombre}</strong><br>`;
+
+        // 1. Crear documento de la franquicia
+        await db.collection('empresas').doc(franquicia.id).set({
+          nombre: franquicia.nombre,
+          direccion: franquicia.direccion,
+          telefono: franquicia.telefono,
+          tipo: 'franquicia-polar',
+          fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        resultados.innerHTML += `✅ Franquicia creada<br>`;
+
+        // 2. Crear usuarios
+        for (const usuario of franquicia.usuarios) {
+          try {
+            const userCredential = await auth.createUserWithEmailAndPassword(
+              usuario.email,
+              usuario.password
+            );
+
+            await db.collection('empresas').doc(franquicia.id)
+              .collection('usuarios').doc(usuario.email).set({
+                nombre: usuario.nombre,
+                email: usuario.email,
+                rol: usuario.rol,
+                empresaId: franquicia.id,
+                uid: userCredential.user.uid,
+                creado: firebase.firestore.FieldValue.serverTimestamp()
+              });
+
+            resultados.innerHTML += `✅ Usuario: ${usuario.email} (${usuario.rol})<br>`;
+          } catch (error) {
+            resultados.innerHTML += `❌ Error con ${usuario.email}: ${error.message}<br>`;
+          }
+        }
+
+        // 3. Cargar inventario
+        for (const producto of inventarioPolar) {
+          await db.collection('empresas').doc(franquicia.id)
+            .collection('inventario').add({
+              ...producto,
+              fechaIngreso: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        resultados.innerHTML += `✅ Inventario cargado (${inventarioPolar.length} productos)<br>`;
+
+        // 4. Cargar clientes de prueba
+        const clientesPrueba = [
+          { nombre: 'Supermercado El Abasto', email: 'abasto@test.com', telefono: '0212-555-1000' },
+          { nombre: 'Distribuidora La Economía', email: 'economia@test.com', telefono: '0212-555-1001' },
+          { nombre: 'Licorería El Buen Gusto', email: 'buengusto@test.com', telefono: '0212-555-1002' }
+        ];
+
+        for (const cliente of clientesPrueba) {
+          await db.collection('empresas').doc(franquicia.id)
+            .collection('clientes').add(cliente);
+        }
+        resultados.innerHTML += `✅ Clientes de prueba cargados (3)<br>`;
+      }
+
+      resultados.innerHTML += `<br>🎉 ¡Franquicias creadas exitosamente!`;
+      resultados.innerHTML += `<br><br><strong>📋 Resumen de acceso:</strong><br>`;
+      for (const franquicia of franquicias) {
+        resultados.innerHTML += `<br><strong>${franquicia.nombre}</strong><br>`;
+        for (const usuario of franquicia.usuarios) {
+          resultados.innerHTML += `  - ${usuario.email} / ${usuario.password}<br>`;
+        }
+      }
+    }
+  </script>
+</body>
+</html>

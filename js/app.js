@@ -1464,6 +1464,18 @@ function eliminarVentaConfig(id) {
 }
 
 // ============================================================
+//  EVENTOS PARA PESTAÑAS DE CONFIGURACIÓN
+// ============================================================
+
+// Eventos para las pestañas de configuración (se delega porque el contenido se carga dinámicamente)
+document.addEventListener('click', function(e) {
+    const tab = e.target.closest('.config-tab');
+    if (tab && tab.dataset.tab) {
+        cambiarTabConfiguracion(tab.dataset.tab);
+    }
+});
+
+// ============================================================
 //  🔥 FORZAR FUNCIONES GLOBALES
 // ============================================================
 

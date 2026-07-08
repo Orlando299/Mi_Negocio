@@ -657,6 +657,12 @@ function mostrarPanelCliente() {
     // 🔥 Actualizar avatar
     actualizarAvatar(nombre);
     
+    // 🔥 ACTUALIZAR MENSAJE DE BIENVENIDA (¡AQUÍ VA!)
+    const bienvenidaEl = document.getElementById('mensaje-bienvenida');
+    if (bienvenidaEl && nombre) {
+        bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
+    }
+    
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
         const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();

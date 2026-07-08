@@ -425,7 +425,8 @@ function connectWebSocket() {
   }
 
   // Conectar WebSocket
-  setTimeout(connectWebSocket, 1000);
+  // setTimeout(connectWebSocket, 1000); // Desactivado para GitHub
+connectWebSocket(); // Usar la versión light
   
   console.log('🤖 Sistema de comandos listo (modo mixto)');
 });

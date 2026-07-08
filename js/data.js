@@ -39,6 +39,7 @@ class DataStore {
       return false;
     }
   }
+  
 
   // ── CRUD VENTAS ──
   async addVenta(venta) {

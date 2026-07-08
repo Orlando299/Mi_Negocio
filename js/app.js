@@ -460,7 +460,7 @@ function confirmAction() {
 }
 
 // ============================================================
-//  LOGIN MULTI-TENANT
+//  LOGIN MULTI-TENANT (VERSIÓN ÚNICA Y CORRECTA)
 // ============================================================
 
 async function loginCliente() {
@@ -516,10 +516,6 @@ async function loginCliente() {
     }
 }
 
-// ============================================================
-//  FUNCIONES MULTI-TENANT
-// ============================================================
-
 async function cargarDatosEmpresa(empresaId) {
     console.log('📦 Cargando datos para empresa:', empresaId);
     
@@ -571,25 +567,17 @@ async function cargarDatosEmpresa(empresaId) {
         localStorage.setItem('empresaClientes', JSON.stringify(clientes));
         localStorage.setItem('empresaVentas', JSON.stringify(ventas));
         
-        // ============================================================
-        // 🔥 RENDERIZAR DATOS INMEDIATAMENTE
-        // ============================================================
         actualizarUIEmpresa(inventario, clientes, ventas);
         
-        // Renderizar listas
-        if (typeof renderInv === 'function') renderInv('', filtroInv);
-        if (typeof renderClients === 'function') renderClients('', filtroCli);
-        if (typeof renderVentas === 'function') renderVentas('', filtroVentas);
-        if (typeof renderActividadReciente === 'function') renderActividadReciente();
-        if (typeof updateKPIs === 'function') updateKPIs();
+        renderInv('', filtroInv);
+        renderClients('', filtroCli);
+        renderVentas('', filtroVentas);
+        renderActividadReciente();
+        updateKPIs();
         
-        // Si estamos en la pantalla de cliente, renderizar catálogo e historial
         if (currentScreen === 'cliente') {
-            if (typeof renderCatalogo === 'function') {
-                renderCatalogo();
-                console.log('🔄 Catálogo renderizado desde cargarDatosEmpresa');
-            }
-            if (typeof renderHistorial === 'function') renderHistorial();
+            renderCatalogo();
+            renderHistorial();
         }
         
         showToast(`✅ Datos de ${empresaId.replace(/-/g, ' ').toUpperCase()} cargados`);
@@ -611,49 +599,29 @@ function actualizarUIEmpresa(inventario, clientes, ventas) {
     }
 }
 
-function mostrarPanelCliente() {
-    const loginDiv = document.getElementById('cliente-login');
-    const panelDiv = document.getElementById('cliente-panel');
-    const nombreSpan = document.getElementById('cliente-nombre');
+// ============================================================
+//  🔥 AVATAR DINÁMICO (NUEVO)
+// ============================================================
+
+function actualizarAvatar(nombre) {
+    const avatarEl = document.getElementById('avatar-iniciales');
+    if (!avatarEl) return;
     
-    if (loginDiv) loginDiv.style.display = 'none';
-    if (panelDiv) panelDiv.style.display = 'block';
-    if (nombreSpan) {
-        const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
-        nombreSpan.textContent = nombre;
-    }
-    
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-        const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
-        const logo = document.querySelector('.nav-logo span');
-        if (logo) {
-            logo.textContent = ' ' + nombreEmpresa;
-        }
-    }
-    
-    // 🔥 RENDERIZAR CATÁLOGO SI LOS DATOS YA ESTÁN CARGADOS
-    if (window.inventario && window.inventario.length > 0) {
-        console.log('📦 Datos ya cargados, renderizando catálogo...');
-        renderCatalogo();
-        renderHistorial();
+    if (nombre) {
+        const iniciales = nombre
+            .split(' ')
+            .filter(palabra => palabra.length > 0)
+            .map(palabra => palabra.charAt(0).toUpperCase())
+            .join('')
+            .slice(0, 2);
+        avatarEl.textContent = iniciales || '??';
     } else {
-        console.log('⏳ Esperando que los datos se carguen...');
-        // Si no hay datos, intentar recargar después de 1 segundo
-        setTimeout(() => {
-            if (window.inventario && window.inventario.length > 0) {
-                renderCatalogo();
-                renderHistorial();
-            } else {
-                console.warn('⚠️ Datos no disponibles, intentando recargar...');
-                recargarCatalogo();
-            }
-        }, 1000);
+        avatarEl.textContent = 'OR';
     }
 }
 
 // ============================================================
-//  TOGGLE CLIENTE
+//  TOGGLE CLIENTE - VERSIÓN CORRECTA (CON goScreen)
 // ============================================================
 
 function toggleCliente() {
@@ -673,6 +641,39 @@ function toggleCliente() {
     }
 }
 
+function mostrarPanelCliente() {
+    const loginDiv = document.getElementById('cliente-login');
+    const panelDiv = document.getElementById('cliente-panel');
+    const nombreSpan = document.getElementById('cliente-nombre');
+    
+    if (loginDiv) loginDiv.style.display = 'none';
+    if (panelDiv) panelDiv.style.display = 'block';
+    
+    const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
+    if (nombreSpan) {
+        nombreSpan.textContent = nombre;
+    }
+    
+    // 🔥 Actualizar avatar
+    actualizarAvatar(nombre);
+    
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+        const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
+        const logo = document.querySelector('.nav-logo span');
+        if (logo) {
+            logo.textContent = ' ' + nombreEmpresa;
+        }
+    }
+    
+    // Forzar renderizado de catálogo e historial
+    setTimeout(() => {
+        renderCatalogo();
+        renderHistorial();
+        actualizarCarritoCount();
+    }, 500);
+}
+
 function cerrarSesionCliente() {
     firebase.auth().signOut();
     sessionStorage.clear();
@@ -686,9 +687,14 @@ function cerrarSesionCliente() {
     if (loginDiv) loginDiv.style.display = 'block';
     if (panelDiv) panelDiv.style.display = 'none';
     
+    // Restaurar logo y avatar
     const logo = document.querySelector('.nav-logo span');
     if (logo) {
         logo.textContent = 'Negocio';
+    }
+    const avatarEl = document.getElementById('avatar-iniciales');
+    if (avatarEl) {
+        avatarEl.textContent = 'OR';
     }
     
     showToast('👋 Sesión cerrada');
@@ -756,8 +762,6 @@ function renderCatalogo() {
         return;
     }
     
-    // Usar la variable global 'inventario' que ya tiene los datos
-    // Si no existe, usar window.inventario
     const productos = window.inventario || [];
     console.log('📦 Renderizando catálogo con', productos.length, 'productos');
     
@@ -772,212 +776,210 @@ function renderCatalogo() {
         return;
     }
     
-    container.innerHTML = productos.map(p => `
-        <div class="inv-card" style="cursor:default;">
-            <div class="inv-img">${p.icon || '📦'}</div>
-            <div class="inv-info">
-                <div class="inv-name">${p.nombre || 'Producto'}</div>
-                <div class="inv-cat">${p.cat || 'General'}</div>
-                <div class="inv-stock ${p.estado || 'ok'}">${p.estado === 'out' ? 'Agotado' : (p.stock || 0) + ' unidades'}</div>
+    container.innerHTML = productos.map(p => {
+        const icon = p.icon || '📦';
+        const nombre = p.nombre || 'Producto sin nombre';
+        const cat = p.cat || 'General';
+        const estado = p.estado || 'ok';
+        const stock = p.stock || 0;
+        const precio = p.precio || '$0.00';
+        const nombreEscapado = nombre.replace(/'/g, "\\'");
+        
+        return `
+            <div class="inv-card" style="cursor:default;">
+                <div class="inv-img">${icon}</div>
+                <div class="inv-info">
+                    <div class="inv-name">${nombre}</div>
+                    <div class="inv-cat">${cat}</div>
+                    <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
+                </div>
+                <div class="inv-right">
+                    <div class="inv-price">${precio}</div>
+                    ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombreEscapado}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+                </div>
             </div>
-            <div class="inv-right">
-                <div class="inv-price">${p.precio || '$0.00'}</div>
-                ${p.estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${p.nombre}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     console.log('✅ Catálogo renderizado correctamente');
 }
 
 async function recargarCatalogo() {
-    showToast('🔄 Recargando productos...');
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-        await cargarDatosEmpresa(empresaId);
-    } else {
-        await store.cargarDatos();
-        syncGlobals();
-        renderCatalogo();
-    }
-    showToast('✅ Productos cargados');
+  showToast('🔄 Recargando productos...');
+  await store.cargarDatos();
+  syncGlobals();
+  renderCatalogo();
+  showToast('✅ Productos cargados');
 }
 
 function agregarAlCarrito(nombre) {
-    const producto = window.inventario.find(p => p.nombre === nombre);
-    if (!producto || producto.estado === 'out') {
-        showToast('⚠️ Producto no disponible');
-        return;
-    }
-    const item = carrito.find(c => c.nombre === nombre);
-    if (item) {
-        item.cantidad++;
-    } else {
-        carrito.push({ nombre: nombre, cantidad: 1, precio: parseFloat(producto.precio.replace('$', '')) });
-    }
-    guardarCarrito();
-    actualizarCarritoCount();
-    showToast(`➕ ${nombre} agregado al carrito`);
+  const producto = inventario.find(p => p.nombre === nombre);
+  if (!producto || producto.estado === 'out') return showToast('⚠️ Producto no disponible');
+  const item = carrito.find(c => c.nombre === nombre);
+  if (item) {
+    item.cantidad++;
+  } else {
+    carrito.push({ nombre: nombre, cantidad: 1, precio: parseFloat(producto.precio.replace('$', '')) });
+  }
+  guardarCarrito();
+  actualizarCarritoCount();
+  showToast(`➕ ${nombre} agregado al carrito`);
 }
 
 function actualizarCarritoCount() {
-    const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-    const countEl = document.getElementById('carrito-count');
-    if (countEl) countEl.textContent = total;
+  const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  document.getElementById('carrito-count').textContent = total;
 }
 
 function verCarrito() {
-    if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
-    const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-    let html = `
-        <div style="margin-bottom:12px;">
-            <h3>🛒 Tu pedido</h3>
-            ${carrito.map(item => `
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
-                    <span>${item.nombre} x ${item.cantidad}</span>
-                    <span>$${(item.cantidad * item.precio).toFixed(2)}</span>
-                </div>
-            `).join('')}
-            <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
-                <span>Total</span>
-                <span>$${total.toFixed(2)}</span>
-            </div>
-            <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
-            <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  let html = `
+    <div style="margin-bottom:12px;">
+      <h3>🛒 Tu pedido</h3>
+      ${carrito.map(item => `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+          <span>${item.nombre} x ${item.cantidad}</span>
+          <span>$${(item.cantidad * item.precio).toFixed(2)}</span>
         </div>
-    `;
-    openModalWithContent('Carrito', html);
+      `).join('')}
+      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
+        <span>Total</span>
+        <span>$${total.toFixed(2)}</span>
+      </div>
+      <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
+      <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+    </div>
+  `;
+  openModalWithContent('Carrito', html);
 }
 
 function vaciarCarrito() {
-    carrito = [];
-    guardarCarrito();
-    actualizarCarritoCount();
-    closeModal();
-    showToast('🗑️ Carrito vacío');
+  carrito = [];
+  guardarCarrito();
+  actualizarCarritoCount();
+  closeModal();
+  showToast('🗑️ Carrito vacío');
 }
 
 async function realizarPedido() {
-    if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
-    if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
-    const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-    const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
 
-    const pedido = {
-        cliente: sessionStorage.getItem('userName') || 'Cliente',
-        fecha: new Date().toLocaleString(),
-        items: items,
-        total: '$' + total.toFixed(2),
-        status: 'pendiente',
-        metodo: 'Cliente app',
-        notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
-        producto: 'Pedido desde app cliente'
-    };
+  const pedido = {
+    cliente: sessionStorage.getItem('userName') || 'Cliente',
+    fecha: new Date().toLocaleString(),
+    items: items,
+    total: '$' + total.toFixed(2),
+    status: 'pendiente',
+    metodo: 'Cliente app',
+    notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
+    producto: 'Pedido desde app cliente'
+  };
 
-    await store.addVenta(pedido);
-    syncGlobals();
-    carrito = [];
-    guardarCarrito();
-    actualizarCarritoCount();
-    closeModal();
-    renderHistorial();
-    renderActividadReciente();
-    updateKPIs();
-    showToast('✅ Pedido realizado con éxito, espera confirmación');
+  await store.addVenta(pedido);
+  syncGlobals();
+  carrito = [];
+  guardarCarrito();
+  actualizarCarritoCount();
+  closeModal();
+  renderHistorial();
+  renderActividadReciente();
+  updateKPIs();
+  showToast('✅ Pedido realizado con éxito, espera confirmación');
 }
 
 function renderHistorial() {
-    const container = document.getElementById('historial-pedidos');
-    if (!container) return;
-    const nombreCliente = sessionStorage.getItem('userName');
-    if (!nombreCliente) {
-        container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
-        return;
-    }
-    const misPedidos = window.ventas.filter(v => v.cliente === nombreCliente);
-    if (!misPedidos.length) {
-        container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
-        return;
-    }
-    container.innerHTML = misPedidos.map(v => `
-        <div class="sale-card" style="cursor:default;">
-            <div class="sale-header">
-                <span class="sale-id">${v.id}</span>
-                <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                <span>${v.fecha}</span>
-                <span class="sale-total">${v.total}</span>
-            </div>
-            <div style="font-size:12px; color:var(--text3);">${v.notas || 'Sin detalles'}</div>
-        </div>
-    `).join('');
+  const container = document.getElementById('historial-pedidos');
+  const nombreCliente = sessionStorage.getItem('userName');
+  if (!nombreCliente) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
+    return;
+  }
+  const misPedidos = ventas.filter(v => v.cliente === nombreCliente);
+  if (!misPedidos.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
+    return;
+  }
+  container.innerHTML = misPedidos.map(v => `
+    <div class="sale-card" style="cursor:default;">
+      <div class="sale-header">
+        <span class="sale-id">${v.id}</span>
+        <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <span>${v.fecha}</span>
+        <span class="sale-total">${v.total}</span>
+      </div>
+      <div style="font-size:12px; color:var(--text3);">${v.notas || 'Sin detalles'}</div>
+    </div>
+  `).join('');
 }
 
 // ── RENDER ACTIVIDAD RECIENTE ──
 function renderActividadReciente() {
-    const container = document.getElementById('actividad-list');
-    if (!container) return;
-    const ultimas = (window.ventas || []).slice(0, 5);
-    if (!ultimas.length) {
-        container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
-        return;
-    }
-    container.innerHTML = ultimas.map(v => `
-        <div class="activity-item">
-            <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
-            <div class="act-info">
-                <div class="act-name">${v.cliente}</div>
-                <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
-            </div>
-            <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
-        </div>
-    `).join('');
+  const container = document.getElementById('actividad-list');
+  if (!container) return;
+  const ultimas = ventas.slice(0, 5);
+  if (!ultimas.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
+    return;
+  }
+  container.innerHTML = ultimas.map(v => `
+    <div class="activity-item">
+      <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
+      <div class="act-info">
+        <div class="act-name">${v.cliente}</div>
+        <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
+      </div>
+      <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
+    </div>
+  `).join('');
 }
 
 // ── INICIALIZACIÓN ──
 
 document.addEventListener('DOMContentLoaded', () => {
-    const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const hoy = new Date();
-    const fechaEl = document.getElementById('fecha-hoy');
-    if (fechaEl) {
-        fechaEl.textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
-    }
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const hoy = new Date();
+  const fechaEl = document.getElementById('fecha-hoy');
+  if (fechaEl) {
+    fechaEl.textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
+  }
 
-    loadTheme();
+  loadTheme();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const temaParam = urlParams.get('tema');
-    if (temaParam && window.TEMAS && TEMAS[temaParam]) {
-        aplicarTema(temaParam);
-        localStorage.setItem('temaSeleccionado', temaParam);
-    } else {
-        cargarTemaGuardado();
-    }
+  const urlParams = new URLSearchParams(window.location.search);
+  const temaParam = urlParams.get('tema');
+  if (temaParam && window.TEMAS && TEMAS[temaParam]) {
+    aplicarTema(temaParam);
+    localStorage.setItem('temaSeleccionado', temaParam);
+  } else {
+    cargarTemaGuardado();
+  }
 
-    cargarCarrito();
-    initStore();
+  cargarCarrito();
+  initStore();
 
-    console.log('🚀 App inicializada con Firebase');
+  console.log('🚀 App inicializada con Firebase');
 });
 
 // Escuchar mensajes desde el portafolio para cambiar tema sin recargar (postMessage)
 window.addEventListener('message', function(event) {
-    try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'cambiarTema' && data.tema) {
-            if (window.TEMAS && TEMAS[data.tema]) {
-                aplicarTema(data.tema);
-                localStorage.setItem('temaSeleccionado', data.tema);
-                console.log('🎨 Tema cambiado a:', data.tema);
-                event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
-            }
-        }
-    } catch (e) {
-        // Ignorar mensajes no válidos
+  try {
+    const data = JSON.parse(event.data);
+    if (data.type === 'cambiarTema' && data.tema) {
+      if (window.TEMAS && TEMAS[data.tema]) {
+        aplicarTema(data.tema);
+        localStorage.setItem('temaSeleccionado', data.tema);
+        console.log('🎨 Tema cambiado a:', data.tema);
+        event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
+      }
     }
+  } catch (e) {}
 });
 
 // ============================================================
@@ -992,7 +994,6 @@ window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.goScreen = goScreen;
 window.verCarrito = verCarrito;
-window.renderCatalogo = renderCatalogo;
-window.recargarCatalogo = recargarCatalogo;
+window.actualizarAvatar = actualizarAvatar;
 
 console.log('✅ app.js cargado correctamente - Funciones globales expuestas');

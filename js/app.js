@@ -1,7 +1,6 @@
 // ── NAVEGACIÓN Y LÓGICA PRINCIPAL ──
 
-let currentScreen = 'dashboard';
-const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente'];
+let currentScreen = 'dashboard';const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion'];
 
 // Filtros activos por módulo
 let filtroVentas = 'todas';

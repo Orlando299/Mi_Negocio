@@ -124,50 +124,157 @@
   <div id="client-list"></div>
 </div>
 
-  <!-- SCREEN: CONFIGURACIÓN -->
-<div class="screen" id="screen-configuracion" style="padding-top:20px;">
-  <h2 style="text-align:center; margin-bottom:20px;">⚙️ Configuración de Datos</h2>
-  
-  <div class="card" style="margin-bottom:16px; padding:16px;">
-    <h3>📊 Resumen de datos</h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px;">
-      <div style="text-align:center; background:var(--bg-secondary); padding:12px; border-radius:8px;">
-        <div style="font-size:24px; font-weight:700;" id="resumen-productos">0</div>
-        <div style="font-size:12px; color:var(--text-secondary);">Productos</div>
+  <!-- SCREEN: CONFIGURACIÓN (GESTIÓN DE DATOS) -->
+<div class="screen" id="screen-configuracion">
+  <div class="config-container">
+    <!-- Encabezado -->
+    <div class="config-header">
+      <div>
+        <h2>⚙️ Gestión de Datos</h2>
+        <p class="config-sub">Administra tu inventario, clientes y ventas de forma sencilla.</p>
       </div>
-      <div style="text-align:center; background:var(--bg-secondary); padding:12px; border-radius:8px;">
-        <div style="font-size:24px; font-weight:700;" id="resumen-clientes">0</div>
-        <div style="font-size:12px; color:var(--text-secondary);">Clientes</div>
-      </div>
-      <div style="text-align:center; background:var(--bg-secondary); padding:12px; border-radius:8px;">
-        <div style="font-size:24px; font-weight:700;" id="resumen-ventas">0</div>
-        <div style="font-size:12px; color:var(--text-secondary);">Ventas</div>
+      <div class="config-user">
+        <span class="config-empresa" id="config-empresa-nombre">MI EMPRESA</span>
+        <span class="config-usuario" id="config-usuario-nombre">👤 Usuario</span>
       </div>
     </div>
-  </div>
 
-  <div class="card" style="padding:16px;">
-    <h3>📤 Exportar datos</h3>
-    <p style="font-size:14px; color:var(--text-secondary); margin-bottom:12px;">
-      Descarga un archivo JSON con todos los datos de tu franquicia (inventario, clientes y ventas).
-    </p>
-    <button class="btn btn-primary" onclick="exportarDatosJSON()" style="width:100%;">📥 Exportar a JSON</button>
-  </div>
+    <!-- Pestañas -->
+    <div class="config-tabs">
+      <button class="config-tab active" data-tab="resumen">📊 Resumen</button>
+      <button class="config-tab" data-tab="productos">📦 Productos</button>
+      <button class="config-tab" data-tab="clientes">👥 Clientes</button>
+      <button class="config-tab" data-tab="ventas">🛒 Ventas</button>
+      <button class="config-tab" data-tab="json">📁 JSON</button>
+    </div>
 
-  <div class="card" style="padding:16px; margin-top:12px;">
-    <h3>📥 Importar datos</h3>
-    <p style="font-size:14px; color:var(--text-secondary); margin-bottom:12px;">
-      Carga un archivo JSON para restaurar o actualizar los datos de tu franquicia.
-      <br><strong>⚠️ Advertencia:</strong> Esta acción reemplazará TODOS los datos actuales.
-    </p>
-    <input type="file" id="file-input-json" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
-    <button class="btn btn-outline" onclick="document.getElementById('file-input-json').click()" style="width:100%;">📂 Seleccionar archivo JSON</button>
-    <div id="mensaje-configuracion" style="margin-top:10px; font-size:14px;"></div>
-  </div>
+    <!-- PANEL: RESUMEN -->
+    <div class="config-panel active" id="panel-resumen">
+      <div class="config-cards">
+        <div class="config-card">
+          <div class="config-card-icon">📦</div>
+          <div class="config-card-number" id="resumen-productos">0</div>
+          <div class="config-card-label">Productos</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">👥</div>
+          <div class="config-card-number" id="resumen-clientes">0</div>
+          <div class="config-card-label">Clientes</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">🛒</div>
+          <div class="config-card-number" id="resumen-ventas">0</div>
+          <div class="config-card-label">Ventas</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">💰</div>
+          <div class="config-card-number" id="resumen-total-ventas">$0.00</div>
+          <div class="config-card-label">Total en ventas</div>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar todo a JSON</button>
+        <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config').click()">📂 Importar desde JSON</button>
+        <input type="file" id="file-input-json-config" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
+      </div>
+    </div>
 
-  <button class="btn btn-outline" onclick="goScreen('cliente')" style="width:100%; margin-top:16px;">⬅️ Volver al panel</button>
+    <!-- PANEL: PRODUCTOS -->
+    <div class="config-panel" id="panel-productos">
+      <div class="config-toolbar">
+        <h3>📦 Inventario</h3>
+        <button class="btn btn-primary" onclick="abrirModalProducto()">+ Agregar producto</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-productos">
+            <tr><td colspan="6" class="config-empty">Cargando productos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANEL: CLIENTES -->
+    <div class="config-panel" id="panel-clientes">
+      <div class="config-toolbar">
+        <h3>👥 Clientes</h3>
+        <button class="btn btn-primary" onclick="abrirModalCliente()">+ Agregar cliente</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-clientes">
+            <tr><td colspan="4" class="config-empty">Cargando clientes...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANEL: VENTAS -->
+    <div class="config-panel" id="panel-ventas">
+      <div class="config-toolbar">
+        <h3>🛒 Ventas</h3>
+        <button class="btn btn-primary" onclick="abrirModalVenta()">+ Agregar venta</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Producto</th>
+              <th>Monto</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-ventas">
+            <tr><td colspan="6" class="config-empty">Cargando ventas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANEL: JSON -->
+    <div class="config-panel" id="panel-json">
+      <div class="config-json-section">
+        <h3>📁 Exportar / Importar datos</h3>
+        <p class="config-hint">
+          Exporta todos tus datos (productos, clientes y ventas) a un archivo JSON para respaldo o para enviar a tu administrador.
+          También puedes importar un archivo JSON para restaurar o actualizar tu información.
+        </p>
+        <div class="config-json-buttons">
+          <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar JSON</button>
+          <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config-2').click()">📂 Importar JSON</button>
+          <input type="file" id="file-input-json-config-2" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
+        </div>
+        <div id="mensaje-json" style="margin-top:12px; font-size:14px;"></div>
+      </div>
+    </div>
+
+    <!-- Botón volver -->
+    <div style="margin-top:20px; text-align:center;">
+      <button class="btn btn-outline" onclick="goScreen('cliente')">⬅️ Volver al panel</button>
+    </div>
+  </div>
 </div>
-
 <!-- SCREEN: REPORTES -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">

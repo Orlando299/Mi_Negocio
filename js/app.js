@@ -27,8 +27,15 @@ function goScreen(name) {
   if (name === 'inventario') renderInv('', filtroInv);
   if (name === 'clientes') renderClients('', filtroCli);
   
-  // 🔥 NUEVO: actualiza el resumen cuando se carga la pantalla de configuración
-  if (name === 'configuracion') actualizarResumenConfiguracion();
+  if (name === 'configuracion') {
+    actualizarResumenConfiguracion();
+    // También renderizar las tablas para que estén listas
+    setTimeout(() => {
+        renderizarTablaProductos();
+        renderizarTablaClientes();
+        renderizarTablaVentas();
+    }, 300);
+}
 
   if (name === 'cliente') {
     if (sessionStorage.getItem('empresaId')) {

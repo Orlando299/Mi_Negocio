@@ -469,7 +469,7 @@ function confirmAction() {
 }
 
 // ============================================================
-//  LOGIN MULTI-TENANT (CON LOGS DE DEPURACIÓN)
+//  LOGIN MULTI-TENANT (SIN cargarDatosEmpresa)
 // ============================================================
 
 async function loginCliente() {
@@ -513,9 +513,8 @@ async function loginCliente() {
         sessionStorage.setItem('userName', usuarioData.nombre || email);
         sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
 
-        console.log('🔄 Llamando a cargarDatosEmpresa con empresaId:', empresaId);
-        await cargarDatosEmpresa(empresaId);
-        console.log('✅ cargarDatosEmpresa finalizado');
+        // 🔥 NOTA: cargarDatosEmpresa ya no se llama aquí
+        // data.js se encarga de cargar los datos automáticamente
 
         mostrarPanelCliente();
 
@@ -530,97 +529,6 @@ async function loginCliente() {
         } else {
             showToast('❌ Error: ' + error.message);
         }
-    }
-}
-
-// ============================================================
-//  CARGAR DATOS DE EMPRESA (VERSIÓN DEFINITIVA)
-// ============================================================
-
-async function cargarDatosEmpresa(empresaId) {
-    console.log('📦 INICIANDO cargarDatosEmpresa para:', empresaId);
-    
-    try {
-        console.log('📦 Consultando inventario...');
-        const inventarioSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('inventario')
-            .get();
-        
-        const inventarioCargado = [];
-        inventarioSnapshot.forEach(doc => {
-            inventarioCargado.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('📦 Inventario cargado:', inventarioCargado.length, 'productos');
-        
-        console.log('👥 Consultando clientes...');
-        const clientesSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('clientes')
-            .get();
-        
-        const clientesCargados = [];
-        clientesSnapshot.forEach(doc => {
-            clientesCargados.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('👥 Clientes cargados:', clientesCargados.length);
-        
-        console.log('🛒 Consultando ventas...');
-        const ventasSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('ventas')
-            .get();
-        
-        const ventasCargadas = [];
-        ventasSnapshot.forEach(doc => {
-            ventasCargadas.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('🛒 Ventas cargadas:', ventasCargadas.length);
-        
-        // ============================================================
-        //  🔥 ACTUALIZAR VARIABLES GLOBALES ORIGINALES
-        // ============================================================
-        // Estas variables YA EXISTEN globalmente (declaradas en data.js)
-        // No las redeclares, solo asígnales valores.
-        inventario = inventarioCargado;
-        clientes = clientesCargados;
-        ventas = ventasCargadas;
-        
-        // Sincronizar con data.js para que store se entere
-        if (typeof syncGlobals === 'function') {
-            syncGlobals();
-            console.log('✅ syncGlobals() ejecutado');
-        }
-        
-        console.log('✅ Variables globales actualizadas');
-        console.log('📦 Inventario global:', inventario.length);
-        console.log('👥 Clientes global:', clientes.length);
-        console.log('🛒 Ventas global:', ventas.length);
-        
-        // Actualizar la UI
-        actualizarUIEmpresa(inventario, clientes, ventas);
-        
-        // Renderizar listas (usando las funciones que ya existen)
-        renderInv('', filtroInv);
-        renderClients('', filtroCli);
-        renderVentas('', filtroVentas);
-        renderActividadReciente();
-        updateKPIs();
-        
-        // Si estamos en la pantalla de cliente, renderizar catálogo e historial
-        if (currentScreen === 'cliente') {
-            renderCatalogo();
-            renderHistorial();
-        }
-        
-        showToast(`✅ Datos de ${empresaId.replace(/-/g, ' ').toUpperCase()} cargados`);
-        
-    } catch (error) {
-        console.error('❌ Error cargando datos:', error);
-        showToast('⚠️ Error cargando datos de la empresa');
     }
 }
 
@@ -978,7 +886,5 @@ window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.goScreen = goScreen;
 window.verCarrito = verCarrito;
-window.cargarDatosEmpresa = cargarDatosEmpresa;
-window.mostrarPanelCliente = mostrarPanelCliente;
 
 console.log('✅ app.js cargado correctamente - Funciones globales expuestas');

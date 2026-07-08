@@ -978,5 +978,7 @@ window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.goScreen = goScreen;
 window.verCarrito = verCarrito;
+window.cargarDatosEmpresa = cargarDatosEmpresa;
+window.mostrarPanelCliente = mostrarPanelCliente;
 
 console.log('✅ app.js cargado correctamente - Funciones globales expuestas');

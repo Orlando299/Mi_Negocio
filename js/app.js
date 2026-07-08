@@ -607,20 +607,21 @@ function mostrarPanelCliente() {
 }
 
 function toggleCliente() {
-    if (sessionStorage.getItem('empresaId')) {
-        const loginDiv = document.getElementById('cliente-login');
-        const panelDiv = document.getElementById('cliente-panel');
-        const nombreSpan = document.getElementById('cliente-nombre');
-        
-        if (loginDiv) loginDiv.style.display = 'none';
-        if (panelDiv) panelDiv.style.display = 'block';
-        if (nombreSpan) nombreSpan.textContent = sessionStorage.getItem('userName');
+    // Función original que funcionaba
+    const current = document.querySelector('.screen.active');
+    if (current && current.id === 'screen-cliente') {
+        goScreen('dashboard');
     } else {
-        const loginDiv = document.getElementById('cliente-login');
-        const panelDiv = document.getElementById('cliente-panel');
-        
-        if (loginDiv) loginDiv.style.display = 'block';
-        if (panelDiv) panelDiv.style.display = 'none';
+        goScreen('cliente');
+        // Si el usuario está autenticado, mostrar el panel, si no, el login
+        if (sessionStorage.getItem('empresaId')) {
+            mostrarPanelCliente();
+        } else {
+            document.getElementById('cliente-login').style.display = 'block';
+            document.getElementById('cliente-panel').style.display = 'none';
+        }
+        cargarCarrito();
+        actualizarCarritoCount();
     }
 }
 

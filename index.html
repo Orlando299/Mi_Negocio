@@ -255,13 +255,14 @@
 <!-- PAGE AGENT - FLOATING CONTROL PANEL -->
 <div id="agent-panel" style="position:fixed; bottom:100px; right:20px; z-index:9999; background:var(--bg-primary, #1e1e2f); border-radius:16px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); max-width:300px; display:none; border:1px solid var(--border-color, #333);">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <span style="font-weight:600; font-size:14px;">🤖 Agente IA</span>
+    <span style="font-weight:600; font-size:14px;">🤖 Asistente IA</span>
     <button onclick="toggleAgentPanel()" style="background:none; border:none; color:var(--text-secondary, #aaa); cursor:pointer; font-size:18px;">✕</button>
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Navega a la pantalla de ventas')">📊 Ventas</button>
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Muéstrame el inventario')">📦 Inventario</button>
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('Abre el panel de clientes')">👥 Clientes</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a ventas')">📊 Ventas</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a inventario')">📦 Inventario</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a clientes')">👥 Clientes</button>
+    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ayuda')">❓ Ayuda</button>
   </div>
   <input type="text" id="agent-input" placeholder="Escribe un comando..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color, #444); background:var(--bg-secondary, #2a2a3a); color:var(--text-primary, #eee); font-size:13px;" onkeydown="if(event.key==='Enter') sendAgentCommand()">
   <button onclick="sendAgentCommand()" style="width:100%; margin-top:8px; padding:6px; border-radius:8px; border:none; background:var(--accent-color, #2c7be5); color:white; font-weight:600; cursor:pointer;">Enviar comando</button>
@@ -296,7 +297,7 @@
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
 <script>
-      // ============================================================
+  // ============================================================
   //  PAGE AGENT - Configuración
   // ============================================================
 
@@ -306,136 +307,175 @@
   let wsConnected = false;
 
   // ============================================================
-  //  WEBSOCKET - Conexión con el puente
+  //  WEBSOCKET - Versión Light (desactivado para GitHub Pages)
   // ============================================================
 
-function connectWebSocket() {
-  // Versión LIGHT para GitHub Pages - WebSocket desactivado
-  console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
-  console.log('✅ Los comandos manuales y botones funcionan correctamente');
-  
-  // Simular que estamos conectados para que el resto de la app funcione
-  wsConnected = true;
-  document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
-  
-  // No intentar conectar a localhost
-  return null;
-}
+  function connectWebSocket() {
+    console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
+    console.log('✅ Los comandos manuales y botones funcionan correctamente');
+    
+    wsConnected = true;
+    document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
+    
+    return null;
+  }
 
   // ============================================================
-  //  PAGE AGENT - Comandos (SIN LLM - usando selector directo)
+  //  PAGE AGENT - Comandos (con fallback a modo manual)
   // ============================================================
 
   async function executeAgentCommand(comando) {
-  console.log(`🎯 Ejecutando comando: "${comando}"`);
-  
-  if (agentReady && agent) {
-    try {
-      const result = await agent.execute(comando);
-      console.log('✅ Resultado del agente:', result);
-      
-      // Verificar si Page Agent falló
-      if (result && result.success === false) {
-        console.warn('⚠️ Page Agent falló, usando modo manual:', result.data);
-        const manualResult = executeManualCommand(comando);
-        console.log('📤 Resultado del modo manual:', manualResult);
-        return manualResult;
+    console.log(`🎯 Ejecutando comando: "${comando}"`);
+    
+    if (agentReady && agent) {
+      try {
+        const result = await agent.execute(comando);
+        console.log('✅ Resultado del agente:', result);
+        
+        if (result && result.success === false) {
+          console.warn('⚠️ Page Agent falló, usando modo manual:', result.data);
+          const manualResult = executeManualCommand(comando);
+          console.log('📤 Resultado del modo manual:', manualResult);
+          return manualResult;
+        }
+        
+        return result || '✅ Comando ejecutado correctamente';
+      } catch (error) {
+        console.warn('⚠️ Error con Page Agent, usando modo manual:', error.message);
+        return executeManualCommand(comando);
       }
-      
-      return result || '✅ Comando ejecutado correctamente';
-    } catch (error) {
-      console.warn('⚠️ Error con Page Agent, usando modo manual:', error.message);
+    } else {
+      console.log('ℹ️ Page Agent no disponible, usando modo manual');
       return executeManualCommand(comando);
     }
-  } else {
-    console.log('ℹ️ Page Agent no disponible, usando modo manual');
-    return executeManualCommand(comando);
   }
-}
+
   // ============================================================
-  //  COMANDOS MANUALES (Fallback)
+  //  COMANDOS MANUALES (ENRIQUECIDOS)
   // ============================================================
 
   function executeManualCommand(comando) {
-  const cmd = comando.toLowerCase();
-  console.log(`🔧 Ejecutando comando manual: "${cmd}"`);
-  
-  // Navegación
-  if (cmd.includes('ventas') || cmd.includes('venta')) {
-    goScreen('ventas');
-    return '✅ Navegando a la pantalla de ventas';
-  }
-  if (cmd.includes('inventario') || cmd.includes('producto')) {
-    goScreen('inventario');
-    return '✅ Navegando a la pantalla de inventario';
-  }
-  if (cmd.includes('cliente') || cmd.includes('clientes')) {
-    goScreen('clientes');
-    return '✅ Navegando a la pantalla de clientes';
-  }
-  if (cmd.includes('reporte') || cmd.includes('reportes')) {
-    goScreen('reportes');
-    return '✅ Navegando a la pantalla de reportes';
-  }
-  if (cmd.includes('inicio') || cmd.includes('dashboard')) {
-    goScreen('dashboard');
-    return '✅ Navegando al inicio';
-  }
-  
-  // Acciones específicas
-  if (cmd.includes('nueva venta') || cmd.includes('crear venta')) {
-    openModal();
-    return '✅ Abriendo formulario de nueva venta';
-  }
-  
-  if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) {
-    toggleTheme();
-    return '✅ Cambiando tema';
-  }
-  
-  // Respuesta por defecto
-  return `ℹ️ Comando "${comando}" recibido. No sé cómo ejecutarlo todavía.`;
-}
+    const cmd = comando.toLowerCase().trim();
+    console.log(`🔧 Ejecutando comando manual: "${cmd}"`);
 
-  // ============================================================
-  //  INICIALIZACIÓN
-  // ============================================================
-
-  document.addEventListener('DOMContentLoaded', function() {
-  // Intentar inicializar Page Agent
-  try {
-    console.log('🔍 Intentando inicializar Page Agent...');
+    // ============================================================
+    //  NAVEGACIÓN
+    // ============================================================
     
-    // Usar LM Studio a través del proxy
-    if (window.PageAgent) {
-      agent = new window.PageAgent({
-        model: 'gemma-4-e4b',              // Nombre de tu modelo en LM Studio
-        baseURL: 'http://localhost:1235/v1', // ← ¡PROXY! (puerto 1235)
-        language: 'es-ES'                  // Para comandos en español
-      });
-      agentReady = true;
-      console.log('🤖 Page Agent inicializado con LM Studio (gemma-4-e4b) a través del proxy');
-    } else {
-      console.warn('⚠️ Page Agent no disponible, usando modo manual');
-      agentReady = false;
+    // Ventas
+    if (cmd.includes('ventas') || cmd.includes('venta') || 
+        cmd.includes('pedidos') || cmd.includes('pedido') ||
+        cmd.includes('facturas') || cmd.includes('factura') ||
+        cmd.includes('mostrar ventas')) {
+      goScreen('ventas');
+      return '✅ Navegando a la pantalla de ventas';
     }
-  } catch (e) {
-    console.warn('⚠️ Error inicializando Page Agent:', e.message);
-    agentReady = false;
-  }
 
-  // Conectar WebSocket
-  // setTimeout(connectWebSocket, 1000); // Desactivado para GitHub
-connectWebSocket(); // Usar la versión light
-  
-  console.log('🤖 Sistema de comandos listo (modo mixto)');
-});
+    // Inventario
+    if (cmd.includes('inventario') || cmd.includes('productos') || 
+        cmd.includes('producto') || cmd.includes('stock') ||
+        cmd.includes('almacen') || cmd.includes('mercancia') ||
+        cmd.includes('mostrar inventario')) {
+      goScreen('inventario');
+      return '✅ Navegando a la pantalla de inventario';
+    }
+
+    // Clientes
+    if (cmd.includes('clientes') || cmd.includes('cliente') || 
+        cmd.includes('usuarios') || cmd.includes('usuario') ||
+        cmd.includes('contactos') || cmd.includes('contacto') ||
+        cmd.includes('mostrar clientes')) {
+      goScreen('clientes');
+      return '✅ Navegando a la pantalla de clientes';
+    }
+
+    // Reportes
+    if (cmd.includes('reportes') || cmd.includes('reporte') || 
+        cmd.includes('estadisticas') || cmd.includes('estadística') ||
+        cmd.includes('analisis') || cmd.includes('análisis') ||
+        cmd.includes('mostrar reportes')) {
+      goScreen('reportes');
+      return '✅ Navegando a la pantalla de reportes';
+    }
+
+    // Inicio / Dashboard
+    if (cmd.includes('inicio') || cmd.includes('dashboard') || 
+        cmd.includes('principal') || cmd.includes('home') ||
+        cmd.includes('resumen') || cmd.includes('panel') ||
+        cmd.includes('mostrar inicio')) {
+      goScreen('dashboard');
+      return '✅ Navegando al inicio';
+    }
+
+    // ============================================================
+    //  ACCIONES ESPECÍFICAS
+    // ============================================================
+
+    // Nueva venta
+    if (cmd.includes('nueva venta') || cmd.includes('crear venta') || 
+        cmd.includes('agregar venta') || cmd.includes('nuevo pedido') ||
+        cmd.includes('crear pedido')) {
+      openModal();
+      return '✅ Abriendo formulario de nueva venta';
+    }
+
+    // Cambiar tema
+    if (cmd.includes('tema') || cmd.includes('oscuro') || 
+        cmd.includes('claro') || cmd.includes('modo') ||
+        cmd.includes('cambiar tema') || cmd.includes('dark') || 
+        cmd.includes('light')) {
+      toggleTheme();
+      return '✅ Cambiando tema';
+    }
+
+    // ============================================================
+    //  AYUDA
+    // ============================================================
+
+    if (cmd.includes('ayuda') || cmd.includes('help') || 
+        cmd.includes('comandos') || cmd.includes('que puedes hacer') ||
+        cmd.includes('que haces')) {
+      return `ℹ️ **Comandos disponibles:**
+• Navegación: "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"
+• Acciones: "nueva venta", "cambiar tema"
+• Sinónimos: "venta", "productos", "stock", "usuarios", "dashboard"`;
+    }
+
+    // ============================================================
+    //  SALUDO
+    // ============================================================
+
+    if (cmd.includes('hola') || cmd.includes('buenos días') || 
+        cmd.includes('buenas tardes') || cmd.includes('buenas noches') ||
+        cmd.includes('que tal') || cmd.includes('hey') || 
+        cmd.includes('hello') || cmd.includes('hi') ||
+        cmd.includes('saludos')) {
+      const hora = new Date().getHours();
+      let saludo = 'Hola';
+      if (hora < 12) saludo = 'Buenos días';
+      else if (hora < 19) saludo = 'Buenas tardes';
+      else saludo = 'Buenas noches';
+      return `✅ ${saludo}! ¿En qué puedo ayudarte?`;
+    }
+
+    // ============================================================
+    //  RESPUESTA POR DEFECTO
+    // ============================================================
+
+    return `ℹ️ Comando "${comando}" no reconocido. 
+Escribe "ayuda" para ver los comandos disponibles.`;
+  }
 
   // ============================================================
   //  FUNCIONES PARA PRUEBA
   // ============================================================
 
   async function agentCommand(comando) {
+    if (!comando || comando.trim() === '') {
+      document.getElementById('agent-response').innerHTML = 'ℹ️ Escribe un comando.';
+      return;
+    }
+    
     const result = await executeAgentCommand(comando);
     document.getElementById('agent-response').innerHTML = result;
     return result;
@@ -461,6 +501,44 @@ connectWebSocket(); // Usar la versión light
   window.toggleAgentPanel = toggleAgentPanel;
   window.executeAgentCommand = executeAgentCommand;
   window.executeManualCommand = executeManualCommand;
+
+  // ============================================================
+  //  INICIALIZACIÓN
+  // ============================================================
+
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔍 Intentando inicializar Page Agent...');
+    
+    // Inicializar Page Agent SOLO si estamos en localhost
+    // Si estamos en GitHub Pages, usar solo modo manual
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      try {
+        if (window.PageAgent) {
+          agent = new window.PageAgent({
+            model: 'gemma-4-e4b',
+            baseURL: 'http://localhost:1235/v1',
+            language: 'es-ES'
+          });
+          agentReady = true;
+          console.log('🤖 Page Agent inicializado con LM Studio (modo local)');
+        } else {
+          console.warn('⚠️ Page Agent no disponible');
+          agentReady = false;
+        }
+      } catch (e) {
+        console.warn('⚠️ Error inicializando Page Agent:', e.message);
+        agentReady = false;
+      }
+    } else {
+      console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
+      agentReady = false;
+    }
+
+    // Conectar WebSocket (versión light)
+    setTimeout(connectWebSocket, 1000);
+    
+    console.log('🤖 Sistema de comandos listo (modo mixto)');
+  });
 </script>
 
 <!-- Lógica de la aplicación -->

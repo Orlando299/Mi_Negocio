@@ -3,8 +3,8 @@
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente'];
 
-// NOTA: inventario, clientes y ventas NO se declaran aquí.
-// Se usarán como window.inventario, window.clientes, window.ventas
+// NOTA: inventario, clientes y ventas YA EXISTEN globalmente en data.js
+// NO las redeclares aquí.
 
 // Filtros activos por módulo
 let filtroVentas = 'todas';
@@ -233,7 +233,7 @@ async function updateVentaFromModal(id) {
 }
 
 function editProducto(nombre) {
-  const datos = window.inventario || [];
+  const datos = inventario || [];
   const p = datos.find(item => item.nombre === nombre);
   if (!p) return showToast('Producto no encontrado');
   const body = `
@@ -269,7 +269,7 @@ async function updateProductoFromModal(nombreOriginal) {
   if (stock === 0) estado = 'out';
   else if (stock <= 5) estado = 'low';
   const updates = { nombre, cat, precio: '$' + precio.toFixed(2), stock, estado };
-  const productos = window.inventario || [];
+  const productos = inventario || [];
   const producto = productos.find(p => p.nombre === nombreOriginal);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (nombre !== nombreOriginal) {
@@ -284,7 +284,7 @@ async function updateProductoFromModal(nombreOriginal) {
 }
 
 function editCliente(nombre) {
-  const datos = window.clientes || [];
+  const datos = clientes || [];
   const c = datos.find(item => item.nombre === nombre);
   if (!c) return showToast('Cliente no encontrado');
   const body = `
@@ -308,8 +308,8 @@ async function updateClienteFromModal(nombreOriginal) {
   const phone = document.getElementById('edit-phone').value.trim();
   const tag = document.getElementById('edit-tag').value;
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
-  const clientes = window.clientes || [];
-  const cliente = clientes.find(c => c.nombre === nombreOriginal);
+  const clientesArr = clientes || [];
+  const cliente = clientesArr.find(c => c.nombre === nombreOriginal);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
   const updates = { nombre, phone, tag };
   await store.updateCliente(cliente.id, updates);
@@ -333,7 +333,7 @@ function confirmDeleteVenta(id) {
 }
 
 function confirmDeleteProducto(nombre) {
-  const productos = window.inventario || [];
+  const productos = inventario || [];
   const producto = productos.find(p => p.nombre === nombre);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   openConfirmModal('¿Seguro que deseas eliminar este producto?', async () => {
@@ -345,8 +345,8 @@ function confirmDeleteProducto(nombre) {
 }
 
 function confirmDeleteCliente(nombre) {
-  const clientes = window.clientes || [];
-  const cliente = clientes.find(c => c.nombre === nombre);
+  const clientesArr = clientes || [];
+  const cliente = clientesArr.find(c => c.nombre === nombre);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
   openConfirmModal('¿Seguro que deseas eliminar este cliente?', async () => {
     await store.deleteCliente(cliente.id);
@@ -534,7 +534,7 @@ async function loginCliente() {
 }
 
 // ============================================================
-//  CARGAR DATOS DE EMPRESA (CON LOGS DE DEPURACIÓN)
+//  CARGAR DATOS DE EMPRESA (VERSIÓN DEFINITIVA)
 // ============================================================
 
 async function cargarDatosEmpresa(empresaId) {
@@ -581,17 +581,29 @@ async function cargarDatosEmpresa(empresaId) {
         console.log('🛒 Ventas cargadas:', ventasCargadas.length);
         
         // ============================================================
-        //  🔥 ACTUALIZAR VARIABLES GLOBALES (usando window)
+        //  🔥 ACTUALIZAR VARIABLES GLOBALES ORIGINALES
         // ============================================================
-        window.inventario = inventarioCargado;
-        window.clientes = clientesCargados;
-        window.ventas = ventasCargadas;
+        // Estas variables YA EXISTEN globalmente (declaradas en data.js)
+        // No las redeclares, solo asígnales valores.
+        inventario = inventarioCargado;
+        clientes = clientesCargados;
+        ventas = ventasCargadas;
+        
+        // Sincronizar con data.js para que store se entere
+        if (typeof syncGlobals === 'function') {
+            syncGlobals();
+            console.log('✅ syncGlobals() ejecutado');
+        }
+        
         console.log('✅ Variables globales actualizadas');
+        console.log('📦 Inventario global:', inventario.length);
+        console.log('👥 Clientes global:', clientes.length);
+        console.log('🛒 Ventas global:', ventas.length);
         
         // Actualizar la UI
-        actualizarUIEmpresa(inventarioCargado, clientesCargados, ventasCargadas);
+        actualizarUIEmpresa(inventario, clientes, ventas);
         
-        // Renderizar listas
+        // Renderizar listas (usando las funciones que ya existen)
         renderInv('', filtroInv);
         renderClients('', filtroCli);
         renderVentas('', filtroVentas);
@@ -744,7 +756,7 @@ async function registrarCliente() {
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
-  const datos = window.inventario || [];
+  const datos = inventario || [];
   
   if (!datos || datos.length === 0) {
     container.innerHTML = `
@@ -782,7 +794,7 @@ async function recargarCatalogo() {
 }
 
 function agregarAlCarrito(nombre) {
-  const productos = window.inventario || [];
+  const productos = inventario || [];
   const producto = productos.find(p => p.nombre === nombre);
   if (!producto || producto.estado === 'out') return showToast('⚠️ Producto no disponible');
   const item = carrito.find(c => c.nombre === nombre);
@@ -868,8 +880,8 @@ function renderHistorial() {
     container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
     return;
   }
-  const ventas = window.ventas || [];
-  const misPedidos = ventas.filter(v => v.cliente === nombreCliente);
+  const ventasArr = ventas || [];
+  const misPedidos = ventasArr.filter(v => v.cliente === nombreCliente);
   if (!misPedidos.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
     return;
@@ -893,8 +905,8 @@ function renderHistorial() {
 function renderActividadReciente() {
   const container = document.getElementById('actividad-list');
   if (!container) return;
-  const ventas = window.ventas || [];
-  const ultimas = ventas.slice(0, 5);
+  const ventasArr = ventas || [];
+  const ultimas = ventasArr.slice(0, 5);
   if (!ultimas.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
     return;

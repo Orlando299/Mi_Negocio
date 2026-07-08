@@ -620,6 +620,129 @@ function actualizarAvatar(nombre) {
 }
 
 // ============================================================
+//  CONFIGURACIÓN - EXPORTAR/IMPORTAR JSON
+// ============================================================
+
+function actualizarResumenConfiguracion() {
+    const productos = window.inventario || [];
+    const clientes = window.clientes || [];
+    const ventas = window.ventas || [];
+    
+    const elProductos = document.getElementById('resumen-productos');
+    const elClientes = document.getElementById('resumen-clientes');
+    const elVentas = document.getElementById('resumen-ventas');
+    
+    if (elProductos) elProductos.textContent = productos.length;
+    if (elClientes) elClientes.textContent = clientes.length;
+    if (elVentas) elVentas.textContent = ventas.length;
+}
+
+function exportarDatosJSON() {
+    const empresaId = sessionStorage.getItem('empresaId');
+    const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
+    
+    if (!empresaId) {
+        showToast('❌ No hay sesión activa');
+        return;
+    }
+    
+    const data = {
+        empresaId: empresaId,
+        nombreEmpresa: nombreEmpresa,
+        fechaExportacion: new Date().toISOString(),
+        inventario: window.inventario || [],
+        clientes: window.clientes || [],
+        ventas: window.ventas || []
+    };
+    
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `datos_${empresaId}_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('✅ Datos exportados correctamente');
+}
+
+async function importarDatosJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (!empresaId) {
+        showToast('❌ No hay sesión activa');
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        // Validar estructura del JSON
+        if (!data.inventario || !data.clientes || !data.ventas) {
+            showToast('❌ JSON inválido: faltan campos requeridos (inventario, clientes, ventas)');
+            return;
+        }
+        
+        // Confirmar importación
+        if (!confirm(`⚠️ ¿Estás seguro de que quieres reemplazar TODOS los datos de ${sessionStorage.getItem('userName')}?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`)) {
+            return;
+        }
+        
+        showToast('⏳ Importando datos...');
+        
+        // 1. Limpiar colecciones existentes
+        const collections = ['inventario', 'clientes', 'ventas'];
+        for (const col of collections) {
+            const snapshot = await firebase.firestore()
+                .collection('empresas')
+                .doc(empresaId)
+                .collection(col)
+                .get();
+            
+            const batch = firebase.firestore().batch();
+            snapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+        }
+        
+        // 2. Subir nuevos datos
+        for (const col of collections) {
+            const items = data[col] || [];
+            for (const item of items) {
+                await firebase.firestore()
+                    .collection('empresas')
+                    .doc(empresaId)
+                    .collection(col)
+                    .add(item);
+            }
+        }
+        
+        // 3. Recargar datos
+        await cargarDatosEmpresa(empresaId);
+        
+        // 4. Actualizar resumen
+        actualizarResumenConfiguracion();
+        
+        // 5. Limpiar input file
+        event.target.value = '';
+        
+        showToast(`✅ Datos importados: ${data.inventario.length} productos, ${data.clientes.length} clientes, ${data.ventas.length} ventas`);
+        
+    } catch (error) {
+        console.error('❌ Error importando datos:', error);
+        showToast('❌ Error al importar: ' + error.message);
+    }
+}
+
+// ============================================================
 //  TOGGLE CLIENTE - VERSIÓN CORRECTA (CON goScreen)
 // ============================================================
 

@@ -912,12 +912,13 @@ window.addEventListener('message', function(event) {
     // No es un mensaje válido, ignorar
   }
 
-// Exponer funciones de login al ámbito global para que el HTML pueda llamarlas
+  // 🔥 FORZAR FUNCIONES GLOBALES
 window.toggleCliente = toggleCliente;
 window.loginCliente = loginCliente;
 window.registrarCliente = registrarCliente;
 window.cerrarSesionCliente = cerrarSesionCliente;
 window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
+window.goScreen = goScreen;
   
 });

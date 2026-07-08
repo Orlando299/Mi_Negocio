@@ -225,51 +225,6 @@
   </div>
 </div>
 
-  <!-- SCREEN: CLIENTE (MÓDULO PARA CLIENTES) -->
-<div class="screen" id="screen-cliente">
-  <div id="cliente-login" style="padding-top:20px;">
-    <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
-    <div id="login-form">
-      <div class="field"><label>Correo</label><input type="email" id="login-email" placeholder="correo@ejemplo.com"></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="******"></div>
-      <button class="btn btn-primary" onclick="loginCliente()">Iniciar sesión</button>
-      <p style="text-align:center; margin:10px 0;">o</p>
-      <button class="btn btn-outline" onclick="mostrarRegistro()">Registrarme</button>
-    </div>
-    <div id="registro-form" style="display:none;">
-      <div class="field"><label>Nombre</label><input type="text" id="reg-nombre" placeholder="Tu nombre"></div>
-      <div class="field"><label>Correo</label><input type="email" id="reg-email" placeholder="correo@ejemplo.com"></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" placeholder="******"></div>
-      <button class="btn btn-primary" onclick="registrarCliente()">Registrarme</button>
-      <button class="btn btn-outline" onclick="mostrarLogin()">Volver a login</button>
-    </div>
-  </div>
-
-  <div id="cliente-panel" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
-      <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
-    </div>
-
-    <!-- Catálogo de productos -->
-    <div class="section-header">
-      <span class="section-title">Productos disponibles</span>
-      <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
-    </div>
-    <div id="catalogo-productos">
-      <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando productos...</div></div>
-    </div>
-
-    <!-- Historial de pedidos -->
-    <div style="margin-top:20px;">
-      <div class="section-header">
-        <span class="section-title">Mis pedidos</span>
-      </div>
-      <div id="historial-pedidos"></div>
-    </div>
-  </div>
-</div>
-
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
   <div class="nav-item active" onclick="goScreen('dashboard')" id="nav-dashboard">

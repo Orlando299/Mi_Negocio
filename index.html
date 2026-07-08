@@ -296,7 +296,7 @@
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
 <script>
-  // ============================================================
+      // ============================================================
   //  PAGE AGENT - Configuración
   // ============================================================
 
@@ -310,7 +310,7 @@
   // ============================================================
 
   function connectWebSocket() {
-    const wsUrl = 'ws://localhost:3001';
+    const wsUrl = 'ws://localhost:3002';
     
     ws = new WebSocket(wsUrl);
 
@@ -320,22 +320,32 @@
       document.getElementById('agent-response').innerHTML = '✅ Conectado al puente. Agente listo.';
     };
 
-    ws.onmessage = async function(event) {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📩 Comando recibido del puente:', data);
+   ws.onmessage = async function(event) {
+  try {
+    console.log('📩 Mensaje raw del puente:', event.data);
+    const data = JSON.parse(event.data);
+    console.log('📩 Comando recibido del puente:', data);
 
-        if (data.type === 'command' && data.command) {
-          const result = await executeAgentCommand(data.command);
-          ws.send(JSON.stringify({
-            type: 'response',
-            result: result || 'Comando ejecutado correctamente'
-          }));
-        }
-      } catch (error) {
-        console.error('Error procesando mensaje del puente:', error);
-      }
-    };
+    if (data.command) {
+      const result = await executeAgentCommand(data.command);
+      console.log('📤 Enviando resultado al puente:', result);
+      
+      // Enviar el resultado de vuelta al servidor
+      ws.send(JSON.stringify({
+        result: result,
+        command: data.command
+      }));
+    }
+  } catch (error) {
+    console.error('Error procesando mensaje del puente:', error);
+    // Intentar enviar el error
+    try {
+      ws.send(JSON.stringify({
+        error: error.message || 'Error desconocido'
+      }));
+    } catch (e) {}
+  }
+};
 
     ws.onclose = function() {
       wsConnected = false;
@@ -350,43 +360,112 @@
   }
 
   // ============================================================
-  //  PAGE AGENT - Comandos
+  //  PAGE AGENT - Comandos (SIN LLM - usando selector directo)
   // ============================================================
 
   async function executeAgentCommand(comando) {
-    if (!agentReady || !agent) {
-      return '❌ El agente no está listo';
-    }
-
+  console.log(`🎯 Ejecutando comando: "${comando}"`);
+  
+  if (agentReady && agent) {
     try {
       const result = await agent.execute(comando);
+      console.log('✅ Resultado del agente:', result);
+      
+      // Verificar si Page Agent falló
+      if (result && result.success === false) {
+        console.warn('⚠️ Page Agent falló, usando modo manual:', result.data);
+        const manualResult = executeManualCommand(comando);
+        console.log('📤 Resultado del modo manual:', manualResult);
+        return manualResult;
+      }
+      
       return result || '✅ Comando ejecutado correctamente';
     } catch (error) {
-      console.error('Error ejecutando comando:', error);
-      return '❌ Error: ' + (error.message || 'Comando no reconocido');
+      console.warn('⚠️ Error con Page Agent, usando modo manual:', error.message);
+      return executeManualCommand(comando);
     }
+  } else {
+    console.log('ℹ️ Page Agent no disponible, usando modo manual');
+    return executeManualCommand(comando);
   }
+}
+  // ============================================================
+  //  COMANDOS MANUALES (Fallback)
+  // ============================================================
+
+  function executeManualCommand(comando) {
+  const cmd = comando.toLowerCase();
+  console.log(`🔧 Ejecutando comando manual: "${cmd}"`);
+  
+  // Navegación
+  if (cmd.includes('ventas') || cmd.includes('venta')) {
+    goScreen('ventas');
+    return '✅ Navegando a la pantalla de ventas';
+  }
+  if (cmd.includes('inventario') || cmd.includes('producto')) {
+    goScreen('inventario');
+    return '✅ Navegando a la pantalla de inventario';
+  }
+  if (cmd.includes('cliente') || cmd.includes('clientes')) {
+    goScreen('clientes');
+    return '✅ Navegando a la pantalla de clientes';
+  }
+  if (cmd.includes('reporte') || cmd.includes('reportes')) {
+    goScreen('reportes');
+    return '✅ Navegando a la pantalla de reportes';
+  }
+  if (cmd.includes('inicio') || cmd.includes('dashboard')) {
+    goScreen('dashboard');
+    return '✅ Navegando al inicio';
+  }
+  
+  // Acciones específicas
+  if (cmd.includes('nueva venta') || cmd.includes('crear venta')) {
+    openModal();
+    return '✅ Abriendo formulario de nueva venta';
+  }
+  
+  if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) {
+    toggleTheme();
+    return '✅ Cambiando tema';
+  }
+  
+  // Respuesta por defecto
+  return `ℹ️ Comando "${comando}" recibido. No sé cómo ejecutarlo todavía.`;
+}
 
   // ============================================================
   //  INICIALIZACIÓN
   // ============================================================
 
   document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Page Agent
-    try {
+  // Intentar inicializar Page Agent
+  try {
+    console.log('🔍 Intentando inicializar Page Agent...');
+    
+    // Usar LM Studio a través del proxy
+    if (window.PageAgent) {
       agent = new window.PageAgent({
-        language: 'es-ES'
+        model: 'gemma-4-e4b',              // Nombre de tu modelo en LM Studio
+        baseURL: 'http://localhost:1235/v1', // ← ¡PROXY! (puerto 1235)
+        language: 'es-ES'                  // Para comandos en español
       });
       agentReady = true;
-      console.log('🤖 Page Agent listo!');
-    } catch (e) {
-      console.error('Error al inicializar Page Agent:', e);
-      document.getElementById('agent-response').innerHTML = '❌ Error al iniciar agente.';
+      console.log('🤖 Page Agent inicializado con LM Studio (gemma-4-e4b) a través del proxy');
+    } else {
+      console.warn('⚠️ Page Agent no disponible, usando modo manual');
+      agentReady = false;
     }
+  } catch (e) {
+    console.warn('⚠️ Error inicializando Page Agent:', e.message);
+    agentReady = false;
+  }
 
-    // Conectar WebSocket
-    connectWebSocket();
-  });
+  // Conectar WebSocket
+  setTimeout(connectWebSocket, 1000);
+  
+  console.log('🤖 Sistema de comandos listo (modo mixto)');
+});
 
   // ============================================================
   //  FUNCIONES PARA PRUEBA
@@ -417,6 +496,7 @@
   window.sendAgentCommand = sendAgentCommand;
   window.toggleAgentPanel = toggleAgentPanel;
   window.executeAgentCommand = executeAgentCommand;
+  window.executeManualCommand = executeManualCommand;
 </script>
 
 <!-- Lógica de la aplicación -->

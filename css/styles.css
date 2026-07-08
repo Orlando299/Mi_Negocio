@@ -327,3 +327,12 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 #cliente-panel h2 {
   font-size: 20px;
 }
+
+#screen-configuracion .card {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+

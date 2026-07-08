@@ -10,13 +10,54 @@ class DataStore {
     this.cargado = false;
   }
 
-  // ── CARGAR DATOS DESDE FIRESTORE (ya no se usa para datos raíz) ──
-  async cargarDatos() {
-    console.warn('⚠️ cargarDatos() ya no se usa. Los datos se cargan por empresa usando cargarDatosEmpresa().');
-    return true;
+  // ── CARGAR DATOS POR EMPRESA ──
+  async cargarDatosEmpresa(empresaId) {
+    console.log('📦 Cargando datos para empresa:', empresaId);
+    
+    try {
+      // 1. Inventario
+      const invSnap = await this.db.collection('empresas').doc(empresaId).collection('inventario').get();
+      const inventarioCargado = [];
+      invSnap.forEach(doc => inventarioCargado.push({ id: doc.id, ...doc.data() }));
+      console.log('📦 Inventario cargado:', inventarioCargado.length, 'productos');
+
+      // 2. Clientes
+      const cliSnap = await this.db.collection('empresas').doc(empresaId).collection('clientes').get();
+      const clientesCargados = [];
+      cliSnap.forEach(doc => clientesCargados.push({ id: doc.id, ...doc.data() }));
+      console.log('👥 Clientes cargados:', clientesCargados.length);
+
+      // 3. Ventas
+      const venSnap = await this.db.collection('empresas').doc(empresaId).collection('ventas').get();
+      const ventasCargadas = [];
+      venSnap.forEach(doc => ventasCargadas.push({ id: doc.id, ...doc.data() }));
+      console.log('🛒 Ventas cargadas:', ventasCargadas.length);
+
+      // Asignar a variables globales
+      inventario = inventarioCargado;
+      clientes = clientesCargados;
+      ventas = ventasCargadas;
+      
+      // También asignar a window para que estén disponibles globalmente
+      window.inventario = inventarioCargado;
+      window.clientes = clientesCargados;
+      window.ventas = ventasCargadas;
+
+      // Sincronizar store
+      this.ventas = ventasCargadas;
+      this.inventario = inventarioCargado;
+      this.clientes = clientesCargados;
+      this.cargado = true;
+
+      console.log('✅ Datos de empresa cargados correctamente');
+      return true;
+    } catch (error) {
+      console.error('❌ Error cargando datos de empresa:', error);
+      throw error;
+    }
   }
 
-  // ── CRUD VENTAS (usando subcolección de empresa) ──
+  // ── CRUD VENTAS ──
   async addVenta(venta) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
@@ -27,7 +68,6 @@ class DataStore {
       });
       const nuevaVenta = { id: docRef.id, ...venta, fecha: new Date().toLocaleString() };
       this.ventas.unshift(nuevaVenta);
-      // Actualizar variables globales y window
       ventas = this.ventas;
       window.ventas = this.ventas;
       return nuevaVenta;
@@ -43,9 +83,7 @@ class DataStore {
       if (!empresaId) throw new Error('No hay empresa seleccionada');
       await this.db.collection('empresas').doc(empresaId).collection('ventas').doc(id).update(updates);
       const index = this.ventas.findIndex(v => v.id === id);
-      if (index !== -1) {
-        this.ventas[index] = { ...this.ventas[index], ...updates };
-      }
+      if (index !== -1) this.ventas[index] = { ...this.ventas[index], ...updates };
       ventas = this.ventas;
       window.ventas = this.ventas;
       return true;
@@ -69,7 +107,7 @@ class DataStore {
     }
   }
 
-  // ── CRUD INVENTARIO (usando subcolección de empresa) ──
+  // ── CRUD INVENTARIO ──
   async addProducto(producto) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
@@ -92,9 +130,7 @@ class DataStore {
       if (!empresaId) throw new Error('No hay empresa seleccionada');
       await this.db.collection('empresas').doc(empresaId).collection('inventario').doc(id).update(updates);
       const index = this.inventario.findIndex(p => p.id === id);
-      if (index !== -1) {
-        this.inventario[index] = { ...this.inventario[index], ...updates };
-      }
+      if (index !== -1) this.inventario[index] = { ...this.inventario[index], ...updates };
       inventario = this.inventario;
       window.inventario = this.inventario;
       return true;
@@ -118,7 +154,7 @@ class DataStore {
     }
   }
 
-  // ── CRUD CLIENTES (usando subcolección de empresa) ──
+  // ── CRUD CLIENTES ──
   async addCliente(cliente) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
@@ -142,9 +178,7 @@ class DataStore {
       if (!empresaId) throw new Error('No hay empresa seleccionada');
       await this.db.collection('empresas').doc(empresaId).collection('clientes').doc(id).update(updates);
       const index = this.clientes.findIndex(c => c.id === id);
-      if (index !== -1) {
-        this.clientes[index] = { ...this.clientes[index], ...updates };
-      }
+      if (index !== -1) this.clientes[index] = { ...this.clientes[index], ...updates };
       clientes = this.clientes;
       window.clientes = this.clientes;
       return true;
@@ -168,7 +202,7 @@ class DataStore {
     }
   }
 
-  // ── AUTENTICACIÓN (ya no se usa para login, pero se mantiene) ──
+  // ── AUTENTICACIÓN ──
   async registrarUsuario(email, password, nombre) {
     try {
       const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
@@ -197,42 +231,24 @@ class DataStore {
       throw error;
     }
   }
-
-  async getClientePorEmail(email) {
-    // Ya no se usa, pero se mantiene
-    const snapshot = await this.db.collection('clientes').where('phone', '==', email).get();
-    if (snapshot.empty) return null;
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
-  }
-
-  async getClientePorUid(uid) {
-    // Ya no se usa, pero se mantiene
-    const snapshot = await this.db.collection('clientes').where('uid', '==', uid).get();
-    if (snapshot.empty) return null;
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
-  }
 }
 
 // ── INSTANCIA GLOBAL ──
 const store = new DataStore();
 
-// ── VARIABLES GLOBALES PARA RENDER ──
+// ── VARIABLES GLOBALES ──
 let ventas = [];
 let inventario = [];
 let clientes = [];
 
 // ── SINCRONIZAR VARIABLES GLOBALES ──
 function syncGlobals() {
-  ventas = window.ventas || [];
-  inventario = window.inventario || [];
-  clientes = window.clientes || [];
-  // Sincronizar store también
-  store.ventas = ventas;
-  store.inventario = inventario;
-  store.clientes = clientes;
-  store.cargado = true;
+  ventas = store.ventas || [];
+  inventario = store.inventario || [];
+  clientes = store.clientes || [];
+  window.ventas = ventas;
+  window.inventario = inventario;
+  window.clientes = clientes;
   console.log('🔄 syncGlobals: ventas:', ventas.length, 'inventario:', inventario.length, 'clientes:', clientes.length);
 }
 
@@ -263,19 +279,21 @@ async function initStore() {
           sessionStorage.setItem('userName', usuarioData.nombre || user.email);
           sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
           
-          // Cargar datos de la empresa (función de app.js)
-          if (typeof window.cargarDatosEmpresa === 'function') {
-            await window.cargarDatosEmpresa(empresaId);
-          } else {
-            console.warn('⚠️ window.cargarDatosEmpresa no está definida');
-          }
+          // Cargar datos de la empresa
+          await store.cargarDatosEmpresa(empresaId);
           
           // Sincronizar variables globales
           syncGlobals();
           
-          // Mostrar panel de cliente
+          // Mostrar panel de cliente (si existe la función)
           if (typeof window.mostrarPanelCliente === 'function') {
             window.mostrarPanelCliente();
+          }
+          
+          // Renderizar catálogo si estamos en la pantalla de cliente
+          if (currentScreen === 'cliente') {
+            renderCatalogo();
+            renderHistorial();
           }
           
         } else {
@@ -299,15 +317,6 @@ async function initStore() {
       if (typeof updateKPIs === 'function') updateKPIs();
     }
   });
-
-  // Render inicial
-  if (typeof renderVentas === 'function') {
-    renderVentas('', filtroVentas || 'todas');
-    renderInv('', filtroInv || 'todos');
-    renderClients('', filtroCli || 'todos');
-    if (typeof renderActividadReciente === 'function') renderActividadReciente();
-    if (typeof updateKPIs === 'function') updateKPIs();
-  }
 
   console.log('🚀 Store inicializado con Firestore');
 }

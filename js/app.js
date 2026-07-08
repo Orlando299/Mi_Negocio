@@ -911,6 +911,8 @@ window.addEventListener('message', function(event) {
   } catch (e) {
     // No es un mensaje válido, ignorar
   }
+  
+});
 
   // 🔥 FORZAR FUNCIONES GLOBALES
 window.toggleCliente = toggleCliente;
@@ -920,5 +922,3 @@ window.cerrarSesionCliente = cerrarSesionCliente;
 window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.goScreen = goScreen;
-  
-});

@@ -546,18 +546,45 @@ async function cargarDatosEmpresa(empresaId) {
     console.log('📦 Cargando datos para empresa:', empresaId);
     
     try {
+        // 1. Obtener inventario
         const inventarioSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
             .collection('inventario')
             .get();
         
-        const inventario = [];
+        let inventario = [];
         inventarioSnapshot.forEach(doc => {
             inventario.push({ id: doc.id, ...doc.data() });
         });
-        console.log('📦 Inventario cargado:', inventario.length, 'productos');
         
+        // 🔥 NORMALIZAR PRECIOS: asegurar que todos los precios sean strings con formato $0.00
+        inventario = inventario.map(item => {
+            let precio = item.precio;
+            // Si es número, convertirlo a string con $
+            if (typeof precio === 'number') {
+                precio = '$' + precio.toFixed(2);
+            }
+            // Si es string pero no tiene $, agregarlo
+            else if (typeof precio === 'string' && !precio.startsWith('$')) {
+                // Intentar convertir a número y formatear
+                const num = parseFloat(precio);
+                if (!isNaN(num)) {
+                    precio = '$' + num.toFixed(2);
+                } else {
+                    precio = '$0.00'; // fallback
+                }
+            }
+            // Si es undefined o null, asignar $0.00
+            else if (!precio) {
+                precio = '$0.00';
+            }
+            return { ...item, precio };
+        });
+        
+        console.log('📦 Inventario cargado y normalizado:', inventario.length, 'productos');
+        
+        // 2. Obtener clientes
         const clientesSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
@@ -570,6 +597,7 @@ async function cargarDatosEmpresa(empresaId) {
         });
         console.log('👥 Clientes cargados:', clientes.length);
         
+        // 3. Obtener ventas
         const ventasSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
@@ -583,7 +611,7 @@ async function cargarDatosEmpresa(empresaId) {
         console.log('🛒 Ventas cargadas:', ventas.length);
         
         // ============================================================
-        // 🔥 ACTUALIZAR VARIABLES GLOBALES
+        // 🔥 ACTUALIZAR VARIABLES GLOBALES (YA CON PRECIOS NORMALIZADOS)
         // ============================================================
         window.inventario = inventario;
         window.clientes = clientes;

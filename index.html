@@ -201,11 +201,13 @@
   </div>
 
   <div id="cliente-panel" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
-      <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
-    </div>
-
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+  <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
+  <div style="display:flex; gap:8px;">
+    <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="goScreen('configuracion')">⚙️ Configuración</button>
+    <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
+  </div>
+</div>
     <!-- Catálogo de productos -->
     <div class="section-header">
       <span class="section-title">Productos disponibles</span>

@@ -29,7 +29,6 @@ function goScreen(name) {
   if (name === 'clientes') renderClients('', filtroCli);
 
   if (name === 'cliente') {
-    // Verificar si hay sesión activa
     if (sessionStorage.getItem('empresaId')) {
       mostrarPanelCliente();
     } else {
@@ -461,7 +460,7 @@ function confirmAction() {
 }
 
 // ============================================================
-//  LOGIN MULTI-TENANT (VERSIÓN CORRECTA)
+//  LOGIN MULTI-TENANT (VERSIÓN ÚNICA Y CORRECTA)
 // ============================================================
 
 async function loginCliente() {
@@ -517,17 +516,13 @@ async function loginCliente() {
     }
 }
 
-// ============================================================
-//  FUNCIONES MULTI-TENANT
-// ============================================================
-
-async function cargarDatosEmpresa(entrepriseId) {
-    console.log('📦 Cargando datos para empresa:', entrepriseId);
+async function cargarDatosEmpresa(empresaId) {
+    console.log('📦 Cargando datos para empresa:', empresaId);
     
     try {
         const inventarioSnapshot = await firebase.firestore()
             .collection('empresas')
-            .doc(entrepriseId)
+            .doc(empresaId)
             .collection('inventario')
             .get();
         
@@ -539,7 +534,7 @@ async function cargarDatosEmpresa(entrepriseId) {
         
         const clientesSnapshot = await firebase.firestore()
             .collection('empresas')
-            .doc(entrepriseId)
+            .doc(empresaId)
             .collection('clientes')
             .get();
         
@@ -551,7 +546,7 @@ async function cargarDatosEmpresa(entrepriseId) {
         
         const ventasSnapshot = await firebase.firestore()
             .collection('empresas')
-            .doc(entrepriseId)
+            .doc(empresaId)
             .collection('ventas')
             .get();
         
@@ -561,9 +556,9 @@ async function cargarDatosEmpresa(entrepriseId) {
         });
         console.log('🛒 Ventas cargadas:', ventas.length);
         
-        localStorage.setItem('entrepriseInventario', JSON.stringify(inventario));
-        localStorage.setItem('entrepriseClientes', JSON.stringify(clientes));
-        localStorage.setItem('entrepriseVentas', JSON.stringify(ventas));
+        localStorage.setItem('empresaInventario', JSON.stringify(inventario));
+        localStorage.setItem('empresaClientes', JSON.stringify(clientes));
+        localStorage.setItem('empresaVentas', JSON.stringify(ventas));
         
         actualizarUIEmpresa(inventario, clientes, ventas);
         
@@ -596,9 +591,9 @@ function mostrarPanelCliente() {
         nombreSpan.textContent = nombre;
     }
     
-    const entrepriseId = sessionStorage.getItem('empresaId');
-    if (entrepriseId) {
-        const nombreEmpresa = entrepriseId.replace(/-/g, ' ').toUpperCase();
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+        const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
         const logo = document.querySelector('.nav-logo span');
         if (logo) {
             logo.textContent = ' ' + nombreEmpresa;
@@ -606,14 +601,16 @@ function mostrarPanelCliente() {
     }
 }
 
+// ============================================================
+//  TOGGLE CLIENTE - VERSIÓN CORRECTA (CON goScreen)
+// ============================================================
+
 function toggleCliente() {
-    // Función original que funcionaba
     const current = document.querySelector('.screen.active');
     if (current && current.id === 'screen-cliente') {
         goScreen('dashboard');
     } else {
         goScreen('cliente');
-        // Si el usuario está autenticado, mostrar el panel, si no, el login
         if (sessionStorage.getItem('empresaId')) {
             mostrarPanelCliente();
         } else {
@@ -628,9 +625,9 @@ function toggleCliente() {
 function cerrarSesionCliente() {
     firebase.auth().signOut();
     sessionStorage.clear();
-    localStorage.removeItem('entrepriseInventario');
-    localStorage.removeItem('entrepriseClientes');
-    localStorage.removeItem('entrepriseVentas');
+    localStorage.removeItem('empresaInventario');
+    localStorage.removeItem('empresaClientes');
+    localStorage.removeItem('empresaVentas');
     
     const loginDiv = document.getElementById('cliente-login');
     const panelDiv = document.getElementById('cliente-panel');
@@ -638,7 +635,6 @@ function cerrarSesionCliente() {
     if (loginDiv) loginDiv.style.display = 'block';
     if (panelDiv) panelDiv.style.display = 'none';
     
-    // Restaurar logo
     const logo = document.querySelector('.nav-logo span');
     if (logo) {
         logo.textContent = 'Negocio';
@@ -671,23 +667,23 @@ async function registrarCliente() {
         const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
 
-        const entrepriseId = 'empresa-' + Date.now();
-        await firebase.firestore().collection('empresas').doc(entrepriseId).set({
+        const empresaId = 'empresa-' + Date.now();
+        await firebase.firestore().collection('empresas').doc(empresaId).set({
             nombre: 'Mi Negocio',
             fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        await firebase.firestore().collection('empresas').doc(entrepriseId)
+        await firebase.firestore().collection('empresas').doc(empresaId)
             .collection('usuarios').doc(email).set({
                 nombre: nombre,
                 email: email,
                 rol: 'admin',
-                empresaId: entrepriseId,
+                empresaId: empresaId,
                 uid: user.uid,
                 creado: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-        sessionStorage.setItem('empresaId', entrepriseId);
+        sessionStorage.setItem('empresaId', empresaId);
         sessionStorage.setItem('userEmail', email);
         sessionStorage.setItem('userName', nombre);
 
@@ -868,7 +864,6 @@ function renderActividadReciente() {
 // ── INICIALIZACIÓN ──
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Fecha actual
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const hoy = new Date();
@@ -879,7 +874,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadTheme();
 
-  // Cargar tema desde URL (para la demo del portafolio)
   const urlParams = new URLSearchParams(window.location.search);
   const temaParam = urlParams.get('tema');
   if (temaParam && window.TEMAS && TEMAS[temaParam]) {
@@ -890,8 +884,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   cargarCarrito();
-
-  // Inicializar Firestore
   initStore();
 
   console.log('🚀 App inicializada con Firebase');
@@ -909,13 +901,13 @@ window.addEventListener('message', function(event) {
         event.source.postMessage(JSON.stringify({ type: 'temaAplicado', tema: data.tema }), event.origin);
       }
     }
-  } catch (e) {
-    // No es un mensaje válido, ignorar
-  }
-  
+  } catch (e) {}
 });
 
-  // 🔥 FORZAR FUNCIONES GLOBALES
+// ============================================================
+//  🔥 FORZAR FUNCIONES GLOBALES
+// ============================================================
+
 window.toggleCliente = toggleCliente;
 window.loginCliente = loginCliente;
 window.registrarCliente = registrarCliente;
@@ -923,3 +915,6 @@ window.cerrarSesionCliente = cerrarSesionCliente;
 window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.goScreen = goScreen;
+window.verCarrito = verCarrito;
+
+console.log('✅ app.js cargado correctamente - Funciones globales expuestas');

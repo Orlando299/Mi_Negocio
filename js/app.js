@@ -19,13 +19,16 @@ function goScreen(name) {
     }
   });
   currentScreen = name;
-  const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇', cliente: '⬇' };
+  const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇', cliente: '⬇', configuracion: '⚙️' };
   const fabBtn = document.getElementById('fab-btn');
   if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
 
   if (name === 'ventas') renderVentas('', filtroVentas);
   if (name === 'inventario') renderInv('', filtroInv);
   if (name === 'clientes') renderClients('', filtroCli);
+  
+  // 🔥 NUEVO: actualiza el resumen cuando se carga la pantalla de configuración
+  if (name === 'configuracion') actualizarResumenConfiguracion();
 
   if (name === 'cliente') {
     if (sessionStorage.getItem('empresaId')) {

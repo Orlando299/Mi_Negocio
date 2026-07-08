@@ -309,55 +309,18 @@
   //  WEBSOCKET - Conexión con el puente
   // ============================================================
 
-  function connectWebSocket() {
-    const wsUrl = 'ws://localhost:3002';
-    
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = function() {
-      wsConnected = true;
-      console.log('✅ Conectado al servidor puente');
-      document.getElementById('agent-response').innerHTML = '✅ Conectado al puente. Agente listo.';
-    };
-
-   ws.onmessage = async function(event) {
-  try {
-    console.log('📩 Mensaje raw del puente:', event.data);
-    const data = JSON.parse(event.data);
-    console.log('📩 Comando recibido del puente:', data);
-
-    if (data.command) {
-      const result = await executeAgentCommand(data.command);
-      console.log('📤 Enviando resultado al puente:', result);
-      
-      // Enviar el resultado de vuelta al servidor
-      ws.send(JSON.stringify({
-        result: result,
-        command: data.command
-      }));
-    }
-  } catch (error) {
-    console.error('Error procesando mensaje del puente:', error);
-    // Intentar enviar el error
-    try {
-      ws.send(JSON.stringify({
-        error: error.message || 'Error desconocido'
-      }));
-    } catch (e) {}
-  }
-};
-
-    ws.onclose = function() {
-      wsConnected = false;
-      console.log('❌ Desconectado del puente. Intentando reconectar...');
-      document.getElementById('agent-response').innerHTML = '⚠️ Desconectado del puente. Reconectando...';
-      setTimeout(connectWebSocket, 5000);
-    };
-
-    ws.onerror = function(error) {
-      console.error('Error en WebSocket:', error);
-    };
-  }
+function connectWebSocket() {
+  // Versión LIGHT para GitHub Pages - WebSocket desactivado
+  console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
+  console.log('✅ Los comandos manuales y botones funcionan correctamente');
+  
+  // Simular que estamos conectados para que el resto de la app funcione
+  wsConnected = true;
+  document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
+  
+  // No intentar conectar a localhost
+  return null;
+}
 
   // ============================================================
   //  PAGE AGENT - Comandos (SIN LLM - usando selector directo)

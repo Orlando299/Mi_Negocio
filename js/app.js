@@ -469,7 +469,7 @@ function confirmAction() {
 }
 
 // ============================================================
-//  LOGIN MULTI-TENANT (VERSIÓN ÚNICA Y CORRECTA)
+//  LOGIN MULTI-TENANT (CON LOGS DE DEPURACIÓN)
 // ============================================================
 
 async function loginCliente() {
@@ -485,13 +485,17 @@ async function loginCliente() {
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         console.log('✅ Usuario autenticado:', user.uid);
+        console.log('🔍 Buscando empresa para el usuario:', user.uid);
 
         const empresasSnapshot = await firebase.firestore()
             .collectionGroup('usuarios')
             .where('uid', '==', user.uid)
             .get();
 
+        console.log('📊 Resultados de la consulta:', empresasSnapshot.size);
+
         if (empresasSnapshot.empty) {
+            console.warn('⚠️ No se encontró empresa para el usuario');
             showToast('❌ Usuario no tiene empresa asignada');
             await firebase.auth().signOut();
             return;
@@ -502,13 +506,17 @@ async function loginCliente() {
         const usuarioData = usuarioDoc.data();
 
         console.log('🏢 Empresa encontrada:', empresaId);
+        console.log('👤 Datos del usuario:', usuarioData);
 
         sessionStorage.setItem('empresaId', empresaId);
         sessionStorage.setItem('userEmail', email);
         sessionStorage.setItem('userName', usuarioData.nombre || email);
         sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
 
+        console.log('🔄 Llamando a cargarDatosEmpresa con empresaId:', empresaId);
         await cargarDatosEmpresa(empresaId);
+        console.log('✅ cargarDatosEmpresa finalizado');
+
         mostrarPanelCliente();
 
         showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
@@ -526,14 +534,14 @@ async function loginCliente() {
 }
 
 // ============================================================
-//  CARGAR DATOS DE EMPRESA (USANDO window)
+//  CARGAR DATOS DE EMPRESA (CON LOGS DE DEPURACIÓN)
 // ============================================================
 
 async function cargarDatosEmpresa(empresaId) {
-    console.log('📦 Cargando datos para empresa:', empresaId);
+    console.log('📦 INICIANDO cargarDatosEmpresa para:', empresaId);
     
     try {
-        // 1. Cargar inventario
+        console.log('📦 Consultando inventario...');
         const inventarioSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
@@ -546,7 +554,7 @@ async function cargarDatosEmpresa(empresaId) {
         });
         console.log('📦 Inventario cargado:', inventarioCargado.length, 'productos');
         
-        // 2. Cargar clientes
+        console.log('👥 Consultando clientes...');
         const clientesSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
@@ -559,7 +567,7 @@ async function cargarDatosEmpresa(empresaId) {
         });
         console.log('👥 Clientes cargados:', clientesCargados.length);
         
-        // 3. Cargar ventas
+        console.log('🛒 Consultando ventas...');
         const ventasSnapshot = await firebase.firestore()
             .collection('empresas')
             .doc(empresaId)
@@ -578,6 +586,7 @@ async function cargarDatosEmpresa(empresaId) {
         window.inventario = inventarioCargado;
         window.clientes = clientesCargados;
         window.ventas = ventasCargadas;
+        console.log('✅ Variables globales actualizadas');
         
         // Actualizar la UI
         actualizarUIEmpresa(inventarioCargado, clientesCargados, ventasCargadas);

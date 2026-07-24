@@ -1,4 +1,5 @@
 // ── DATA STORE CON FIRESTORE (MULTI-TENANT) ──
+// Incluye paginación, manejo de errores y funciones para reportes
 
 class DataStore {
   constructor() {
@@ -8,83 +9,128 @@ class DataStore {
     this.inventario = [];
     this.clientes = [];
     this.cargado = false;
+    // Últimos documentos para paginación
+    this.lastVentaDoc = null;
+    this.lastInventarioDoc = null;
+    this.lastClienteDoc = null;
   }
 
-  // ── CARGAR DATOS POR EMPRESA ──
-  async cargarDatosEmpresa(empresaId) {
+  // ── CARGAR DATOS POR EMPRESA CON PAGINACIÓN ──
+  async cargarDatosEmpresa(empresaId, limite = 20) {
     console.log('📦 Cargando datos para empresa:', empresaId);
-    
     try {
-      // 1. Inventario
-      const invSnap = await this.db.collection('empresas').doc(empresaId).collection('inventario').get();
-      const inventarioCargado = [];
-      invSnap.forEach(doc => inventarioCargado.push({ id: doc.id, ...doc.data() }));
-      console.log('📦 Inventario cargado:', inventarioCargado.length, 'productos');
-
-      // 2. Clientes
-      const cliSnap = await this.db.collection('empresas').doc(empresaId).collection('clientes').get();
-      const clientesCargados = [];
-      cliSnap.forEach(doc => clientesCargados.push({ id: doc.id, ...doc.data() }));
-      console.log('👥 Clientes cargados:', clientesCargados.length);
-
-      // 3. Ventas
-      const venSnap = await this.db.collection('empresas').doc(empresaId).collection('ventas').get();
-      const ventasCargadas = [];
-      venSnap.forEach(doc => ventasCargadas.push({ id: doc.id, ...doc.data() }));
-      console.log('🛒 Ventas cargadas:', ventasCargadas.length);
+      // 1. Inventario (paginado)
+      const invData = await this.cargarInventarioPaginado(empresaId, limite);
+      // 2. Clientes (paginado)
+      const cliData = await this.cargarClientesPaginado(empresaId, limite);
+      // 3. Ventas (paginado)
+      const venData = await this.cargarVentasPaginado(empresaId, limite);
 
       // Asignar a variables globales
-      inventario = inventarioCargado;
-      clientes = clientesCargados;
-      ventas = ventasCargadas;
-      
-      // También asignar a window para que estén disponibles globalmente
-      window.inventario = inventarioCargado;
-      window.clientes = clientesCargados;
-      window.ventas = ventasCargadas;
-
-      // Sincronizar store
-      this.ventas = ventasCargadas;
-      this.inventario = inventarioCargado;
-      this.clientes = clientesCargados;
+      this.inventario = invData.items;
+      this.clientes = cliData.items;
+      this.ventas = venData.items;
       this.cargado = true;
 
+      window.inventario = this.inventario;
+      window.clientes = this.clientes;
+      window.ventas = this.ventas;
+
+      // Guardar últimos documentos para paginación
+      this.lastInventarioDoc = invData.lastDoc;
+      this.lastClienteDoc = cliData.lastDoc;
+      this.lastVentaDoc = venData.lastDoc;
+
       console.log('✅ Datos de empresa cargados correctamente');
-      
-      // 🔥 RENDERIZAR CATÁLOGO AUTOMÁTICAMENTE
-      if (typeof currentScreen !== 'undefined' && currentScreen === 'cliente') {
-        if (typeof renderCatalogo === 'function') {
-          renderCatalogo();
-          console.log('✅ Catálogo renderizado automáticamente');
-        }
-        if (typeof renderHistorial === 'function') {
-          renderHistorial();
-        }
-      }
-      
       return true;
     } catch (error) {
-      console.error('❌ Error cargando datos de empresa:', error);
+      handleError(error, 'Error cargando datos de la empresa');
       throw error;
     }
   }
 
-  // ── CRUD VENTAS ──
+  // ── PAGINACIÓN: INVENTARIO ──
+  async cargarInventarioPaginado(empresaId, limite = 20, startAfter = null) {
+    try {
+      let query = this.db.collection('empresas').doc(empresaId)
+        .collection('inventario')
+        .orderBy('nombre')
+        .limit(limite);
+      if (startAfter) query = query.startAfter(startAfter);
+      const snapshot = await query.get();
+      const items = [];
+      let lastDoc = null;
+      snapshot.forEach(doc => {
+        items.push({ id: doc.id, ...doc.data() });
+        lastDoc = doc;
+      });
+      return { items, lastDoc };
+    } catch (error) {
+      handleError(error, 'Error cargando inventario');
+      return { items: [], lastDoc: null };
+    }
+  }
+
+  // ── PAGINACIÓN: CLIENTES ──
+  async cargarClientesPaginado(empresaId, limite = 20, startAfter = null) {
+    try {
+      let query = this.db.collection('empresas').doc(empresaId)
+        .collection('clientes')
+        .orderBy('nombre')
+        .limit(limite);
+      if (startAfter) query = query.startAfter(startAfter);
+      const snapshot = await query.get();
+      const items = [];
+      let lastDoc = null;
+      snapshot.forEach(doc => {
+        items.push({ id: doc.id, ...doc.data() });
+        lastDoc = doc;
+      });
+      return { items, lastDoc };
+    } catch (error) {
+      handleError(error, 'Error cargando clientes');
+      return { items: [], lastDoc: null };
+    }
+  }
+
+  // ── PAGINACIÓN: VENTAS ──
+  async cargarVentasPaginado(empresaId, limite = 20, startAfter = null) {
+    try {
+      let query = this.db.collection('empresas').doc(empresaId)
+        .collection('ventas')
+        .orderBy('fecha', 'desc')
+        .limit(limite);
+      if (startAfter) query = query.startAfter(startAfter);
+      const snapshot = await query.get();
+      const items = [];
+      let lastDoc = null;
+      snapshot.forEach(doc => {
+        items.push({ id: doc.id, ...doc.data() });
+        lastDoc = doc;
+      });
+      return { items, lastDoc };
+    } catch (error) {
+      handleError(error, 'Error cargando ventas');
+      return { items: [], lastDoc: null };
+    }
+  }
+
+  // ── CRUD VENTAS (con manejo de errores) ──
   async addVenta(venta) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      const docRef = await this.db.collection('empresas').doc(empresaId).collection('ventas').add({
-        ...venta,
-        fecha: new Date().toISOString()
-      });
-      const nuevaVenta = { id: docRef.id, ...venta, fecha: new Date().toLocaleString() };
+      const docRef = await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas').add({
+          ...venta,
+          fecha: getCurrentTimestamp()
+        });
+      const nuevaVenta = { id: docRef.id, ...venta, fecha: formatDateLocal(getCurrentTimestamp()) };
       this.ventas.unshift(nuevaVenta);
-      ventas = this.ventas;
       window.ventas = this.ventas;
       return nuevaVenta;
     } catch (error) {
-      console.error('Error al agregar venta:', error);
+      handleError(error, 'Error al agregar venta');
       throw error;
     }
   }
@@ -93,14 +139,14 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('ventas').doc(id).update(updates);
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas').doc(id).update(updates);
       const index = this.ventas.findIndex(v => v.id === id);
       if (index !== -1) this.ventas[index] = { ...this.ventas[index], ...updates };
-      ventas = this.ventas;
       window.ventas = this.ventas;
       return true;
     } catch (error) {
-      console.error('Error al actualizar venta:', error);
+      handleError(error, 'Error al actualizar venta');
       throw error;
     }
   }
@@ -109,12 +155,12 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('ventas').doc(id).delete();
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas').doc(id).delete();
       this.ventas = this.ventas.filter(v => v.id !== id);
-      ventas = this.ventas;
       window.ventas = this.ventas;
     } catch (error) {
-      console.error('Error al eliminar venta:', error);
+      handleError(error, 'Error al eliminar venta');
       throw error;
     }
   }
@@ -124,14 +170,14 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      const docRef = await this.db.collection('empresas').doc(empresaId).collection('inventario').add(producto);
+      const docRef = await this.db.collection('empresas').doc(empresaId)
+        .collection('inventario').add(producto);
       const nuevoProducto = { id: docRef.id, ...producto };
       this.inventario.unshift(nuevoProducto);
-      inventario = this.inventario;
       window.inventario = this.inventario;
       return nuevoProducto;
     } catch (error) {
-      console.error('Error al agregar producto:', error);
+      handleError(error, 'Error al agregar producto');
       throw error;
     }
   }
@@ -140,14 +186,14 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('inventario').doc(id).update(updates);
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('inventario').doc(id).update(updates);
       const index = this.inventario.findIndex(p => p.id === id);
       if (index !== -1) this.inventario[index] = { ...this.inventario[index], ...updates };
-      inventario = this.inventario;
       window.inventario = this.inventario;
       return true;
     } catch (error) {
-      console.error('Error al actualizar producto:', error);
+      handleError(error, 'Error al actualizar producto');
       throw error;
     }
   }
@@ -156,12 +202,12 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('inventario').doc(id).delete();
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('inventario').doc(id).delete();
       this.inventario = this.inventario.filter(p => p.id !== id);
-      inventario = this.inventario;
       window.inventario = this.inventario;
     } catch (error) {
-      console.error('Error al eliminar producto:', error);
+      handleError(error, 'Error al eliminar producto');
       throw error;
     }
   }
@@ -171,15 +217,14 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      const { password, ...clienteData } = cliente;
-      const docRef = await this.db.collection('empresas').doc(empresaId).collection('clientes').add(clienteData);
-      const nuevoCliente = { id: docRef.id, ...clienteData };
+      const docRef = await this.db.collection('empresas').doc(empresaId)
+        .collection('clientes').add(cliente);
+      const nuevoCliente = { id: docRef.id, ...cliente };
       this.clientes.unshift(nuevoCliente);
-      clientes = this.clientes;
       window.clientes = this.clientes;
       return nuevoCliente;
     } catch (error) {
-      console.error('Error al agregar cliente:', error);
+      handleError(error, 'Error al agregar cliente');
       throw error;
     }
   }
@@ -188,14 +233,14 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('clientes').doc(id).update(updates);
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('clientes').doc(id).update(updates);
       const index = this.clientes.findIndex(c => c.id === id);
       if (index !== -1) this.clientes[index] = { ...this.clientes[index], ...updates };
-      clientes = this.clientes;
       window.clientes = this.clientes;
       return true;
     } catch (error) {
-      console.error('Error al actualizar cliente:', error);
+      handleError(error, 'Error al actualizar cliente');
       throw error;
     }
   }
@@ -204,13 +249,54 @@ class DataStore {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
-      await this.db.collection('empresas').doc(empresaId).collection('clientes').doc(id).delete();
+      await this.db.collection('empresas').doc(empresaId)
+        .collection('clientes').doc(id).delete();
       this.clientes = this.clientes.filter(c => c.id !== id);
-      clientes = this.clientes;
       window.clientes = this.clientes;
     } catch (error) {
-      console.error('Error al eliminar cliente:', error);
+      handleError(error, 'Error al eliminar cliente');
       throw error;
+    }
+  }
+
+  // ── REPORTES DINÁMICOS ──
+  async obtenerVentasPorPeriodo(empresaId, inicio, fin) {
+    try {
+      const snapshot = await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas')
+        .where('fecha', '>=', inicio)
+        .where('fecha', '<=', fin)
+        .get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      handleError(error, 'Error obteniendo ventas por período');
+      return [];
+    }
+  }
+
+  async obtenerProductosMasVendidos(empresaId, limite = 5) {
+    try {
+      // Agrupar por producto en ventas
+      const ventas = await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas').get();
+      const productos = {};
+      ventas.forEach(doc => {
+        const v = doc.data();
+        const nombre = v.producto || 'Sin producto';
+        const cantidad = v.items || 1;
+        const total = parseCurrency(v.total) || 0;
+        if (!productos[nombre]) {
+          productos[nombre] = { nombre, cantidad: 0, total: 0 };
+        }
+        productos[nombre].cantidad += cantidad;
+        productos[nombre].total += total;
+      });
+      // Ordenar por cantidad y limitar
+      const sorted = Object.values(productos).sort((a, b) => b.cantidad - a.cantidad);
+      return sorted.slice(0, limite);
+    } catch (error) {
+      handleError(error, 'Error obteniendo productos más vendidos');
+      return [];
     }
   }
 
@@ -220,7 +306,7 @@ class DataStore {
       const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
       return userCredential.user;
     } catch (error) {
-      console.error('Error al registrar usuario:', error);
+      handleError(error, 'Error al registrar usuario');
       throw error;
     }
   }
@@ -230,7 +316,7 @@ class DataStore {
       const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
       return userCredential.user;
     } catch (error) {
-      console.error('Error al iniciar sesión:', error);
+      handleError(error, 'Error al iniciar sesión');
       throw error;
     }
   }
@@ -239,7 +325,7 @@ class DataStore {
     try {
       await this.auth.signOut();
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      handleError(error, 'Error al cerrar sesión');
       throw error;
     }
   }
@@ -261,112 +347,53 @@ function syncGlobals() {
   window.ventas = ventas;
   window.inventario = inventario;
   window.clientes = clientes;
-  console.log('🔄 syncGlobals: ventas:', ventas.length, 'inventario:', inventario.length, 'clientes:', clientes.length);
 }
 
 // ── INICIALIZAR STORE ──
 async function initStore() {
-  // Escuchar cambios de autenticación
   store.auth.onAuthStateChanged(async (user) => {
     if (user) {
       console.log('👤 Usuario autenticado:', user.email);
-      
       try {
-        // Buscar la empresa del usuario
         const empresasSnapshot = await firebase.firestore()
           .collectionGroup('usuarios')
           .where('uid', '==', user.uid)
           .get();
-        
         if (!empresasSnapshot.empty) {
           const usuarioDoc = empresasSnapshot.docs[0];
           const empresaId = usuarioDoc.ref.parent.parent.id;
           const usuarioData = usuarioDoc.data();
-          
-          console.log('🏢 Empresa encontrada:', empresaId);
-          
-          // Guardar en sesión
           sessionStorage.setItem('empresaId', empresaId);
           sessionStorage.setItem('userEmail', user.email);
           sessionStorage.setItem('userName', usuarioData.nombre || user.email);
           sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
-          
-          // Cargar datos de la empresa
           await store.cargarDatosEmpresa(empresaId);
-          
-          // Sincronizar variables globales
           syncGlobals();
-          
-          // Mostrar panel de cliente (si existe la función)
           if (typeof window.mostrarPanelCliente === 'function') {
             window.mostrarPanelCliente();
           }
-          
-          // Renderizar catálogo e historial si estamos en la pantalla de cliente
-          if (typeof currentScreen !== 'undefined' && currentScreen === 'cliente') {
-            if (typeof renderCatalogo === 'function') {
-              renderCatalogo();
-            }
-            if (typeof renderHistorial === 'function') {
-              renderHistorial();
-            }
-          }
-          
+          // Renderizar si existe
+          if (typeof renderVentas === 'function') renderVentas('', 'todas');
+          if (typeof renderInv === 'function') renderInv('', 'todos');
+          if (typeof renderClients === 'function') renderClients('', 'todos');
+          if (typeof renderActividadReciente === 'function') renderActividadReciente();
+          if (typeof updateKPIs === 'function') updateKPIs();
+          if (typeof actualizarResumenConfiguracion === 'function') actualizarResumenConfiguracion();
         } else {
           console.warn('⚠️ No se encontró empresa para el usuario');
         }
       } catch (error) {
-        console.error('❌ Error cargando empresa:', error);
+        handleError(error, 'Error cargando empresa');
       }
-      
     } else {
       console.log('👤 Usuario no autenticado');
       sessionStorage.clear();
     }
-    
-    // Renderizar después de la autenticación
-    if (typeof renderVentas === 'function') {
-      renderVentas('', filtroVentas || 'todas');
-      renderInv('', filtroInv || 'todos');
-      renderClients('', filtroCli || 'todos');
-      if (typeof renderActividadReciente === 'function') renderActividadReciente();
-      if (typeof updateKPIs === 'function') updateKPIs();
-    }
   });
-
   console.log('🚀 Store inicializado con Firestore');
 }
 
-// ── ESTADO DE CLIENTE Y CARRITO ──
-let clienteActual = null;
-let carrito = [];
-
-function guardarSesion() {
-  localStorage.setItem('clienteActual', JSON.stringify(clienteActual));
-}
-
-function cargarSesion() {
-  const saved = localStorage.getItem('clienteActual');
-  if (saved) {
-    try {
-      clienteActual = JSON.parse(saved);
-      return true;
-    } catch { return false; }
-  }
-  return false;
-}
-
-function guardarCarrito() {
-  localStorage.setItem('carrito', JSON.stringify(carrito));
-}
-
-function cargarCarrito() {
-  const saved = localStorage.getItem('carrito');
-  if (saved) {
-    try {
-      carrito = JSON.parse(saved);
-      return true;
-    } catch { return false; }
-  }
-  return false;
-}
+// Exponer globalmente
+window.store = store;
+window.syncGlobals = syncGlobals;
+window.initStore = initStore;

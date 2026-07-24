@@ -180,16 +180,541 @@ async function guardarCliente() {
   }
 }
 
-// ── EDICIÓN (actualizada para usar store) ──
-// ... (las funciones editVenta, editProducto, editCliente ya existen, solo asegurar que usen store)
+// ── EDICIÓN (usando store) ──
 
-// ── CARRITO CON VALIDACIÓN DE STOCK ──
+function editVenta(id) {
+  const v = store.ventas.find(item => item.id === id);
+  if (!v) return showToast('Venta no encontrada');
+  const body = `
+    <div class="field"><label>Cliente</label><input type="text" value="${v.cliente}" id="edit-cliente"></div>
+    <div class="field"><label>Producto</label><input type="text" value="${v.producto || ''}" id="edit-producto"></div>
+    <div class="row">
+      <div class="field"><label>Cantidad</label><input type="number" value="${v.items}" id="edit-cantidad"></div>
+      <div class="field"><label>Precio unit.</label><input type="text" value="${(parseFloat(v.total.replace('$','')) / v.items).toFixed(2)}" id="edit-precio"></div>
+    </div>
+    <div class="field"><label>Método de pago</label>
+      <select id="edit-metodo">
+        <option ${v.metodo === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
+        <option ${v.metodo === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
+        <option ${v.metodo === 'Pago Móvil' ? 'selected' : ''}>Pago Móvil</option>
+        <option ${v.metodo === 'Divisas' ? 'selected' : ''}>Divisas</option>
+      </select>
+    </div>
+    <div class="field"><label>Notas</label><textarea id="edit-notas">${v.notas || ''}</textarea></div>
+    <button class="btn btn-primary" onclick="updateVentaFromModal('${id}')">Actualizar venta</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar venta', body);
+}
+
+async function updateVentaFromModal(id) {
+  const cliente = document.getElementById('edit-cliente').value.trim();
+  const producto = document.getElementById('edit-producto').value.trim();
+  const cantidad = parseInt(document.getElementById('edit-cantidad').value) || 1;
+  const precioUnit = parseFloat(document.getElementById('edit-precio').value.replace('$','')) || 0;
+  const metodo = document.getElementById('edit-metodo').value;
+  const notas = document.getElementById('edit-notas').value;
+  const total = precioUnit * cantidad;
+
+  if (!cliente) { showToast('⚠️ El cliente es obligatorio'); return; }
+  const updates = { cliente, producto, items: cantidad, total: formatCurrency(total), metodo, notas };
+  try {
+    await store.updateVenta(id, updates);
+    syncGlobals();
+    renderVentas('', filtroVentas, 1);
+    renderActividadReciente();
+    updateKPIs();
+    closeModal();
+    showToast('✅ Venta actualizada');
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+function editProducto(nombre) {
+  const p = store.inventario.find(item => item.nombre === nombre);
+  if (!p) return showToast('Producto no encontrado');
+  
+  let precioStr = p.precio;
+  if (typeof precioStr !== 'string') {
+    precioStr = formatCurrency(Number(precioStr));
+  }
+  if (!precioStr.startsWith('$')) {
+    precioStr = '$' + precioStr;
+  }
+  const precioNum = parseFloat(precioStr.replace('$', '')) || 0;
+  
+  const body = `
+    <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
+    <div class="field"><label>Categoría</label>
+      <select id="edit-cat">
+        <option ${p.cat === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
+        <option ${p.cat === 'Dulces' ? 'selected' : ''}>Dulces</option>
+        <option ${p.cat === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
+        <option ${p.cat === 'Básicos' ? 'selected' : ''}>Básicos</option>
+        <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
+        <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
+        <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
+        <option ${p.cat === 'Salsas' ? 'selected' : ''}>Salsas</option>
+        <option ${p.cat === 'Harinas' ? 'selected' : ''}>Harinas</option>
+        <option ${p.cat === 'Conservas' ? 'selected' : ''}>Conservas</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="field"><label>Precio</label><input type="text" value="${precioNum}" id="edit-precio"></div>
+      <div class="field"><label>Stock</label><input type="number" value="${p.stock}" id="edit-stock"></div>
+    </div>
+    <button class="btn btn-primary" onclick="updateProductoFromModal('${nombre}')">Actualizar producto</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar producto', body);
+}
+
+async function updateProductoFromModal(nombreOriginal) {
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const cat = document.getElementById('edit-cat').value;
+  const precio = parseFloat(document.getElementById('edit-precio').value) || 0;
+  const stock = parseInt(document.getElementById('edit-stock').value) || 0;
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  let estado = 'ok';
+  if (stock === 0) estado = 'out';
+  else if (stock <= 5) estado = 'low';
+  const updates = { nombre, cat, precio: formatCurrency(precio), stock, estado };
+  const producto = store.inventario.find(p => p.nombre === nombreOriginal);
+  if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+  try {
+    await store.updateProducto(producto.id, updates);
+    syncGlobals();
+    renderInv('', filtroInv, 1);
+    closeModal();
+    showToast('✅ Producto actualizado');
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+function editCliente(nombre) {
+  const c = store.clientes.find(item => item.nombre === nombre);
+  if (!c) return showToast('Cliente no encontrado');
+  const body = `
+    <div class="field"><label>Nombre</label><input type="text" value="${c.nombre}" id="edit-nombre"></div>
+    <div class="field"><label>Teléfono</label><input type="text" value="${c.phone}" id="edit-phone"></div>
+    <div class="field"><label>Etiqueta</label>
+      <select id="edit-tag">
+        <option ${c.tag === 'vip' ? 'selected' : ''}>vip</option>
+        <option ${c.tag === 'regular' ? 'selected' : ''}>regular</option>
+        <option ${c.tag === 'nuevo' ? 'selected' : ''}>nuevo</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="updateClienteFromModal('${nombre}')">Actualizar cliente</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Editar cliente', body);
+}
+
+async function updateClienteFromModal(nombreOriginal) {
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const phone = document.getElementById('edit-phone').value.trim();
+  const tag = document.getElementById('edit-tag').value;
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  const cliente = store.clientes.find(c => c.nombre === nombreOriginal);
+  if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
+  const updates = { nombre, phone, tag };
+  try {
+    await store.updateCliente(cliente.id, updates);
+    syncGlobals();
+    renderClients('', filtroCli, 1);
+    closeModal();
+    showToast('✅ Cliente actualizado');
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// ── ELIMINACIÓN CON CONFIRMACIÓN ──
+
+function confirmDeleteVenta(id) {
+  openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
+    try {
+      await store.deleteVenta(id);
+      syncGlobals();
+      renderVentas('', filtroVentas, 1);
+      renderActividadReciente();
+      updateKPIs();
+      showToast('🗑️ Venta eliminada');
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}
+
+function confirmDeleteProducto(nombre) {
+  const producto = store.inventario.find(p => p.nombre === nombre);
+  if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+  openConfirmModal('¿Seguro que deseas eliminar este producto?', async () => {
+    try {
+      await store.deleteProducto(producto.id);
+      syncGlobals();
+      renderInv('', filtroInv, 1);
+      showToast('🗑️ Producto eliminado');
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}
+
+function confirmDeleteCliente(nombre) {
+  const cliente = store.clientes.find(c => c.nombre === nombre);
+  if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
+  openConfirmModal('¿Seguro que deseas eliminar este cliente?', async () => {
+    try {
+      await store.deleteCliente(cliente.id);
+      syncGlobals();
+      renderClients('', filtroCli, 1);
+      showToast('🗑️ Cliente eliminado');
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}
+
+// ── MODALES ──
+
+const modals = {
+  ventas: {
+    title: 'Nueva venta',
+    body: `
+      <div class="field"><label>Cliente</label><input type="text" placeholder="Nombre del cliente" id="input-cliente"></div>
+      <div class="field"><label>Producto(s)</label><input type="text" placeholder="Buscar producto..." id="input-producto"></div>
+      <div class="row">
+        <div class="field"><label>Cantidad</label><input type="number" placeholder="1" min="1" id="input-cantidad"></div>
+        <div class="field"><label>Precio unit.</label><input type="text" placeholder="$0.00" id="input-precio"></div>
+      </div>
+      <div class="field"><label>Método de pago</label>
+        <select id="input-metodo"><option>Efectivo</option><option>Transferencia</option><option>Pago Móvil</option><option>Divisas</option></select>
+      </div>
+      <div class="field"><label>Notas</label><textarea placeholder="Observaciones opcionales..." id="input-notas"></textarea></div>
+      <button class="btn btn-primary" onclick="guardarVenta()">Registrar venta</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `
+  },
+  inventario: {
+    title: 'Nuevo producto',
+    body: `
+      <div class="field"><label>Nombre del producto</label><input type="text" placeholder="Ej: Café Caracas 250g" id="input-nombre"></div>
+      <div class="field"><label>Categoría</label>
+        <select id="input-categoria"><option>Bebidas</option><option>Básicos</option><option>Granos</option><option>Lácteos</option><option>Dulces</option><option>Cocina</option></select>
+      </div>
+      <div class="row">
+        <div class="field"><label>Precio venta</label><input type="text" placeholder="$0.00" id="input-precio-venta"></div>
+        <div class="field"><label>Precio costo</label><input type="text" placeholder="$0.00" id="input-precio-costo"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Stock inicial</label><input type="number" placeholder="0" min="0" id="input-stock"></div>
+        <div class="field"><label>Stock mínimo</label><input type="number" placeholder="5" min="0" id="input-stock-min"></div>
+      </div>
+      <div class="field"><label>Código / referencia</label><input type="text" placeholder="SKU o código de barras" id="input-ref"></div>
+      <button class="btn btn-primary" onclick="guardarProducto()">Agregar producto</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `
+  },
+  clientes: {
+    title: 'Nuevo cliente',
+    body: `
+      <div class="row">
+        <div class="field"><label>Nombre</label><input type="text" placeholder="Nombre" id="input-cliente-nombre"></div>
+        <div class="field"><label>Apellido</label><input type="text" placeholder="Apellido" id="input-cliente-apellido"></div>
+      </div>
+      <div class="field"><label>Teléfono</label><input type="tel" placeholder="+58 412 000 0000" id="input-cliente-telefono"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" placeholder="correo@ejemplo.com" id="input-cliente-email"></div>
+      <div class="field"><label>Dirección</label><input type="text" placeholder="Dirección (opcional)" id="input-cliente-direccion"></div>
+      <div class="field"><label>Notas</label><textarea placeholder="Preferencias, detalles..." id="input-cliente-notas"></textarea></div>
+      <button class="btn btn-primary" onclick="guardarCliente()">Guardar cliente</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `
+  },
+  reportes: {
+    title: 'Exportar reporte',
+    body: `
+      <div class="field"><label>Período</label>
+        <select><option>Esta semana</option><option>Este mes</option><option>Mes anterior</option><option>Rango personalizado</option></select>
+      </div>
+      <div class="field"><label>Módulo</label>
+        <select><option>Ventas</option><option>Inventario</option><option>Clientes</option><option>Completo</option></select>
+      </div>
+      <div class="field"><label>Formato</label>
+        <select><option>PDF</option><option>Excel</option><option>CSV</option></select>
+      </div>
+      <button class="btn btn-primary" onclick="guardarReporte()">Generar reporte</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    `
+  },
+  dashboard: {
+    title: 'Acciones rápidas',
+    body: `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <button class="btn btn-primary" style="height:56px;font-size:13px" onclick="goScreen('ventas');closeModal();setTimeout(openModal,100)">🛒 Nueva venta</button>
+        <button class="btn btn-outline" style="height:56px;font-size:13px;border-color:var(--border)" onclick="goScreen('inventario');closeModal();setTimeout(openModal,100)">📦 Producto</button>
+        <button class="btn btn-outline" style="height:56px;font-size:13px;border-color:var(--border)" onclick="goScreen('clientes');closeModal();setTimeout(openModal,100)">👤 Cliente</button>
+        <button class="btn btn-outline" style="height:56px;font-size:13px;border-color:var(--border)" onclick="showToast('Escáner de código en desarrollo');closeModal()">📷 Escanear</button>
+      </div>
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+    `
+  }
+};
+
+function openModal() {
+  const m = modals[currentScreen] || modals.dashboard;
+  document.getElementById('modal-title').textContent = m.title;
+  document.getElementById('modal-body').innerHTML = m.body;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+function openModalWithContent(title, bodyHTML) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal').classList.add('open');
+}
+
+function confirmAction() {
+  if (typeof window._confirmAction === 'function') {
+    window._confirmAction();
+    window._confirmAction = null;
+  }
+  closeModal();
+}
+
+// ── LOGIN MULTI-TENANT (VERSIÓN CORRECTA) ──
+
+async function loginCliente() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-pass').value;
+
+  if (!email || !password) {
+    showToast('❌ Ingresa correo y contraseña');
+    return;
+  }
+
+  try {
+    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    console.log('✅ Usuario autenticado:', user.uid);
+
+    const empresasSnapshot = await firebase.firestore()
+      .collectionGroup('usuarios')
+      .where('uid', '==', user.uid)
+      .get();
+
+    if (empresasSnapshot.empty) {
+      showToast('❌ Usuario no tiene empresa asignada');
+      await firebase.auth().signOut();
+      return;
+    }
+
+    const usuarioDoc = empresasSnapshot.docs[0];
+    const empresaId = usuarioDoc.ref.parent.parent.id;
+    const usuarioData = usuarioDoc.data();
+
+    console.log('🏢 Empresa encontrada:', empresaId);
+
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', usuarioData.nombre || email);
+    sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
+
+    await store.cargarDatosEmpresa(empresaId);
+    mostrarPanelCliente();
+
+    showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+
+  } catch (error) {
+    console.error('❌ Error en login:', error);
+    if (error.code === 'auth/user-not-found') {
+      showToast('❌ Usuario no registrado');
+    } else if (error.code === 'auth/wrong-password') {
+      showToast('❌ Contraseña incorrecta');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── MOSTRAR PANEL CLIENTE ──
+function mostrarPanelCliente() {
+  const loginDiv = document.getElementById('cliente-login');
+  const panelDiv = document.getElementById('cliente-panel');
+  const nombreSpan = document.getElementById('cliente-nombre');
+
+  if (loginDiv) loginDiv.style.display = 'none';
+  if (panelDiv) panelDiv.style.display = 'block';
+
+  const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
+  if (nombreSpan) nombreSpan.textContent = nombre;
+
+  // Actualizar avatar
+  actualizarAvatar(nombre);
+
+  // Actualizar mensaje de bienvenida
+  const bienvenidaEl = document.getElementById('mensaje-bienvenida');
+  if (bienvenidaEl && nombre) {
+    bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (empresaId) {
+    const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
+    const logo = document.querySelector('.nav-logo span');
+    if (logo) logo.textContent = ' ' + nombreEmpresa;
+  }
+
+  // Forzar renderizado de catálogo e historial
+  setTimeout(() => {
+    renderCatalogo();
+    renderHistorial();
+    actualizarCarritoCount();
+  }, 500);
+}
+
+function cerrarSesionCliente() {
+  firebase.auth().signOut();
+  sessionStorage.clear();
+  localStorage.removeItem('empresaInventario');
+  localStorage.removeItem('empresaClientes');
+  localStorage.removeItem('empresaVentas');
+
+  const loginDiv = document.getElementById('cliente-login');
+  const panelDiv = document.getElementById('cliente-panel');
+  if (loginDiv) loginDiv.style.display = 'block';
+  if (panelDiv) panelDiv.style.display = 'none';
+
+  const logo = document.querySelector('.nav-logo span');
+  if (logo) logo.textContent = 'Negocio';
+  const avatarEl = document.getElementById('avatar-iniciales');
+  if (avatarEl) avatarEl.textContent = 'OR';
+
+  showToast('👋 Sesión cerrada');
+}
+
+function mostrarRegistro() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('registro-form').style.display = 'block';
+}
+
+function mostrarLogin() {
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('registro-form').style.display = 'none';
+}
+
+// ── REGISTRO CON CORRECCIÓN: user.uid como ID ──
+async function registrarCliente() {
+  const nombre = document.getElementById('reg-nombre').value;
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-pass').value;
+
+  if (!nombre || !email || !password) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+
+  try {
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    const empresaId = 'empresa-' + Date.now();
+    await firebase.firestore().collection('empresas').doc(empresaId).set({
+      nombre: 'Mi Negocio',
+      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // ✅ CORRECCIÓN: usar user.uid como ID del documento
+    await firebase.firestore().collection('empresas').doc(empresaId)
+      .collection('usuarios').doc(user.uid).set({
+        nombre: nombre,
+        email: email,
+        rol: 'admin',
+        empresaId: empresaId,
+        uid: user.uid,
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombre);
+
+    mostrarPanelCliente();
+    showToast(`✅ ¡Bienvenido, ${nombre}!`);
+
+  } catch (error) {
+    console.error('❌ Error en registro:', error);
+    showToast('❌ Error: ' + error.message);
+  }
+}
+
+function toggleCliente() {
+  const current = document.querySelector('.screen.active');
+  if (current && current.id === 'screen-cliente') {
+    goScreen('dashboard');
+  } else {
+    goScreen('cliente');
+    if (sessionStorage.getItem('empresaId')) {
+      mostrarPanelCliente();
+    } else {
+      document.getElementById('cliente-login').style.display = 'block';
+      document.getElementById('cliente-panel').style.display = 'none';
+    }
+    cargarCarrito();
+    actualizarCarritoCount();
+  }
+}
+
+// ── FUNCIONES DE CATÁLOGO Y CARRITO ──
+function renderCatalogo() {
+  const container = document.getElementById('catalogo-productos');
+  if (!container) return;
+  
+  const productos = window.inventario || [];
+  if (!productos || productos.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay productos disponibles</div></div>`;
+    return;
+  }
+  
+  container.innerHTML = productos.map(p => {
+    const icon = p.icon || '📦';
+    const nombre = p.nombre || 'Producto sin nombre';
+    const cat = p.cat || 'General';
+    const estado = p.estado || 'ok';
+    const stock = p.stock || 0;
+    const precio = p.precio || '$0.00';
+    const nombreEscapado = nombre.replace(/'/g, "\\'");
+    
+    return `
+      <div class="inv-card" style="cursor:default;">
+        <div class="inv-img">${icon}</div>
+        <div class="inv-info">
+          <div class="inv-name">${nombre}</div>
+          <div class="inv-cat">${cat}</div>
+          <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
+        </div>
+        <div class="inv-right">
+          <div class="inv-price">${precio}</div>
+          ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombreEscapado}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function agregarAlCarrito(nombre) {
   const producto = inventario.find(p => p.nombre === nombre);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (producto.estado === 'out') { showToast('⚠️ Producto agotado'); return; }
 
-  // Verificar stock disponible
   const itemEnCarrito = carrito.find(c => c.nombre === nombre);
   const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
   if (cantidadActual >= producto.stock) {
@@ -207,16 +732,50 @@ function agregarAlCarrito(nombre) {
   showToast(`➕ ${nombre} agregado al carrito`);
 }
 
+function actualizarCarritoCount() {
+  const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  document.getElementById('carrito-count').textContent = total;
+}
+
+function verCarrito() {
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  let html = `
+    <div style="margin-bottom:12px;">
+      <h3>🛒 Tu pedido</h3>
+      ${carrito.map(item => `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+          <span>${item.nombre} x ${item.cantidad}</span>
+          <span>${formatCurrency(item.cantidad * item.precio)}</span>
+        </div>
+      `).join('')}
+      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
+        <span>Total</span>
+        <span>${formatCurrency(total)}</span>
+      </div>
+      <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
+      <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+    </div>
+  `;
+  openModalWithContent('Carrito', html);
+}
+
+function vaciarCarrito() {
+  carrito = [];
+  guardarCarrito();
+  actualizarCarritoCount();
+  closeModal();
+  showToast('🗑️ Carrito vacío');
+}
+
 async function realizarPedido() {
   if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
 
-  // Verificar stock de cada producto antes de confirmar
+  // Verificar stock antes de confirmar
   for (const item of carrito) {
     const producto = inventario.find(p => p.nombre === item.nombre);
-    if (!producto) {
-      showToast(`⚠️ Producto "${item.nombre}" no existe`); return;
-    }
+    if (!producto) { showToast(`⚠️ Producto "${item.nombre}" no existe`); return; }
     if (item.cantidad > producto.stock) {
       showToast(`⚠️ Stock insuficiente para "${item.nombre}" (disponible: ${producto.stock})`);
       return;
@@ -262,10 +821,164 @@ async function realizarPedido() {
   }
 }
 
-// ── ASISTENTE IA: MÁS COMANDOS ──
+function renderHistorial() {
+  const container = document.getElementById('historial-pedidos');
+  const nombreCliente = sessionStorage.getItem('userName');
+  if (!nombreCliente) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">Inicia sesión para ver tus pedidos</div></div>';
+    return;
+  }
+  const misPedidos = ventas.filter(v => v.cliente === nombreCliente);
+  if (!misPedidos.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>';
+    return;
+  }
+  container.innerHTML = misPedidos.map(v => `
+    <div class="sale-card" style="cursor:default;">
+      <div class="sale-header">
+        <span class="sale-id">${v.id}</span>
+        <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <span>${v.fecha}</span>
+        <span class="sale-total">${v.total}</span>
+      </div>
+      <div style="font-size:12px; color:var(--text3);">${v.notas || 'Sin detalles'}</div>
+    </div>
+  `).join('');
+}
+
+// ── ACTIVIDAD RECIENTE ──
+function renderActividadReciente() {
+  const container = document.getElementById('actividad-list');
+  if (!container) return;
+  const ultimas = ventas.slice(0, 5);
+  if (!ultimas.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin actividad reciente</div></div>';
+    return;
+  }
+  container.innerHTML = ultimas.map(v => `
+    <div class="activity-item">
+      <div class="act-icon" style="background:${v.status === 'pagado' ? '#ECFDF5' : '#FFFBEB'}">${v.status === 'pagado' ? '🛒' : '⏳'}</div>
+      <div class="act-info">
+        <div class="act-name">${v.cliente}</div>
+        <div class="act-sub">${v.fecha} · ${v.items} producto${v.items > 1 ? 's' : ''}</div>
+      </div>
+      <div class="act-amount" style="color:${v.status === 'pagado' ? 'var(--green)' : 'var(--amber)'}">${v.total}</div>
+    </div>
+  `).join('');
+}
+
+// ── CONFIGURACIÓN - PESTAÑAS Y RESÚMENES ──
+function cambiarTabConfiguracion(tabId) {
+  document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
+  const tab = document.querySelector(`.config-tab[data-tab="${tabId}"]`);
+  if (tab) tab.classList.add('active');
+  const panel = document.getElementById('panel-' + tabId);
+  if (panel) panel.classList.add('active');
+  if (tabId === 'resumen') actualizarResumenConfiguracion();
+  if (tabId === 'productos') renderizarTablaProductos();
+  if (tabId === 'clientes') renderizarTablaClientes();
+  if (tabId === 'ventas') renderizarTablaVentas();
+}
+
+function actualizarResumenConfiguracion() {
+  const productos = window.inventario || [];
+  const clientes = window.clientes || [];
+  const ventas = window.ventas || [];
+  const totalVentas = ventas.reduce((sum, v) => sum + parseCurrency(v.total), 0);
+  document.getElementById('resumen-productos').textContent = productos.length;
+  document.getElementById('resumen-clientes').textContent = clientes.length;
+  document.getElementById('resumen-ventas').textContent = ventas.length;
+  document.getElementById('resumen-total-ventas').textContent = formatCurrency(totalVentas);
+  const empresaEl = document.getElementById('config-empresa-nombre');
+  const usuarioEl = document.getElementById('config-usuario-nombre');
+  if (empresaEl) {
+    const empresaId = sessionStorage.getItem('empresaId');
+    empresaEl.textContent = empresaId ? empresaId.replace(/-/g, ' ').toUpperCase() : 'MI EMPRESA';
+  }
+  if (usuarioEl) {
+    const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail') || 'Usuario';
+    usuarioEl.textContent = `👤 ${nombre}`;
+  }
+}
+
+// ── EXPORTAR / IMPORTAR JSON ──
+function exportarDatosJSON() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
+  if (!empresaId) { showToast('❌ No hay sesión activa'); return; }
+  const data = {
+    empresaId, nombreEmpresa, fechaExportacion: new Date().toISOString(),
+    inventario: window.inventario || [], clientes: window.clientes || [], ventas: window.ventas || []
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `datos_${empresaId}_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✅ Datos exportados correctamente');
+}
+
+async function importarDatosJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { showToast('❌ No hay sesión activa'); return; }
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.inventario || !data.clientes || !data.ventas) {
+      showToast('❌ JSON inválido: faltan campos requeridos');
+      return;
+    }
+    if (!confirm(`⚠️ ¿Reemplazar TODOS los datos de ${sessionStorage.getItem('userName')}?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`)) return;
+    showToast('⏳ Importando datos...');
+    const collections = ['inventario', 'clientes', 'ventas'];
+    for (const col of collections) {
+      const snapshot = await firebase.firestore()
+        .collection('empresas').doc(empresaId).collection(col).get();
+      const batch = firebase.firestore().batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      const items = data[col] || [];
+      for (const item of items) {
+        await firebase.firestore()
+          .collection('empresas').doc(empresaId).collection(col).add(item);
+      }
+    }
+    await store.cargarDatosEmpresa(empresaId);
+    actualizarResumenConfiguracion();
+    event.target.value = '';
+    showToast(`✅ Datos importados: ${data.inventario.length} productos, ${data.clientes.length} clientes, ${data.ventas.length} ventas`);
+  } catch (error) {
+    handleError(error, 'Error al importar datos');
+  }
+}
+
+// ── AVATAR DINÁMICO ──
+function actualizarAvatar(nombre) {
+  const avatarEl = document.getElementById('avatar-iniciales');
+  if (!avatarEl) return;
+  if (nombre) {
+    const iniciales = nombre.split(' ').filter(p => p.length > 0).map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
+    avatarEl.textContent = iniciales || '??';
+  } else {
+    avatarEl.textContent = 'OR';
+  }
+}
+
+// ── PAGE AGENT: COMANDOS MANUALES ENRIQUECIDOS ──
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
-  // Comandos nuevos:
+
+  // Comandos nuevos (consultas de datos)
   if (cmd.includes('ventas hoy')) {
     const hoy = new Date().toLocaleDateString();
     const ventasHoy = ventas.filter(v => {
@@ -285,15 +998,93 @@ function executeManualCommand(comando) {
     const nuevos = clientes.filter(c => c.tag === 'nuevo');
     return `ℹ️ Clientes nuevos: ${nuevos.length}`;
   }
-  // Llamar al comando original
-  return superExecuteManualCommand(cmd);
+  if (cmd.includes('top productos')) {
+    const top = inventario.sort((a,b) => b.stock - a.stock).slice(0,3);
+    return `ℹ️ Top productos por stock: ${top.map(p => `${p.nombre} (${p.stock})`).join(', ')}`;
+  }
+
+  // Navegación
+  if (cmd.includes('ventas') || cmd.includes('pedidos')) { goScreen('ventas'); return '✅ Navegando a ventas'; }
+  if (cmd.includes('inventario') || cmd.includes('productos')) { goScreen('inventario'); return '✅ Navegando a inventario'; }
+  if (cmd.includes('clientes')) { goScreen('clientes'); return '✅ Navegando a clientes'; }
+  if (cmd.includes('reportes') || cmd.includes('estadisticas')) { goScreen('reportes'); return '✅ Navegando a reportes'; }
+  if (cmd.includes('inicio') || cmd.includes('dashboard')) { goScreen('dashboard'); return '✅ Navegando a inicio'; }
+  if (cmd.includes('nueva venta') || cmd.includes('crear venta')) { openModal(); return '✅ Abriendo formulario de nueva venta'; }
+  if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) { toggleTheme(); return '✅ Cambiando tema'; }
+
+  // Ayuda
+  if (cmd.includes('ayuda') || cmd.includes('comandos')) {
+    return `ℹ️ **Comandos disponibles:**\n• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"\n• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"\n• "nueva venta", "cambiar tema"`;
+  }
+
+  // Saludo
+  if (cmd.includes('hola') || cmd.includes('buenos días') || cmd.includes('buenas tardes')) {
+    const hora = new Date().getHours();
+    let saludo = 'Hola';
+    if (hora < 12) saludo = 'Buenos días';
+    else if (hora < 19) saludo = 'Buenas tardes';
+    else saludo = 'Buenas noches';
+    return `✅ ${saludo}! ¿En qué puedo ayudarte?`;
+  }
+
+  return `ℹ️ Comando no reconocido. Escribe "ayuda" para ver opciones.`;
 }
 
-// Guardar referencia a la función original y sobrescribir
-const superExecuteManualCommand = window.executeManualCommand || function(cmd) {
-  return `ℹ️ Comando no reconocido. Escribe "ayuda" para ver opciones.`;
-};
-window.executeManualCommand = executeManualCommand;
+// ── PAGE AGENT - CONFIGURACIÓN (integrada) ──
+let agent = null;
+let agentReady = false;
+let ws = null;
+let wsConnected = false;
+
+async function executeAgentCommand(comando) {
+  console.log(`🎯 Ejecutando comando: "${comando}"`);
+  if (agentReady && agent) {
+    try {
+      const result = await agent.execute(comando);
+      if (result && result.success === false) {
+        console.warn('⚠️ Page Agent falló, usando modo manual');
+        return executeManualCommand(comando);
+      }
+      return result || '✅ Comando ejecutado';
+    } catch (error) {
+      console.warn('⚠️ Error con Page Agent, usando modo manual:', error.message);
+      return executeManualCommand(comando);
+    }
+  } else {
+    return executeManualCommand(comando);
+  }
+}
+
+async function agentCommand(comando) {
+  if (!comando || comando.trim() === '') {
+    document.getElementById('agent-response').innerHTML = 'ℹ️ Escribe un comando.';
+    return;
+  }
+  const result = await executeAgentCommand(comando);
+  document.getElementById('agent-response').innerHTML = result;
+  return result;
+}
+
+function sendAgentCommand() {
+  const input = document.getElementById('agent-input');
+  const comando = input.value.trim();
+  if (comando) {
+    agentCommand(comando);
+    input.value = '';
+  }
+}
+
+function toggleAgentPanel() {
+  const panel = document.getElementById('agent-panel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function connectWebSocket() {
+  console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
+  wsConnected = true;
+  document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
+  return null;
+}
 
 // ── INICIALIZACIÓN ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -310,18 +1101,40 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarCarrito();
   initStore();
 
-  // Eventos para pestañas de configuración
+  // Inicializar Page Agent (solo en localhost)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    try {
+      if (window.PageAgent) {
+        agent = new window.PageAgent({
+          model: 'gemma-4-e4b',
+          baseURL: 'http://localhost:1235/v1',
+          language: 'es-ES'
+        });
+        agentReady = true;
+        console.log('🤖 Page Agent inicializado con LM Studio (modo local)');
+      }
+    } catch (e) {
+      console.warn('⚠️ Error inicializando Page Agent:', e.message);
+      agentReady = false;
+    }
+  } else {
+    console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
+    agentReady = false;
+  }
+
+  setTimeout(connectWebSocket, 1000);
+  console.log('🤖 Sistema de comandos listo (modo mixto)');
+
+  // Evento para pestañas de configuración (delegado)
   document.addEventListener('click', function(e) {
     const tab = e.target.closest('.config-tab');
     if (tab && tab.dataset.tab) {
       cambiarTabConfiguracion(tab.dataset.tab);
     }
   });
-
-  console.log('🚀 App inicializada con Firebase y mejoras');
 });
 
-// Exponer funciones globales (ya están la mayoría)
+// ── EXPONER FUNCIONES GLOBALES ──
 window.goScreen = goScreen;
 window.filterChip = filterChip;
 window.filterVentas = filterVentas;
@@ -333,6 +1146,43 @@ window.loadTheme = loadTheme;
 window.guardarVenta = guardarVenta;
 window.guardarProducto = guardarProducto;
 window.guardarCliente = guardarCliente;
+window.editVenta = editVenta;
+window.updateVentaFromModal = updateVentaFromModal;
+window.editProducto = editProducto;
+window.updateProductoFromModal = updateProductoFromModal;
+window.editCliente = editCliente;
+window.updateClienteFromModal = updateClienteFromModal;
+window.confirmDeleteVenta = confirmDeleteVenta;
+window.confirmDeleteProducto = confirmDeleteProducto;
+window.confirmDeleteCliente = confirmDeleteCliente;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.openModalWithContent = openModalWithContent;
+window.confirmAction = confirmAction;
+window.loginCliente = loginCliente;
+window.registrarCliente = registrarCliente;
+window.cerrarSesionCliente = cerrarSesionCliente;
+window.mostrarRegistro = mostrarRegistro;
+window.mostrarLogin = mostrarLogin;
+window.toggleCliente = toggleCliente;
+window.mostrarPanelCliente = mostrarPanelCliente;
+window.renderCatalogo = renderCatalogo;
 window.agregarAlCarrito = agregarAlCarrito;
+window.actualizarCarritoCount = actualizarCarritoCount;
+window.verCarrito = verCarrito;
+window.vaciarCarrito = vaciarCarrito;
 window.realizarPedido = realizarPedido;
+window.renderHistorial = renderHistorial;
+window.renderActividadReciente = renderActividadReciente;
+window.actualizarResumenConfiguracion = actualizarResumenConfiguracion;
+window.exportarDatosJSON = exportarDatosJSON;
+window.importarDatosJSON = importarDatosJSON;
+window.actualizarAvatar = actualizarAvatar;
+window.agentCommand = agentCommand;
+window.sendAgentCommand = sendAgentCommand;
+window.toggleAgentPanel = toggleAgentPanel;
+window.executeAgentCommand = executeAgentCommand;
 window.executeManualCommand = executeManualCommand;
+window.cambiarTabConfiguracion = cambiarTabConfiguracion;
+
+console.log('✅ app.js cargado correctamente - Todas las funciones globales expuestas');

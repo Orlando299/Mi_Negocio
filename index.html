@@ -124,10 +124,9 @@
   <div id="client-list"></div>
 </div>
 
-  <!-- SCREEN: CONFIGURACIÓN (GESTIÓN DE DATOS) -->
+<!-- SCREEN: CONFIGURACIÓN -->
 <div class="screen" id="screen-configuracion">
   <div class="config-container">
-    <!-- Encabezado -->
     <div class="config-header">
       <div>
         <h2>⚙️ Gestión de Datos</h2>
@@ -139,7 +138,6 @@
       </div>
     </div>
 
-    <!-- Pestañas -->
     <div class="config-tabs">
       <button class="config-tab active" data-tab="resumen">📊 Resumen</button>
       <button class="config-tab" data-tab="productos">📦 Productos</button>
@@ -148,7 +146,6 @@
       <button class="config-tab" data-tab="json">📁 JSON</button>
     </div>
 
-    <!-- PANEL: RESUMEN -->
     <div class="config-panel active" id="panel-resumen">
       <div class="config-cards">
         <div class="config-card">
@@ -179,7 +176,6 @@
       </div>
     </div>
 
-    <!-- PANEL: PRODUCTOS -->
     <div class="config-panel" id="panel-productos">
       <div class="config-toolbar">
         <h3>📦 Inventario</h3>
@@ -204,7 +200,6 @@
       </div>
     </div>
 
-    <!-- PANEL: CLIENTES -->
     <div class="config-panel" id="panel-clientes">
       <div class="config-toolbar">
         <h3>👥 Clientes</h3>
@@ -227,7 +222,6 @@
       </div>
     </div>
 
-    <!-- PANEL: VENTAS -->
     <div class="config-panel" id="panel-ventas">
       <div class="config-toolbar">
         <h3>🛒 Ventas</h3>
@@ -252,7 +246,6 @@
       </div>
     </div>
 
-    <!-- PANEL: JSON -->
     <div class="config-panel" id="panel-json">
       <div class="config-json-section">
         <h3>📁 Exportar / Importar datos</h3>
@@ -269,12 +262,12 @@
       </div>
     </div>
 
-    <!-- Botón volver -->
     <div style="margin-top:20px; text-align:center;">
       <button class="btn btn-outline" onclick="goScreen('cliente')">⬅️ Volver al panel</button>
     </div>
   </div>
 </div>
+
 <!-- SCREEN: REPORTES -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">
@@ -331,7 +324,7 @@
   </div>
 </div>
 
-<!-- SCREEN: CLIENTE (MÓDULO PARA CLIENTES) -->
+<!-- SCREEN: CLIENTE -->
 <div class="screen" id="screen-cliente">
   <div id="cliente-login" style="padding-top:20px;">
     <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
@@ -353,13 +346,12 @@
 
   <div id="cliente-panel" style="display:none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
-  <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
-  <div style="display:flex; gap:8px;">
-    <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="goScreen('configuracion')">⚙️ Configuración</button>
-    <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
-  </div>
-</div>
-    <!-- Catálogo de productos -->
+      <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="goScreen('configuracion')">⚙️ Configuración</button>
+        <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
+      </div>
+    </div>
     <div class="section-header">
       <span class="section-title">Productos disponibles</span>
       <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
@@ -367,8 +359,6 @@
     <div id="catalogo-productos">
       <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando productos...</div></div>
     </div>
-
-    <!-- Historial de pedidos -->
     <div style="margin-top:20px;">
       <div class="section-header">
         <span class="section-title">Mis pedidos</span>
@@ -405,7 +395,7 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" id="fab-btn">＋</button>
 
-<!-- PAGE AGENT - FLOATING CONTROL PANEL -->
+<!-- PAGE AGENT PANEL -->
 <div id="agent-panel" style="position:fixed; bottom:100px; right:20px; z-index:9999; background:var(--bg-primary, #1e1e2f); border-radius:16px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); max-width:300px; display:none; border:1px solid var(--border-color, #333);">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <span style="font-weight:600; font-size:14px;">🤖 Asistente IA</span>
@@ -437,8 +427,10 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- SCRIPTS -->
-  
+<!-- ============================================================ -->
+<!-- SCRIPTS (orden correcto, sin duplicados)                    -->
+<!-- ============================================================ -->
+
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -447,7 +439,7 @@
 <!-- Configuración de Firebase -->
 <script src="js/firebase.js"></script>
 
-<!-- HELPERS (nuevo) -->
+<!-- HELPERS (utilidades) -->
 <script src="js/helpers.js"></script>
 
 <!-- DATA STORE (con paginación) -->
@@ -462,482 +454,36 @@
 <!-- APP PRINCIPAL (refactorizada, incluye Page Agent) -->
 <script src="js/app.js"></script>
 
-<!-- Page Agent SDK (solo la librería, sin el bloque de configuración) -->
+<!-- Page Agent SDK (solo la librería) -->
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
-  // ============================================================
-  //  WEBSOCKET - Versión Light (desactivado para GitHub Pages)
-  // ============================================================
-
-  function connectWebSocket() {
-    console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
-    console.log('✅ Los comandos manuales y botones funcionan correctamente');
-    
-    wsConnected = true;
-    document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
-    
-    return null;
+<!-- ============================================================ -->
+<!-- SCRIPT INLINE: garantiza que cargarCarrito y guardarCarrito  -->
+<!-- estén definidas si no lo están en app.js                     -->
+<!-- ============================================================ -->
+<script>
+  // Si no existen las funciones de carrito, las definimos aquí
+  if (typeof carrito === 'undefined') {
+    var carrito = [];
   }
-
-  // ============================================================
-  //  PAGE AGENT - Comandos (con fallback a modo manual)
-  // ============================================================
-
-  async function executeAgentCommand(comando) {
-    console.log(`🎯 Ejecutando comando: "${comando}"`);
-    
-    if (agentReady && agent) {
-      try {
-        const result = await agent.execute(comando);
-        console.log('✅ Resultado del agente:', result);
-        
-        if (result && result.success === false) {
-          console.warn('⚠️ Page Agent falló, usando modo manual:', result.data);
-          const manualResult = executeManualCommand(comando);
-          console.log('📤 Resultado del modo manual:', manualResult);
-          return manualResult;
-        }
-        
-        return result || '✅ Comando ejecutado correctamente';
-      } catch (error) {
-        console.warn('⚠️ Error con Page Agent, usando modo manual:', error.message);
-        return executeManualCommand(comando);
+  if (typeof guardarCarrito === 'undefined') {
+    window.guardarCarrito = function() {
+      localStorage.setItem('carrito', JSON.stringify(carrito));
+    };
+  }
+  if (typeof cargarCarrito === 'undefined') {
+    window.cargarCarrito = function() {
+      const saved = localStorage.getItem('carrito');
+      if (saved) {
+        try {
+          carrito = JSON.parse(saved);
+          return true;
+        } catch (e) { return false; }
       }
-    } else {
-      console.log('ℹ️ Page Agent no disponible, usando modo manual');
-      return executeManualCommand(comando);
-    }
+      return false;
+    };
   }
-
-  // ============================================================
-  //  COMANDOS MANUALES (ENRIQUECIDOS)
-  // ============================================================
-
-  function executeManualCommand(comando) {
-    const cmd = comando.toLowerCase().trim();
-    console.log(`🔧 Ejecutando comando manual: "${cmd}"`);
-
-    // ============================================================
-    //  NAVEGACIÓN
-    // ============================================================
-    
-    // Ventas
-    if (cmd.includes('ventas') || cmd.includes('venta') || 
-        cmd.includes('pedidos') || cmd.includes('pedido') ||
-        cmd.includes('facturas') || cmd.includes('factura') ||
-        cmd.includes('mostrar ventas')) {
-      goScreen('ventas');
-      return '✅ Navegando a la pantalla de ventas';
-    }
-
-    // Inventario
-    if (cmd.includes('inventario') || cmd.includes('productos') || 
-        cmd.includes('producto') || cmd.includes('stock') ||
-        cmd.includes('almacen') || cmd.includes('mercancia') ||
-        cmd.includes('mostrar inventario')) {
-      goScreen('inventario');
-      return '✅ Navegando a la pantalla de inventario';
-    }
-
-    // Clientes
-    if (cmd.includes('clientes') || cmd.includes('cliente') || 
-        cmd.includes('usuarios') || cmd.includes('usuario') ||
-        cmd.includes('contactos') || cmd.includes('contacto') ||
-        cmd.includes('mostrar clientes')) {
-      goScreen('clientes');
-      return '✅ Navegando a la pantalla de clientes';
-    }
-
-    // Reportes
-    if (cmd.includes('reportes') || cmd.includes('reporte') || 
-        cmd.includes('estadisticas') || cmd.includes('estadística') ||
-        cmd.includes('analisis') || cmd.includes('análisis') ||
-        cmd.includes('mostrar reportes')) {
-      goScreen('reportes');
-      return '✅ Navegando a la pantalla de reportes';
-    }
-
-    // Inicio / Dashboard
-    if (cmd.includes('inicio') || cmd.includes('dashboard') || 
-        cmd.includes('principal') || cmd.includes('home') ||
-        cmd.includes('resumen') || cmd.includes('panel') ||
-        cmd.includes('mostrar inicio')) {
-      goScreen('dashboard');
-      return '✅ Navegando al inicio';
-    }
-
-    // ============================================================
-    //  ACCIONES ESPECÍFICAS
-    // ============================================================
-
-    // Nueva venta
-    if (cmd.includes('nueva venta') || cmd.includes('crear venta') || 
-        cmd.includes('agregar venta') || cmd.includes('nuevo pedido') ||
-        cmd.includes('crear pedido')) {
-      openModal();
-      return '✅ Abriendo formulario de nueva venta';
-    }
-
-    // Cambiar tema
-    if (cmd.includes('tema') || cmd.includes('oscuro') || 
-        cmd.includes('claro') || cmd.includes('modo') ||
-        cmd.includes('cambiar tema') || cmd.includes('dark') || 
-        cmd.includes('light')) {
-      toggleTheme();
-      return '✅ Cambiando tema';
-    }
-
-    // ============================================================
-    //  AYUDA
-    // ============================================================
-
-    if (cmd.includes('ayuda') || cmd.includes('help') || 
-        cmd.includes('comandos') || cmd.includes('que puedes hacer') ||
-        cmd.includes('que haces')) {
-      return `ℹ️ **Comandos disponibles:**
-• Navegación: "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"
-• Acciones: "nueva venta", "cambiar tema"
-• Sinónimos: "venta", "productos", "stock", "usuarios", "dashboard"`;
-    }
-
-    // ============================================================
-    //  SALUDO
-    // ============================================================
-
-    if (cmd.includes('hola') || cmd.includes('buenos días') || 
-        cmd.includes('buenas tardes') || cmd.includes('buenas noches') ||
-        cmd.includes('que tal') || cmd.includes('hey') || 
-        cmd.includes('hello') || cmd.includes('hi') ||
-        cmd.includes('saludos')) {
-      const hora = new Date().getHours();
-      let saludo = 'Hola';
-      if (hora < 12) saludo = 'Buenos días';
-      else if (hora < 19) saludo = 'Buenas tardes';
-      else saludo = 'Buenas noches';
-      return `✅ ${saludo}! ¿En qué puedo ayudarte?`;
-    }
-
-    // ============================================================
-    //  RESPUESTA POR DEFECTO
-    // ============================================================
-
-    return `ℹ️ Comando "${comando}" no reconocido. 
-Escribe "ayuda" para ver los comandos disponibles.`;
-  }
-
-  // ============================================================
-  //  FUNCIONES PARA PRUEBA
-  // ============================================================
-
-  async function agentCommand(comando) {
-    if (!comando || comando.trim() === '') {
-      document.getElementById('agent-response').innerHTML = 'ℹ️ Escribe un comando.';
-      return;
-    }
-    
-    const result = await executeAgentCommand(comando);
-    document.getElementById('agent-response').innerHTML = result;
-    return result;
-  }
-
-  function sendAgentCommand() {
-    const input = document.getElementById('agent-input');
-    const comando = input.value.trim();
-    if (comando) {
-      agentCommand(comando);
-      input.value = '';
-    }
-  }
-
-  function toggleAgentPanel() {
-    const panel = document.getElementById('agent-panel');
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-  }
-
-  // Exponer funciones globalmente
-  window.agentCommand = agentCommand;
-  window.sendAgentCommand = sendAgentCommand;
-  window.toggleAgentPanel = toggleAgentPanel;
-  window.executeAgentCommand = executeAgentCommand;
-  window.executeManualCommand = executeManualCommand;
-
-  // ============================================================
-  //  INICIALIZACIÓN
-  // ============================================================
-
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔍 Intentando inicializar Page Agent...');
-    
-    // Inicializar Page Agent SOLO si estamos en localhost
-    // Si estamos en GitHub Pages, usar solo modo manual
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      try {
-        if (window.PageAgent) {
-          agent = new window.PageAgent({
-            model: 'gemma-4-e4b',
-            baseURL: 'http://localhost:1235/v1',
-            language: 'es-ES'
-          });
-          agentReady = true;
-          console.log('🤖 Page Agent inicializado con LM Studio (modo local)');
-        } else {
-          console.warn('⚠️ Page Agent no disponible');
-          agentReady = false;
-        }
-      } catch (e) {
-        console.warn('⚠️ Error inicializando Page Agent:', e.message);
-        agentReady = false;
-      }
-    } else {
-      console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
-      agentReady = false;
-    }
-
-    // Conectar WebSocket (versión light)
-    setTimeout(connectWebSocket, 1000);
-    
-    console.log('🤖 Sistema de comandos listo (modo mixto)');
-  });
-
-// ============================================================
-//  LOGIN MULTI-TENANT
-// ============================================================
-
-async function loginCliente() {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-pass').value;
-
-    if (!email || !password) {
-        showToast('❌ Ingresa correo y contraseña');
-        return;
-    }
-
-    try {
-        // 1. Autenticar con Firebase Authentication
-        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        console.log('✅ Usuario autenticado:', user.uid);
-
-        // 2. Buscar a qué empresa pertenece el usuario
-        const empresasSnapshot = await firebase.firestore()
-            .collectionGroup('usuarios')
-            .where('uid', '==', user.uid)
-            .get();
-
-        if (empresasSnapshot.empty) {
-            showToast('❌ Usuario no tiene empresa asignada');
-            await firebase.auth().signOut();
-            return;
-        }
-
-        // 3. Obtener el ID de la empresa
-        const usuarioDoc = empresasSnapshot.docs[0];
-        const empresaId = usuarioDoc.ref.parent.parent.id;
-        const usuarioData = usuarioDoc.data();
-
-        console.log('🏢 Empresa encontrada:', empresaId);
-
-        // 4. Guardar datos en sesión
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', email);
-        sessionStorage.setItem('userName', usuarioData.nombre || email);
-        sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
-
-        // 5. Cargar datos de la empresa
-        await cargarDatosEmpresa(empresaId);
-
-        // 6. Mostrar panel de cliente
-        mostrarPanelCliente();
-
-        showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
-
-    } catch (error) {
-        console.error('❌ Error en login:', error);
-        if (error.code === 'auth/user-not-found') {
-            showToast('❌ Usuario no registrado');
-        } else if (error.code === 'auth/wrong-password') {
-            showToast('❌ Contraseña incorrecta');
-        } else {
-            showToast('❌ Error: ' + error.message);
-        }
-    }
-}
-
-// ============================================================
-//  FUNCIONES MULTI-TENANT
-// ============================================================
-
-async function cargarDatosEmpresa(empresaId) {
-    console.log('📦 Cargando datos para empresa:', empresaId);
-    
-    try {
-        // Cargar inventario
-        const inventarioSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('inventario')
-            .get();
-        
-        const inventario = [];
-        inventarioSnapshot.forEach(doc => {
-            inventario.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('📦 Inventario cargado:', inventario.length, 'productos');
-        
-        // Cargar clientes
-        const clientesSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('clientes')
-            .get();
-        
-        const clientes = [];
-        clientesSnapshot.forEach(doc => {
-            clientes.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('👥 Clientes cargados:', clientes.length);
-        
-        // Cargar ventas
-        const ventasSnapshot = await firebase.firestore()
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('ventas')
-            .get();
-        
-        const ventas = [];
-        ventasSnapshot.forEach(doc => {
-            ventas.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('🛒 Ventas cargadas:', ventas.length);
-        
-        // Guardar en localStorage para uso en la app
-        localStorage.setItem('empresaInventario', JSON.stringify(inventario));
-        localStorage.setItem('empresaClientes', JSON.stringify(clientes));
-        localStorage.setItem('empresaVentas', JSON.stringify(ventas));
-        
-        // Actualizar la UI
-        actualizarUIEmpresa(inventario, clientes, ventas);
-        
-    } catch (error) {
-        console.error('❌ Error cargando datos:', error);
-        showToast('⚠️ Error cargando datos de la empresa');
-    }
-}
-
-function actualizarUIEmpresa(inventario, clientes, ventas) {
-    // Actualizar contadores en el dashboard
-    const kpiValues = document.querySelectorAll('.kpi-value');
-    if (kpiValues.length >= 4) {
-        // Ventas hoy
-        const totalVentas = ventas.reduce((sum, v) => sum + (v.monto || 0), 0);
-        kpiValues[0].textContent = `$${totalVentas.toFixed(2)}`;
-        // Pedidos
-        kpiValues[1].textContent = ventas.length;
-        // Stock bajo
-        kpiValues[2].textContent = inventario.filter(p => p.stock < 10).length;
-        // Clientes
-        kpiValues[3].textContent = clientes.length;
-    }
-}
-
-function mostrarPanelCliente() {
-    document.getElementById('cliente-login').style.display = 'none';
-    document.getElementById('cliente-panel').style.display = 'block';
-    
-    const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
-    document.getElementById('cliente-nombre').textContent = nombre;
-    
-    // Mostrar nombre de la empresa
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-        const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
-        document.querySelector('.nav-logo span').textContent = ' ' + nombreEmpresa;
-    }
-}
-
-function toggleCliente() {
-    // Si ya está autenticado, mostrar panel, si no, mostrar login
-    if (sessionStorage.getItem('empresaId')) {
-        document.getElementById('cliente-login').style.display = 'none';
-        document.getElementById('cliente-panel').style.display = 'block';
-        document.getElementById('cliente-nombre').textContent = sessionStorage.getItem('userName');
-    } else {
-        document.getElementById('cliente-login').style.display = 'block';
-        document.getElementById('cliente-panel').style.display = 'none';
-    }
-}
-
-function cerrarSesionCliente() {
-    firebase.auth().signOut();
-    sessionStorage.clear();
-    localStorage.removeItem('empresaInventario');
-    localStorage.removeItem('empresaClientes');
-    localStorage.removeItem('empresaVentas');
-    document.getElementById('cliente-login').style.display = 'block';
-    document.getElementById('cliente-panel').style.display = 'none';
-    showToast('👋 Sesión cerrada');
-}
-
-function mostrarRegistro() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('registro-form').style.display = 'block';
-}
-
-function mostrarLogin() {
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('registro-form').style.display = 'none';
-}
-
-async function registrarCliente() {
-    const nombre = document.getElementById('reg-nombre').value;
-    const email = document.getElementById('reg-email').value;
-    const password = document.getElementById('reg-pass').value;
-
-    if (!nombre || !email || !password) {
-        showToast('❌ Completa todos los campos');
-        return;
-    }
-
-    try {
-        // Crear usuario en Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-
-        // Crear una nueva empresa para este usuario
-        const empresaId = 'empresa-' + Date.now();
-        await firebase.firestore().collection('empresas').doc(empresaId).set({
-            nombre: 'Mi Negocio',
-            fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Guardar usuario en la empresa
-        await firebase.firestore().collection('empresas').doc(empresaId)
-            .collection('usuarios').doc(email).set({
-                nombre: nombre,
-                email: email,
-                rol: 'admin',
-                empresaId: empresaId,
-                uid: user.uid,
-                creado: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-        // Guardar en sesión
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', email);
-        sessionStorage.setItem('userName', nombre);
-
-        // Mostrar panel
-        mostrarPanelCliente();
-        showToast(`✅ ¡Bienvenido, ${nombre}!`);
-
-    } catch (error) {
-        console.error('❌ Error en registro:', error);
-        showToast('❌ Error: ' + error.message);
-    }
-}
-
-
-  
+  console.log('🔄 Funciones de carrito aseguradas (inline)');
 </script>
 
 </body>

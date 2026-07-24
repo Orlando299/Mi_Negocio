@@ -2,6 +2,22 @@
 // Funciones utilitarias y manejo de errores centralizado
 
 /**
+ * Muestra un mensaje tipo toast (notificación)
+ */
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  if (!t) {
+    console.warn('Toast element not found:', msg);
+    return;
+  }
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/**
  * Muestra un mensaje de error al usuario y registra en consola.
  * @param {Error|string} error - Error o mensaje.
  * @param {string} fallback - Mensaje alternativo si error no tiene mensaje.
@@ -9,13 +25,11 @@
 function handleError(error, fallback = 'Ocurrió un error inesperado') {
   console.error(error);
   const msg = (typeof error === 'string') ? error : (error.message || fallback);
-  showToast('❌ ' + msg);
+  showToast('❌ ' + msg, 'error');
 }
 
 /**
  * Formatea un número como moneda (USD).
- * @param {number} value
- * @returns {string} Ej: $1,234.56
  */
 function formatCurrency(value) {
   return '$' + Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -54,6 +68,7 @@ function getDayName(index) {
 }
 
 // Exponer globalmente
+window.showToast = showToast;
 window.handleError = handleError;
 window.formatCurrency = formatCurrency;
 window.parseCurrency = parseCurrency;

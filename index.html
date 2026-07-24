@@ -438,6 +438,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- SCRIPTS -->
+  
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -446,18 +447,23 @@
 <!-- Configuración de Firebase -->
 <script src="js/firebase.js"></script>
 
-<!-- ========== PAGE AGENT ========== -->
+<!-- HELPERS (nuevo) -->
+<script src="js/helpers.js"></script>
+
+<!-- DATA STORE (con paginación) -->
+<script src="js/data.js"></script>
+
+<!-- RENDER (paginación y reportes) -->
+<script src="js/render.js"></script>
+
+<!-- TEMAS -->
+<script src="js/temas.js"></script>
+
+<!-- APP PRINCIPAL (refactorizada, incluye Page Agent) -->
+<script src="js/app.js"></script>
+
+<!-- Page Agent SDK (solo la librería, sin el bloque de configuración) -->
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
-
-<script>
-  // ============================================================
-  //  PAGE AGENT - Configuración
-  // ============================================================
-
-  let agent = null;
-  let agentReady = false;
-  let ws = null;
-  let wsConnected = false;
 
   // ============================================================
   //  WEBSOCKET - Versión Light (desactivado para GitHub Pages)

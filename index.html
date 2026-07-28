@@ -15,8 +15,21 @@
   <div class="nav-right">
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
-    <button class="nav-icon-btn" onclick="window.toggleCliente()" id="btn-cliente">👤</button>
-    <span class="avatar" id="avatar-iniciales" onclick="showToast('Perfil de usuario')">OR</span>
+    <!-- Botón para cliente final (siempre visible) -->
+    <button class="nav-icon-btn" onclick="window.toggleCliente()" id="btn-cliente" title="Acceso cliente">👤</button>
+    <!-- Menú del franquiciado (solo visible cuando es admin) -->
+    <div id="admin-menu" style="display:none; position:relative; cursor:pointer;" onclick="toggleAdminMenu(event)">
+      <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white;">A</span>
+      <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:160px; z-index:1000; padding:8px 0;">
+        <div style="padding:8px 16px; border-bottom:1px solid var(--border);">
+          <strong id="admin-nombre"></strong><br>
+          <span style="font-size:12px; color:var(--text3);">Franquiciado</span>
+        </div>
+        <div onclick="goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg);">📊 Panel de control</div>
+        <div onclick="window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg);">👤 Ver como cliente</div>
+        <div onclick="cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg); color:var(--danger);">🚪 Cerrar sesión</div>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -324,7 +337,7 @@
   </div>
 </div>
 
-<!-- SCREEN: CLIENTE -->
+<!-- SCREEN: CLIENTE (MÓDULO PARA CLIENTES) -->
 <div class="screen" id="screen-cliente">
   <div id="cliente-login" style="padding-top:20px;">
     <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
@@ -339,6 +352,12 @@
       <div class="field"><label>Nombre</label><input type="text" id="reg-nombre" placeholder="Tu nombre"></div>
       <div class="field"><label>Correo</label><input type="email" id="reg-email" placeholder="correo@ejemplo.com"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" placeholder="******"></div>
+      <!-- Campo nuevo: código de franquicia -->
+      <div class="field">
+        <label>Código de franquicia</label>
+        <input type="text" id="reg-codigo" placeholder="Ej: empresa-test" required>
+        <small style="color:var(--text3); font-size:11px;">Pídele a tu franquiciado el código de acceso</small>
+      </div>
       <button class="btn btn-primary" onclick="registrarCliente()">Registrarme</button>
       <button class="btn btn-outline" onclick="mostrarLogin()">Volver a login</button>
     </div>
@@ -349,19 +368,62 @@
       <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
       <div style="display:flex; gap:8px;">
         <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="goScreen('configuracion')">⚙️ Configuración</button>
-        <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesionCliente()">Cerrar sesión</button>
+        <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesion()">Cerrar sesión</button>
       </div>
     </div>
-    <div class="section-header">
-      <span class="section-title">Productos disponibles</span>
-      <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
+
+    <!-- Pestañas internas -->
+    <div class="config-tabs" style="margin-bottom:16px;">
+      <button class="config-tab active" data-tab-cliente="catalogo">🛍️ Catálogo</button>
+      <button class="config-tab" data-tab-cliente="chat">💬 Chat</button>
+      <button class="config-tab" data-tab-cliente="alertas">🚨 Alertas</button>
+      <button class="config-tab" data-tab-cliente="pedidos">📋 Pedidos</button>
     </div>
-    <div id="catalogo-productos">
-      <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando productos...</div></div>
-    </div>
-    <div style="margin-top:20px;">
+
+    <!-- Panel: Catálogo -->
+    <div id="cliente-panel-catalogo" class="cliente-panel-content active">
       <div class="section-header">
-        <span class="section-title">Mis pedidos</span>
+        <span class="section-title">Productos disponibles</span>
+        <span class="section-link" onclick="verCarrito()">🛒 Carrito (<span id="carrito-count">0</span>)</span>
+      </div>
+      <div id="catalogo-productos">
+        <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando productos...</div></div>
+      </div>
+    </div>
+
+    <!-- Panel: Chat -->
+    <div id="cliente-panel-chat" class="cliente-panel-content" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">💬 Chat comunitario</span>
+        <span style="font-size:12px; color:var(--text3);">Mensajes de otros clientes de tu franquiciado</span>
+      </div>
+      <div id="chat-mensajes" style="max-height:400px; overflow-y:auto; margin-bottom:12px; background:var(--bg-card); border-radius:var(--radius); padding:12px;">
+        <div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Sin mensajes aún. ¡Sé el primero en escribir!</div></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="chat-input" placeholder="Escribe un mensaje..." style="flex:1; padding:10px 14px; border-radius:var(--radius); border:1px solid var(--border); background:var(--bg); color:var(--text);">
+        <button class="btn btn-primary" onclick="enviarMensajeChat()">Enviar</button>
+      </div>
+    </div>
+
+    <!-- Panel: Alertas -->
+    <div id="cliente-panel-alertas" class="cliente-panel-content" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">🚨 Alertas de seguridad</span>
+        <span style="font-size:12px; color:var(--text3);">Reporta o consulta incidentes en tu zona</span>
+      </div>
+      <button class="btn btn-danger" style="width:100%; margin-bottom:12px; padding:14px; font-size:1.2rem;" onclick="abrirModalAlerta()">
+        🚨 Enviar alerta
+      </button>
+      <div id="alertas-lista" style="max-height:400px; overflow-y:auto;">
+        <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No hay alertas activas</div></div>
+      </div>
+    </div>
+
+    <!-- Panel: Pedidos -->
+    <div id="cliente-panel-pedidos" class="cliente-panel-content" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">📋 Mis pedidos</span>
       </div>
       <div id="historial-pedidos"></div>
     </div>
@@ -395,7 +457,7 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" id="fab-btn">＋</button>
 
-<!-- PAGE AGENT PANEL -->
+<!-- PAGE AGENT - FLOATING CONTROL PANEL -->
 <div id="agent-panel" style="position:fixed; bottom:100px; right:20px; z-index:9999; background:var(--bg-primary, #1e1e2f); border-radius:16px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); max-width:300px; display:none; border:1px solid var(--border-color, #333);">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <span style="font-weight:600; font-size:14px;">🤖 Asistente IA</span>
@@ -439,27 +501,26 @@
 <!-- Configuración de Firebase -->
 <script src="js/firebase.js"></script>
 
-<!-- HELPERS (utilidades) -->
+<!-- HELPERS -->
 <script src="js/helpers.js"></script>
 
-<!-- DATA STORE (con paginación) -->
+<!-- DATA STORE -->
 <script src="js/data.js"></script>
 
-<!-- RENDER (paginación y reportes) -->
+<!-- RENDER -->
 <script src="js/render.js"></script>
 
 <!-- TEMAS -->
 <script src="js/temas.js"></script>
 
-<!-- APP PRINCIPAL (refactorizada, incluye Page Agent) -->
+<!-- APP PRINCIPAL -->
 <script src="js/app.js"></script>
 
-<!-- Page Agent SDK (solo la librería) -->
+<!-- Page Agent SDK -->
 <script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
 
 <!-- ============================================================ -->
-<!-- SCRIPT INLINE: garantiza que cargarCarrito y guardarCarrito  -->
-<!-- estén definidas si no lo están en app.js                     -->
+<!-- SCRIPT INLINE: funciones de carrito y misceláneas           -->
 <!-- ============================================================ -->
 <script>
   // Si no existen las funciones de carrito, las definimos aquí

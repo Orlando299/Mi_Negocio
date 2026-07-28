@@ -490,8 +490,42 @@ function confirmAction() {
   closeModal();
 }
 
-// ── LOGIN MULTI-TENANT (VERSIÓN CORRECTA) ──
+// ── MENÚ DEL FRANQUICIADO ──
+function toggleAdminMenu(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById('admin-dropdown');
+  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
 
+function closeAdminMenu() {
+  document.getElementById('admin-dropdown').style.display = 'none';
+}
+
+// Cerrar menú al hacer clic fuera
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('admin-menu');
+  if (menu && !menu.contains(e.target)) {
+    closeAdminMenu();
+  }
+});
+
+// Actualizar avatar y nombre del admin
+function actualizarAdminUI(nombre) {
+  const adminMenu = document.getElementById('admin-menu');
+  const avatar = document.getElementById('avatar-admin');
+  const nombreEl = document.getElementById('admin-nombre');
+  
+  if (nombre) {
+    adminMenu.style.display = 'block';
+    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
+    avatar.textContent = iniciales || 'A';
+    nombreEl.textContent = nombre;
+  } else {
+    adminMenu.style.display = 'none';
+  }
+}
+
+// ── LOGIN MULTI-TENANT (MODIFICADO PARA DETECTAR ROL) ──
 async function loginCliente() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-pass').value;
@@ -526,12 +560,22 @@ async function loginCliente() {
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', usuarioData.nombre || email);
-    sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
+    sessionStorage.setItem('userRol', usuarioData.rol || 'cliente');
 
-    await store.cargarDatosEmpresa(empresaId);
-    mostrarPanelCliente();
-
-    showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+    // Determinar rol y redirigir
+    if (usuarioData.rol === 'admin') {
+      // Es franquiciado
+      actualizarAdminUI(usuarioData.nombre);
+      await store.cargarDatosEmpresa(empresaId);
+      goScreen('dashboard');
+      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+    } else {
+      // Es cliente final
+      document.getElementById('admin-menu').style.display = 'none';
+      await store.cargarDatosEmpresa(empresaId);
+      mostrarPanelCliente();
+      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+    }
 
   } catch (error) {
     console.error('❌ Error en login:', error);
@@ -542,6 +586,63 @@ async function loginCliente() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+  }
+}
+
+// ── REGISTRO DE CLIENTE (CON CÓDIGO DE FRANQUICIA) ──
+async function registrarCliente() {
+  const nombre = document.getElementById('reg-nombre').value;
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-pass').value;
+  const codigoFranquicia = document.getElementById('reg-codigo')?.value || '';
+
+  if (!nombre || !email || !password) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+
+  if (!codigoFranquicia) {
+    showToast('❌ El código de franquicia es obligatorio');
+    return;
+  }
+
+  try {
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // Verificar que la empresa existe
+    const empresaDoc = await firebase.firestore().collection('empresas').doc(codigoFranquicia).get();
+    if (!empresaDoc.exists) {
+      showToast('❌ Código de franquicia no válido');
+      await firebase.auth().signOut();
+      return;
+    }
+
+    // Crear el cliente en la empresa
+    await firebase.firestore().collection('empresas').doc(codigoFranquicia)
+      .collection('clientes').doc(user.uid).set({
+        nombre: nombre,
+        email: email,
+        uid: user.uid,
+        creado: firebase.firestore.FieldValue.serverTimestamp(),
+        tag: 'nuevo',
+        phone: '',
+        compras: '$0.00',
+        pedidos: 0
+      });
+
+    sessionStorage.setItem('empresaId', codigoFranquicia);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombre);
+    sessionStorage.setItem('userRol', 'cliente');
+
+    await store.cargarDatosEmpresa(codigoFranquicia);
+    mostrarPanelCliente();
+    showToast(`✅ ¡Bienvenido, ${nombre}!`);
+
+  } catch (error) {
+    console.error('❌ Error en registro:', error);
+    showToast('❌ Error: ' + error.message);
   }
 }
 
@@ -578,27 +679,34 @@ function mostrarPanelCliente() {
     renderCatalogo();
     renderHistorial();
     actualizarCarritoCount();
+    cargarMensajesChat();
+    cargarAlertas();
   }, 500);
 }
 
-function cerrarSesionCliente() {
+// ── CERRAR SESIÓN UNIFICADA ──
+function cerrarSesion() {
   firebase.auth().signOut();
   sessionStorage.clear();
   localStorage.removeItem('empresaInventario');
   localStorage.removeItem('empresaClientes');
   localStorage.removeItem('empresaVentas');
 
+  // Ocultar menú admin y mostrar botón cliente
+  document.getElementById('admin-menu').style.display = 'none';
+  document.getElementById('btn-cliente').style.display = 'inline-flex';
+
+  // Restaurar logo y avatar
+  const logo = document.querySelector('.nav-logo span');
+  if (logo) logo.textContent = 'Negocio';
+  
   const loginDiv = document.getElementById('cliente-login');
   const panelDiv = document.getElementById('cliente-panel');
   if (loginDiv) loginDiv.style.display = 'block';
   if (panelDiv) panelDiv.style.display = 'none';
 
-  const logo = document.querySelector('.nav-logo span');
-  if (logo) logo.textContent = 'Negocio';
-  const avatarEl = document.getElementById('avatar-iniciales');
-  if (avatarEl) avatarEl.textContent = 'OR';
-
   showToast('👋 Sesión cerrada');
+  goScreen('dashboard');
 }
 
 function mostrarRegistro() {
@@ -609,51 +717,6 @@ function mostrarRegistro() {
 function mostrarLogin() {
   document.getElementById('login-form').style.display = 'block';
   document.getElementById('registro-form').style.display = 'none';
-}
-
-// ── REGISTRO CON CORRECCIÓN: user.uid como ID ──
-async function registrarCliente() {
-  const nombre = document.getElementById('reg-nombre').value;
-  const email = document.getElementById('reg-email').value;
-  const password = document.getElementById('reg-pass').value;
-
-  if (!nombre || !email || !password) {
-    showToast('❌ Completa todos los campos');
-    return;
-  }
-
-  try {
-    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    const empresaId = 'empresa-' + Date.now();
-    await firebase.firestore().collection('empresas').doc(empresaId).set({
-      nombre: 'Mi Negocio',
-      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    // ✅ CORRECCIÓN: usar user.uid como ID del documento
-    await firebase.firestore().collection('empresas').doc(empresaId)
-      .collection('usuarios').doc(user.uid).set({
-        nombre: nombre,
-        email: email,
-        rol: 'admin',
-        empresaId: empresaId,
-        uid: user.uid,
-        creado: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-    sessionStorage.setItem('empresaId', empresaId);
-    sessionStorage.setItem('userEmail', email);
-    sessionStorage.setItem('userName', nombre);
-
-    mostrarPanelCliente();
-    showToast(`✅ ¡Bienvenido, ${nombre}!`);
-
-  } catch (error) {
-    console.error('❌ Error en registro:', error);
-    showToast('❌ Error: ' + error.message);
-  }
 }
 
 function toggleCliente() {
@@ -734,7 +797,8 @@ function agregarAlCarrito(nombre) {
 
 function actualizarCarritoCount() {
   const total = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-  document.getElementById('carrito-count').textContent = total;
+  const el = document.getElementById('carrito-count');
+  if (el) el.textContent = total;
 }
 
 function verCarrito() {
@@ -974,11 +1038,240 @@ function actualizarAvatar(nombre) {
   }
 }
 
+// ── FUNCIONES DE CHAT ──
+async function enviarMensajeChat() {
+  const input = document.getElementById('chat-input');
+  const texto = input.value.trim();
+  if (!texto) { showToast('⚠️ Escribe un mensaje'); return; }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { showToast('⚠️ Inicia sesión'); return; }
+
+  const user = firebase.auth().currentUser;
+  if (!user) { showToast('⚠️ Usuario no autenticado'); return; }
+
+  try {
+    const mensaje = {
+      texto: texto,
+      remitente: sessionStorage.getItem('userName') || user.email || 'Anónimo',
+      uid: user.uid,
+      fecha: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('chats')
+      .add(mensaje);
+
+    input.value = '';
+    cargarMensajesChat();
+    showToast('✅ Mensaje enviado');
+  } catch (error) {
+    handleError(error, 'Error al enviar mensaje');
+  }
+}
+
+async function cargarMensajesChat() {
+  const container = document.getElementById('chat-mensajes');
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { 
+    if (container) container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver el chat</div></div>';
+    return; 
+  }
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('chats')
+      .orderBy('fecha', 'desc')
+      .limit(50)
+      .get();
+
+    if (snapshot.empty) {
+      if (container) container.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Sin mensajes aún. ¡Sé el primero en escribir!</div></div>';
+      return;
+    }
+
+    const mensajes = [];
+    snapshot.forEach(doc => {
+      mensajes.push({ id: doc.id, ...doc.data() });
+    });
+
+    mensajes.reverse();
+
+    if (container) {
+      container.innerHTML = mensajes.map(m => `
+        <div style="padding:8px 12px; margin-bottom:6px; background:var(--bg); border-radius:var(--radius); border-left:3px solid ${m.uid === firebase.auth().currentUser?.uid ? 'var(--primary)' : 'var(--border)'};">
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text3);">
+            <strong>${m.remitente}</strong>
+            <span>${formatDateLocal(m.fecha?.toDate?.() || m.fecha)}</span>
+          </div>
+          <div style="font-size:14px;">${m.texto}</div>
+        </div>
+      `).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+
+  } catch (error) {
+    handleError(error, 'Error cargando mensajes');
+  }
+}
+
+// ── FUNCIONES DE ALERTAS ──
+function abrirModalAlerta() {
+  const body = `
+    <div class="field">
+      <label>Tipo de alerta</label>
+      <select id="alerta-tipo">
+        <option value="fiscalizacion">🛂 Fiscalización (Seniat, municipio)</option>
+        <option value="riña">🥊 Riña o disturbio</option>
+        <option value="policial">🚔 Operativo policial</option>
+        <option value="corte_luz">💡 Corte de luz/agua</option>
+        <option value="otro">⚠️ Otro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Descripción (opcional)</label>
+      <textarea id="alerta-descripcion" placeholder="Detalla lo que está pasando..." rows="3"></textarea>
+    </div>
+    <div class="field">
+      <label>Ubicación (opcional)</label>
+      <input type="text" id="alerta-ubicacion" placeholder="Ej: Av. Principal, sector ...">
+    </div>
+    <button class="btn btn-danger" onclick="enviarAlerta()">🚨 Enviar alerta</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+  openModalWithContent('Enviar alerta de seguridad', body);
+}
+
+async function enviarAlerta() {
+  const tipo = document.getElementById('alerta-tipo').value;
+  const descripcion = document.getElementById('alerta-descripcion').value.trim();
+  const ubicacion = document.getElementById('alerta-ubicacion').value.trim();
+
+  if (!tipo) { showToast('⚠️ Selecciona un tipo de alerta'); return; }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { showToast('⚠️ Inicia sesión primero'); return; }
+
+  const user = firebase.auth().currentUser;
+  if (!user) { showToast('⚠️ Usuario no autenticado'); return; }
+
+  try {
+    const alerta = {
+      tipo: tipo,
+      descripcion: descripcion || '',
+      ubicacion: ubicacion || '',
+      creadoPor: sessionStorage.getItem('userName') || user.email || 'Anónimo',
+      uid: user.uid,
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      estado: 'activa',
+      votosConfirmacion: 0,
+      votosFalso: 0,
+      resuelta: false
+    };
+
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('alertas')
+      .add(alerta);
+
+    closeModal();
+    showToast('✅ Alerta enviada correctamente');
+    cargarAlertas();
+  } catch (error) {
+    handleError(error, 'Error al enviar alerta');
+  }
+}
+
+async function cargarAlertas() {
+  const container = document.getElementById('alertas-lista');
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { 
+    if (container) container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver alertas</div></div>';
+    return; 
+  }
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('alertas')
+      .where('resuelta', '==', false)
+      .orderBy('fecha', 'desc')
+      .get();
+
+    if (snapshot.empty) {
+      if (container) container.innerHTML = '<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No hay alertas activas</div></div>';
+      return;
+    }
+
+    const alertas = [];
+    snapshot.forEach(doc => {
+      alertas.push({ id: doc.id, ...doc.data() });
+    });
+
+    const tipoIcon = {
+      'fiscalizacion': '🛂',
+      'riña': '🥊',
+      'policial': '🚔',
+      'corte_luz': '💡',
+      'otro': '⚠️'
+    };
+
+    if (container) {
+      container.innerHTML = alertas.map(a => `
+        <div class="card" style="padding:12px; margin-bottom:8px; border-left:4px solid ${a.estado === 'activa' ? 'var(--danger)' : 'var(--green)'};">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong>${tipoIcon[a.tipo] || '⚠️'} ${a.tipo}</strong>
+            <span style="font-size:12px; color:var(--text3);">${formatDateLocal(a.fecha?.toDate?.() || a.fecha)}</span>
+          </div>
+          <div style="font-size:14px; margin:6px 0;">${a.descripcion || 'Sin descripción'}</div>
+          <div style="font-size:12px; color:var(--text3);">📍 ${a.ubicacion || 'Sin ubicación'} · 👤 ${a.creadoPor}</div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="btn btn-sm btn-success" onclick="votarAlerta('${a.id}', 'confirmar')">✅ Confirmar (${a.votosConfirmacion || 0})</button>
+            <button class="btn btn-sm btn-danger" onclick="votarAlerta('${a.id}', 'falso')">❌ Falso (${a.votosFalso || 0})</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+  } catch (error) {
+    handleError(error, 'Error cargando alertas');
+  }
+}
+
+async function votarAlerta(alertaId, voto) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { showToast('⚠️ Inicia sesión'); return; }
+
+  try {
+    const docRef = firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('alertas')
+      .doc(alertaId);
+
+    const incremento = voto === 'confirmar' ? 'votosConfirmacion' : 'votosFalso';
+    await docRef.update({
+      [incremento]: firebase.firestore.FieldValue.increment(1)
+    });
+
+    showToast('✅ Voto registrado');
+    cargarAlertas();
+  } catch (error) {
+    handleError(error, 'Error al votar');
+  }
+}
+
 // ── PAGE AGENT: COMANDOS MANUALES ENRIQUECIDOS ──
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
 
-  // Comandos nuevos (consultas de datos)
+  // Comandos de consulta
   if (cmd.includes('ventas hoy')) {
     const hoy = new Date().toLocaleDateString();
     const ventasHoy = ventas.filter(v => {
@@ -1082,8 +1375,27 @@ function toggleAgentPanel() {
 function connectWebSocket() {
   console.log('ℹ️ Modo Light: WebSocket desactivado para GitHub Pages');
   wsConnected = true;
-  document.getElementById('agent-response').innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
+  const responseEl = document.getElementById('agent-response');
+  if (responseEl) responseEl.innerHTML = 'ℹ️ Modo Light: Asistente disponible en versión web.';
   return null;
+}
+
+// ── PESTAÑAS DEL MÓDULO CLIENTE ──
+function cambiarTabCliente(tabId) {
+  // Ocultar todos los paneles
+  document.querySelectorAll('.cliente-panel-content').forEach(p => p.style.display = 'none');
+  // Mostrar el seleccionado
+  const panel = document.getElementById('cliente-panel-' + tabId);
+  if (panel) panel.style.display = 'block';
+  // Activar la pestaña visualmente
+  document.querySelectorAll('[data-tab-cliente]').forEach(tab => tab.classList.remove('active'));
+  const tabBtn = document.querySelector(`[data-tab-cliente="${tabId}"]`);
+  if (tabBtn) tabBtn.classList.add('active');
+
+  // Cargar datos específicos al cambiar
+  if (tabId === 'chat') cargarMensajesChat();
+  if (tabId === 'alertas') cargarAlertas();
+  if (tabId === 'pedidos') renderHistorial();
 }
 
 // ── INICIALIZACIÓN ──
@@ -1100,6 +1412,22 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarTemaGuardado();
   cargarCarrito();
   initStore();
+
+  // Eventos para pestañas de configuración
+  document.addEventListener('click', function(e) {
+    const tab = e.target.closest('.config-tab');
+    if (tab && tab.dataset.tab) {
+      cambiarTabConfiguracion(tab.dataset.tab);
+    }
+  });
+
+  // Eventos para pestañas del módulo cliente
+  document.addEventListener('click', function(e) {
+    const tab = e.target.closest('[data-tab-cliente]');
+    if (tab && tab.dataset.tabCliente) {
+      cambiarTabCliente(tab.dataset.tabCliente);
+    }
+  });
 
   // Inicializar Page Agent (solo en localhost)
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -1124,14 +1452,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setTimeout(connectWebSocket, 1000);
   console.log('🤖 Sistema de comandos listo (modo mixto)');
-
-  // Evento para pestañas de configuración (delegado)
-  document.addEventListener('click', function(e) {
-    const tab = e.target.closest('.config-tab');
-    if (tab && tab.dataset.tab) {
-      cambiarTabConfiguracion(tab.dataset.tab);
-    }
-  });
 });
 
 // ── EXPONER FUNCIONES GLOBALES ──
@@ -1161,11 +1481,11 @@ window.openModalWithContent = openModalWithContent;
 window.confirmAction = confirmAction;
 window.loginCliente = loginCliente;
 window.registrarCliente = registrarCliente;
-window.cerrarSesionCliente = cerrarSesionCliente;
 window.mostrarRegistro = mostrarRegistro;
 window.mostrarLogin = mostrarLogin;
 window.toggleCliente = toggleCliente;
 window.mostrarPanelCliente = mostrarPanelCliente;
+window.cerrarSesion = cerrarSesion;
 window.renderCatalogo = renderCatalogo;
 window.agregarAlCarrito = agregarAlCarrito;
 window.actualizarCarritoCount = actualizarCarritoCount;
@@ -1184,5 +1504,15 @@ window.toggleAgentPanel = toggleAgentPanel;
 window.executeAgentCommand = executeAgentCommand;
 window.executeManualCommand = executeManualCommand;
 window.cambiarTabConfiguracion = cambiarTabConfiguracion;
+window.cambiarTabCliente = cambiarTabCliente;
+window.enviarMensajeChat = enviarMensajeChat;
+window.cargarMensajesChat = cargarMensajesChat;
+window.abrirModalAlerta = abrirModalAlerta;
+window.enviarAlerta = enviarAlerta;
+window.cargarAlertas = cargarAlertas;
+window.votarAlerta = votarAlerta;
+window.toggleAdminMenu = toggleAdminMenu;
+window.closeAdminMenu = closeAdminMenu;
+window.actualizarAdminUI = actualizarAdminUI;
 
 console.log('✅ app.js cargado correctamente - Todas las funciones globales expuestas');

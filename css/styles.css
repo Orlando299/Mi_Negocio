@@ -135,6 +135,12 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 .kpi-value.purple { color: var(--purple); }
 .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
 
+#chart-ventas {
+  height: 220px !important;
+  max-height: 220px;
+  width: 100% !important;
+}
+
 /* SECTION HEADER */
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .section-title { font-size: 14px; font-weight: 700; color: var(--text); }

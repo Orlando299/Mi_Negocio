@@ -22,19 +22,19 @@
     <!-- Botón para cliente final (siempre visible) -->
     <button class="nav-icon-btn" onclick="window.toggleCliente()" id="btn-cliente" title="Acceso cliente">👤</button>
     <!-- Menú del franquiciado (solo visible cuando es admin) -->
-    <div id="admin-menu" style="display:none; position:relative; cursor:pointer;" onclick="toggleAdminMenu(event)">
-      <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white;">A</span>
-      <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:160px; z-index:1000; padding:8px 0;">
-        <div style="padding:8px 16px; border-bottom:1px solid var(--border);">
-          <strong id="admin-nombre"></strong><br>
-          <span style="font-size:12px; color:var(--text3);">Franquiciado</span>
-        </div>
-        <div onclick="goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg);">📊 Panel de control</div>
-        <div onclick="window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg);">👤 Ver como cliente</div>
-        <div onclick="cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; hover:background:var(--bg); color:var(--danger);">🚪 Cerrar sesión</div>
-      </div>
+    <div id="admin-menu" style="display:none; position:relative; cursor:pointer;">
+  <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white; cursor:pointer;" onclick="toggleAdminMenu(event)">A</span>
+  <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:180px; z-index:1000; padding:8px 0;">
+    <div style="padding:8px 16px; border-bottom:1px solid var(--border);">
+      <strong id="admin-nombre"></strong><br>
+      <span style="font-size:12px; color:var(--text3);">Franquiciado</span>
+    </div>
+    <div onclick="event.stopPropagation(); goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📊 Panel de control</div>
+    <div onclick="event.stopPropagation(); window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">👤 Ver como cliente</div>
+    <div onclick="event.stopPropagation(); cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; color:var(--danger);">🚪 Cerrar sesión
     </div>
   </div>
+</div>
 </nav>
 
 <!-- SCREEN: DASHBOARD -->

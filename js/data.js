@@ -1,6 +1,7 @@
 // ── DATA STORE CON FIRESTORE (MULTI-TENANT) ──
 // Incluye paginación, manejo de errores y funciones para reportes
 
+
 class DataStore {
   constructor() {
     this.db = window.db;

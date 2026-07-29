@@ -40,6 +40,9 @@ function goScreen(name) {
       document.getElementById('cliente-panel').style.display = 'none';
     }
   }
+  if (name === 'dashboard') {
+    setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 100);
+  }
 }
 
 // ── FILTROS POR CHIP ──

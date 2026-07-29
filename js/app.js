@@ -614,12 +614,14 @@ async function loginCliente() {
       actualizarAdminUI(usuarioData.nombre);
       await store.cargarDatosEmpresa(empresaId);
       goScreen('dashboard');
+      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
       showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
     } else {
       // Es cliente final
       document.getElementById('admin-menu').style.display = 'none';
       await store.cargarDatosEmpresa(empresaId);
       mostrarPanelCliente();
+      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
       showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
     }
 

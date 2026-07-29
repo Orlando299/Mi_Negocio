@@ -273,3 +273,4 @@ window.renderInv = renderInv;
 window.renderClients = renderClients;
 window.renderReportes = renderReportes;
 window.updateKPIs = updateKPIs;
+window.renderChartVentas = renderChartVentas;

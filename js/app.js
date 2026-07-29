@@ -136,7 +136,17 @@ async function guardarProducto() {
   if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
-  const iconMap = { 'Bebidas': '☕', 'Dulces': '🍫', 'Endulzantes': '🍯', 'Básicos': '🧂', 'Granos': '🫘', 'Lácteos': '🧀', 'Cocina': '🫙' };
+  const iconMap = { 
+  'Cervezas Polar': '🍺', 
+  'Alimentos Polar': '🥫', 
+  'Bebidas': '☕', 
+  'Dulces': '🍫', 
+  'Endulzantes': '🍯', 
+  'Básicos': '🧂', 
+  'Granos': '🫘', 
+  'Lácteos': '🧀', 
+  'Cocina': '🫙' 
+};
   const icon = iconMap[cat] || '📦';
   let estado = 'ok';
   if (stock === 0) estado = 'out';
@@ -248,17 +258,19 @@ function editProducto(nombre) {
     <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
     <div class="field"><label>Categoría</label>
       <select id="edit-cat">
-        <option ${p.cat === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
-        <option ${p.cat === 'Dulces' ? 'selected' : ''}>Dulces</option>
-        <option ${p.cat === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
-        <option ${p.cat === 'Básicos' ? 'selected' : ''}>Básicos</option>
-        <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
-        <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
-        <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
-        <option ${p.cat === 'Salsas' ? 'selected' : ''}>Salsas</option>
-        <option ${p.cat === 'Harinas' ? 'selected' : ''}>Harinas</option>
-        <option ${p.cat === 'Conservas' ? 'selected' : ''}>Conservas</option>
-      </select>
+  <option ${p.cat === 'Cervezas Polar' ? 'selected' : ''}>Cervezas Polar</option>
+  <option ${p.cat === 'Alimentos Polar' ? 'selected' : ''}>Alimentos Polar</option>
+  <option ${p.cat === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
+  <option ${p.cat === 'Dulces' ? 'selected' : ''}>Dulces</option>
+  <option ${p.cat === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
+  <option ${p.cat === 'Básicos' ? 'selected' : ''}>Básicos</option>
+  <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
+  <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
+  <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
+  <option ${p.cat === 'Salsas' ? 'selected' : ''}>Salsas</option>
+  <option ${p.cat === 'Harinas' ? 'selected' : ''}>Harinas</option>
+  <option ${p.cat === 'Conservas' ? 'selected' : ''}>Conservas</option>
+</select>
     </div>
     <div class="row">
       <div class="field"><label>Precio</label><input type="text" value="${precioNum}" id="edit-precio"></div>
@@ -403,7 +415,16 @@ const modals = {
     body: `
       <div class="field"><label>Nombre del producto</label><input type="text" placeholder="Ej: Café Caracas 250g" id="input-nombre"></div>
       <div class="field"><label>Categoría</label>
-        <select id="input-categoria"><option>Bebidas</option><option>Básicos</option><option>Granos</option><option>Lácteos</option><option>Dulces</option><option>Cocina</option></select>
+        <select id="input-categoria">
+  <option>Cervezas Polar</option>
+  <option>Alimentos Polar</option>
+  <option>Bebidas</option>
+  <option>Básicos</option>
+  <option>Granos</option>
+  <option>Lácteos</option>
+  <option>Dulces</option>
+  <option>Cocina</option>
+        </select>
       </div>
       <div class="row">
         <div class="field"><label>Precio venta</label><input type="text" placeholder="$0.00" id="input-precio-venta"></div>
@@ -747,30 +768,52 @@ function renderCatalogo() {
     return;
   }
   
-  container.innerHTML = productos.map(p => {
-    const icon = p.icon || '📦';
-    const nombre = p.nombre || 'Producto sin nombre';
-    const cat = p.cat || 'General';
-    const estado = p.estado || 'ok';
-    const stock = p.stock || 0;
-    const precio = p.precio || '$0.00';
-    const nombreEscapado = nombre.replace(/'/g, "\\'");
-    
-    return `
-      <div class="inv-card" style="cursor:default;">
-        <div class="inv-img">${icon}</div>
-        <div class="inv-info">
-          <div class="inv-name">${nombre}</div>
-          <div class="inv-cat">${cat}</div>
-          <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
-        </div>
-        <div class="inv-right">
-          <div class="inv-price">${precio}</div>
-          ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombreEscapado}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
-        </div>
+  // Agrupar por categoría Polar
+  const cervezas = productos.filter(p => p.cat === 'Cervezas Polar');
+  const alimentos = productos.filter(p => p.cat === 'Alimentos Polar');
+  const otros = productos.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
+  
+  let html = '';
+  
+  if (cervezas.length > 0) {
+    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🍺 Cervezas Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${cervezas.length})</span></div>`;
+    html += cervezas.map(p => renderProductoCard(p)).join('');
+  }
+  
+  if (alimentos.length > 0) {
+    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🥫 Alimentos Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${alimentos.length})</span></div>`;
+    html += alimentos.map(p => renderProductoCard(p)).join('');
+  }
+  
+  if (otros.length > 0) {
+    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--bg); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--text2); display:flex; align-items:center; gap:8px;">📦 Otros productos <span style="font-size:12px; font-weight:400;">(${otros.length})</span></div>`;
+    html += otros.map(p => renderProductoCard(p)).join('');
+  }
+  
+  container.innerHTML = html;
+}
+
+function renderProductoCard(p) {
+  const icon = p.icon || '📦';
+  const nombre = p.nombre || 'Producto sin nombre';
+  const estado = p.estado || 'ok';
+  const stock = p.stock || 0;
+  const precio = p.precio || '$0.00';
+  const nombreEscapado = nombre.replace(/'/g, "\\'");
+  
+  return `
+    <div class="inv-card" style="cursor:default;">
+      <div class="inv-img">${icon}</div>
+      <div class="inv-info">
+        <div class="inv-name">${nombre}</div>
+        <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
       </div>
-    `;
-  }).join('');
+      <div class="inv-right">
+        <div class="inv-price">${precio}</div>
+        ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombreEscapado}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+      </div>
+    </div>
+  `;
 }
 
 function agregarAlCarrito(nombre) {

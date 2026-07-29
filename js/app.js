@@ -993,36 +993,98 @@ function exportarDatosJSON() {
 async function importarDatosJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
+  
   const empresaId = sessionStorage.getItem('empresaId');
-  if (!empresaId) { showToast('❌ No hay sesión activa'); return; }
+  if (!empresaId) { 
+    showToast('❌ No hay sesión activa'); 
+    event.target.value = '';
+    return; 
+  }
+  
   try {
     const text = await file.text();
     const data = JSON.parse(text);
+    
     if (!data.inventario || !data.clientes || !data.ventas) {
       showToast('❌ JSON inválido: faltan campos requeridos');
+      event.target.value = '';
       return;
     }
-    if (!confirm(`⚠️ ¿Reemplazar TODOS los datos de ${sessionStorage.getItem('userName')}?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`)) return;
+    
+    const confirmMsg = `⚠️ ¿Reemplazar TODOS los datos?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`;
+    if (!confirm(confirmMsg)) {
+      event.target.value = '';
+      return;
+    }
+    
     showToast('⏳ Importando datos...');
+    
     const collections = ['inventario', 'clientes', 'ventas'];
+    
     for (const col of collections) {
+      // 1. Borrar documentos existentes (en chunks de 400 para evitar límite de batch)
       const snapshot = await firebase.firestore()
         .collection('empresas').doc(empresaId).collection(col).get();
-      const batch = firebase.firestore().batch();
-      snapshot.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-      const items = data[col] || [];
-      for (const item of items) {
-        await firebase.firestore()
-          .collection('empresas').doc(empresaId).collection(col).add(item);
+      
+      let batch = firebase.firestore().batch();
+      let count = 0;
+      
+      for (const doc of snapshot.docs) {
+        batch.delete(doc.ref);
+        count++;
+        if (count >= 400) {
+          await batch.commit();
+          batch = firebase.firestore().batch();
+          count = 0;
+        }
       }
+      if (count > 0) await batch.commit();
+      
+      // 2. Importar nuevos documentos (SIN el campo 'id' viejo)
+      const items = data[col] || [];
+      batch = firebase.firestore().batch();
+      count = 0;
+      
+      for (const item of items) {
+        // 🚨 IMPORTANTE: eliminar el 'id' viejo para que Firestore genere uno nuevo limpio
+        const { id, ...cleanItem } = item;
+        
+        const docRef = firebase.firestore()
+          .collection('empresas').doc(empresaId).collection(col).doc();
+        batch.set(docRef, cleanItem);
+        count++;
+        
+        if (count >= 400) {
+          await batch.commit();
+          batch = firebase.firestore().batch();
+          count = 0;
+        }
+      }
+      if (count > 0) await batch.commit();
     }
+    
+    // 3. Recargar datos y refrescar toda la UI
     await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    
+    // Refrescar todas las pantallas
+    renderVentas('', filtroVentas, 1);
+    renderInv('', filtroInv, 1);
+    renderClients('', filtroCli, 1);
+    renderActividadReciente();
+    updateKPIs();
     actualizarResumenConfiguracion();
+    renderizarTablaProductos();
+    renderizarTablaClientes();
+    renderizarTablaVentas();
+    
     event.target.value = '';
-    showToast(`✅ Datos importados: ${data.inventario.length} productos, ${data.clientes.length} clientes, ${data.ventas.length} ventas`);
+    showToast(`✅ Datos importados correctamente`);
+    
   } catch (error) {
+    console.error('Error importando:', error);
     handleError(error, 'Error al importar datos');
+    event.target.value = '';
   }
 }
 

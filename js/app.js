@@ -615,6 +615,17 @@ async function loginCliente() {
       await store.cargarDatosEmpresa(empresaId);
       goScreen('dashboard');
       setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
+      // 🔔 Solicitar permiso de notificaciones push
+      setTimeout(() => {
+        if (typeof solicitarPermisoNotificaciones === 'function') {
+          solicitarPermisoNotificaciones().then(token => {
+            if (token) {
+              showToast('🔔 Notificaciones activadas');
+              if (typeof escucharMensajesForeground === 'function') escucharMensajesForeground();
+            }
+          });
+        }
+      }, 1000);
       showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
     } else {
       // Es cliente final
@@ -980,8 +991,19 @@ async function realizarPedido() {
     closeModal();
     renderHistorial();
     renderActividadReciente();
-    updateKPIs();
-    showToast('✅ Pedido realizado con éxito');
+    updateKPIs();showToast('✅ Pedido realizado con éxito');
+
+    // 🔔 Notificar a los admins del negocio
+    const empresaIdNotif = sessionStorage.getItem('empresaId');
+    const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
+    if (empresaIdNotif && typeof notificarAdmins === 'function') {
+      notificarAdmins(
+        empresaIdNotif,
+        '🛒 Nuevo pedido recibido',
+        `${clienteNombre} hizo un pedido por ${pedido.total}`,
+        { tipo: 'nuevo_pedido', cliente: clienteNombre, total: pedido.total }
+      );
+    }
   } catch (error) {
     handleError(error);
   }

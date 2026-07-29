@@ -267,6 +267,83 @@ function updateKPIs() {
   if (subClientes) subClientes.textContent = nuevosHoy + ' nuevos hoy';
 }
 
+let chartVentasInstance = null;
+
+function renderChartVentas() {
+  const ctx = document.getElementById('chart-ventas');
+  if (!ctx) return;
+
+  const hoy = new Date();
+  const diaSemana = hoy.getDay();
+  const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  const inicioSemana = new Date(hoy);
+  inicioSemana.setDate(hoy.getDate() + diffLunes);
+  inicioSemana.setHours(0, 0, 0, 0);
+  const finSemana = new Date(inicioSemana);
+  finSemana.setDate(inicioSemana.getDate() + 6);
+  finSemana.setHours(23, 59, 59, 999);
+
+  const diasLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const totales = [0, 0, 0, 0, 0, 0, 0];
+
+  (window.ventas || []).forEach(v => {
+    if (v.status !== 'pagado' || !v.fecha) return;
+    try {
+      const f = new Date(v.fecha);
+      if (f >= inicioSemana && f <= finSemana) {
+        const ds = f.getDay();
+        const idx = ds === 0 ? 6 : ds - 1;
+        totales[idx] += parseCurrency(v.total);
+      }
+    } catch (e) {}
+  });
+
+  const diaHoy = diaSemana === 0 ? 6 : diaSemana - 1;
+  const bgColors = totales.map((_, i) => {
+    return i === diaHoy ? 'rgba(0, 51, 141, 1)' : 'rgba(0, 51, 141, 0.3)';
+  });
+
+  if (chartVentasInstance) chartVentasInstance.destroy();
+
+  chartVentasInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: diasLabels,
+      datasets: [{
+        label: 'Ventas ($)',
+        data: totales,
+        backgroundColor: bgColors,
+        borderRadius: 6,
+        borderSkipped: false,
+        barThickness: 28
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (ctx) => '$' + ctx.raw.toFixed(2) },
+          backgroundColor: '#111827', padding: 10, cornerRadius: 8
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { callback: (v) => '$' + v.toFixed(0), font: { size: 10 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '600' } }
+        }
+      },
+      animation: { duration: 800, easing: 'easeOutQuart' }
+    }
+  });
+}
+
 // ── EXPONER FUNCIONES GLOBALES ──
 window.renderVentas = renderVentas;
 window.renderInv = renderInv;

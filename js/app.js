@@ -780,6 +780,8 @@ function toggleCliente() {
 }
 
 // ── FUNCIONES DE CATÁLOGO Y CARRITO ──
+let filtroCatalogo = 'todas';
+
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
   if (!container) return;
@@ -790,29 +792,59 @@ function renderCatalogo() {
     return;
   }
   
-  // Agrupar por categoría Polar
-  const cervezas = productos.filter(p => p.cat === 'Cervezas Polar');
-  const alimentos = productos.filter(p => p.cat === 'Alimentos Polar');
-  const otros = productos.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
+  // Chips de filtro arriba del catálogo
+  const chipsHTML = `
+    <div class="chips" style="margin-bottom:12px;">
+      <div class="chip ${filtroCatalogo === 'todas' ? 'active' : ''}" onclick="filtrarCatalogo('todas')">Todas</div>
+      <div class="chip ${filtroCatalogo === 'cervezas' ? 'active' : ''}" onclick="filtrarCatalogo('cervezas')">🍺 Cervezas Polar</div>
+      <div class="chip ${filtroCatalogo === 'alimentos' ? 'active' : ''}" onclick="filtrarCatalogo('alimentos')">🥫 Alimentos Polar</div>
+      <div class="chip ${filtroCatalogo === 'otros' ? 'active' : ''}" onclick="filtrarCatalogo('otros')">📦 Otros</div>
+    </div>
+  `;
   
-  let html = '';
+  // Filtrar según el chip seleccionado
+  let productosFiltrados = productos;
+  if (filtroCatalogo === 'cervezas') {
+    productosFiltrados = productos.filter(p => p.cat === 'Cervezas Polar');
+  } else if (filtroCatalogo === 'alimentos') {
+    productosFiltrados = productos.filter(p => p.cat === 'Alimentos Polar');
+  } else if (filtroCatalogo === 'otros') {
+    productosFiltrados = productos.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
+  }
+  
+  if (productosFiltrados.length === 0) {
+    container.innerHTML = chipsHTML + `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No hay productos en esta categoría</div></div>`;
+    return;
+  }
+  
+  // Agrupar visualmente los filtrados
+  const cervezas = productosFiltrados.filter(p => p.cat === 'Cervezas Polar');
+  const alimentos = productosFiltrados.filter(p => p.cat === 'Alimentos Polar');
+  const otros = productosFiltrados.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
+  
+  let html = chipsHTML;
   
   if (cervezas.length > 0) {
-    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🍺 Cervezas Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${cervezas.length})</span></div>`;
+    html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🍺 Cervezas Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${cervezas.length})</span></div>`;
     html += cervezas.map(p => renderProductoCard(p)).join('');
   }
   
   if (alimentos.length > 0) {
-    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🥫 Alimentos Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${alimentos.length})</span></div>`;
+    html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🥫 Alimentos Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${alimentos.length})</span></div>`;
     html += alimentos.map(p => renderProductoCard(p)).join('');
   }
   
   if (otros.length > 0) {
-    html += `<div style="margin:20px 0 10px; padding:8px 12px; background:var(--bg); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--text2); display:flex; align-items:center; gap:8px;">📦 Otros productos <span style="font-size:12px; font-weight:400;">(${otros.length})</span></div>`;
+    html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--bg); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--text2); display:flex; align-items:center; gap:8px;">📦 Otros productos <span style="font-size:12px; font-weight:400;">(${otros.length})</span></div>`;
     html += otros.map(p => renderProductoCard(p)).join('');
   }
   
   container.innerHTML = html;
+}
+
+function filtrarCatalogo(filtro) {
+  filtroCatalogo = filtro;
+  renderCatalogo();
 }
 
 function renderProductoCard(p) {
@@ -1726,5 +1758,6 @@ window.actualizarAdminUI = actualizarAdminUI;
 window.renderizarTablaProductos = renderizarTablaProductos;
 window.renderizarTablaClientes = renderizarTablaClientes;
 window.renderizarTablaVentas = renderizarTablaVentas;
+window.filtrarCatalogo = filtrarCatalogo;
 
 console.log('✅ app.js cargado correctamente - Todas las funciones globales expuestas');

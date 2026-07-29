@@ -513,19 +513,37 @@ function confirmAction() {
 
 // ── MENÚ DEL FRANQUICIADO ──
 function toggleAdminMenu(event) {
-  event.stopPropagation();
+  if (event) event.stopPropagation();
   const dropdown = document.getElementById('admin-dropdown');
-  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+  const menu = document.getElementById('admin-menu');
+  
+  if (!dropdown || !menu) return;
+  
+  // Toggle visibility
+  const isOpen = dropdown.style.display === 'block';
+  dropdown.style.display = isOpen ? 'none' : 'block';
+  
+  // Asegurar que el menú principal esté visible
+  menu.style.display = 'block';
 }
 
 function closeAdminMenu() {
-  document.getElementById('admin-dropdown').style.display = 'none';
+  const dropdown = document.getElementById('admin-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
 }
 
 // Cerrar menú al hacer clic fuera
 document.addEventListener('click', function(e) {
   const menu = document.getElementById('admin-menu');
-  if (menu && !menu.contains(e.target)) {
+  const dropdown = document.getElementById('admin-dropdown');
+  
+  if (!menu || !dropdown) return;
+  
+  // Si el menú no está abierto, no hacer nada
+  if (dropdown.style.display !== 'block') return;
+  
+  // Si el click fue fuera del menú, cerrarlo
+  if (!menu.contains(e.target)) {
     closeAdminMenu();
   }
 });
@@ -535,14 +553,18 @@ function actualizarAdminUI(nombre) {
   const adminMenu = document.getElementById('admin-menu');
   const avatar = document.getElementById('avatar-admin');
   const nombreEl = document.getElementById('admin-nombre');
+  const btnCliente = document.getElementById('btn-cliente');
   
   if (nombre) {
-    adminMenu.style.display = 'block';
+    if (adminMenu) adminMenu.style.display = 'block';
+    if (btnCliente) btnCliente.style.display = 'none'; // Ocultar botón cliente cuando es admin
+    
     const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
-    avatar.textContent = iniciales || 'A';
-    nombreEl.textContent = nombre;
+    if (avatar) avatar.textContent = iniciales || 'A';
+    if (nombreEl) nombreEl.textContent = nombre;
   } else {
-    adminMenu.style.display = 'none';
+    if (adminMenu) adminMenu.style.display = 'none';
+    if (btnCliente) btnCliente.style.display = 'inline-flex';
   }
 }
 

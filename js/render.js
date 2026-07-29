@@ -271,7 +271,12 @@ let chartVentasInstance = null;
 
 function renderChartVentas() {
   const ctx = document.getElementById('chart-ventas');
-  if (!ctx) return;
+  if (!ctx) {
+    console.log('[Chart] Canvas no encontrado');
+    return;
+  }
+
+  console.log('[Chart] Renderizando... ventas:', window.ventas?.length || 0);
 
   const hoy = new Date();
   const diaSemana = hoy.getDay();
@@ -298,9 +303,11 @@ function renderChartVentas() {
     } catch (e) {}
   });
 
+  const maxVal = Math.max(...totales, 1);
+  const stepSize = maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : maxVal <= 100 ? 20 : Math.ceil(maxVal / 5);
   const diaHoy = diaSemana === 0 ? 6 : diaSemana - 1;
   const bgColors = totales.map((_, i) => {
-    return i === diaHoy ? 'rgba(0, 51, 141, 1)' : 'rgba(0, 51, 141, 0.3)';
+    return i === diaHoy ? '#00338D' : 'rgba(0, 51, 141, 0.25)';
   });
 
   if (chartVentasInstance) chartVentasInstance.destroy();
@@ -310,38 +317,62 @@ function renderChartVentas() {
     data: {
       labels: diasLabels,
       datasets: [{
-        label: 'Ventas ($)',
+        label: 'Ventas',
         data: totales,
         backgroundColor: bgColors,
-        borderRadius: 6,
+        borderRadius: 8,
         borderSkipped: false,
-        barThickness: 28
+        barThickness: 24,
+        maxBarThickness: 32
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: 10, bottom: 0, left: 0, right: 10 } },
       plugins: {
         legend: { display: false },
         tooltip: {
-          callbacks: { label: (ctx) => '$' + ctx.raw.toFixed(2) },
-          backgroundColor: '#111827', padding: 10, cornerRadius: 8
+          backgroundColor: '#111827',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          cornerRadius: 10,
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => 'Ventas: $' + ctx.raw.toFixed(2)
+          }
         }
       },
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: 'rgba(0,0,0,0.05)' },
-          ticks: { callback: (v) => '$' + v.toFixed(0), font: { size: 10 } }
+          suggestedMax: maxVal * 1.2,
+          ticks: {
+            stepSize: stepSize,
+            callback: (v) => {
+              if (v >= 1000) return '$' + (v/1000).toFixed(1) + 'k';
+              return '$' + v.toFixed(0);
+            },
+            font: { size: 11, family: 'Inter' },
+            color: '#6B7280',
+            padding: 8
+          },
+          grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+          border: { display: false }
         },
         x: {
-          grid: { display: false },
-          ticks: { font: { size: 11, weight: '600' } }
+          grid: { display: false, drawBorder: false },
+          ticks: { font: { size: 12, weight: '600', family: 'Inter' }, color: '#374151', padding: 8 },
+          border: { display: false }
         }
       },
-      animation: { duration: 800, easing: 'easeOutQuart' }
+      animation: { duration: 700, easing: 'easeOutQuart' }
     }
   });
+
+  console.log('[Chart] Gráfico renderizado OK');
 }
 
 // ── EXPONER FUNCIONES GLOBALES ──

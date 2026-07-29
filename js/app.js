@@ -947,6 +947,88 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'ventas') renderizarTablaVentas();
 }
 
+// ── RENDERIZAR TABLAS EN CONFIGURACIÓN ──
+
+function renderizarTablaProductos() {
+  const tbody = document.getElementById('tabla-productos');
+  if (!tbody) return;
+  
+  const productos = window.inventario || [];
+  if (!productos.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay productos registrados</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = productos.map(p => `
+    <tr>
+      <td>${p.id ? p.id.slice(0, 8) + '...' : '-'}</td>
+      <td>${p.nombre || '-'}</td>
+      <td>${p.cat || 'General'}</td>
+      <td>${p.precio || '$0.00'}</td>
+      <td>${p.stock ?? 0}</td>
+      <td>
+        <div class="config-actions-cell">
+          <button class="btn-sm btn-sm-edit" onclick="editProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderizarTablaClientes() {
+  const tbody = document.getElementById('tabla-clientes');
+  if (!tbody) return;
+  
+  const clientes = window.clientes || [];
+  if (!clientes.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="config-empty">No hay clientes registrados</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = clientes.map(c => `
+    <tr>
+      <td>${c.nombre || '-'}</td>
+      <td>${c.email || c.phone || '-'}</td>
+      <td>${c.phone || '-'}</td>
+      <td>
+        <div class="config-actions-cell">
+          <button class="btn-sm btn-sm-edit" onclick="editCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderizarTablaVentas() {
+  const tbody = document.getElementById('tabla-ventas');
+  if (!tbody) return;
+  
+  const ventas = window.ventas || [];
+  if (!ventas.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay ventas registradas</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = ventas.map(v => `
+    <tr>
+      <td>${v.cliente || '-'}</td>
+      <td>${v.producto || '-'}</td>
+      <td>${v.total || '$0.00'}</td>
+      <td>${v.fecha || '-'}</td>
+      <td><span style="color:${v.status === 'pagado' ? 'var(--green)' : v.status === 'pendiente' ? 'var(--amber)' : 'var(--red)'}">${v.status || 'pendiente'}</span></td>
+      <td>
+        <div class="config-actions-cell">
+          <button class="btn-sm btn-sm-edit" onclick="editVenta('${v.id}')">Editar</button>
+          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteVenta('${v.id}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+
 function actualizarResumenConfiguracion() {
   const productos = window.inventario || [];
   const clientes = window.clientes || [];
@@ -1576,5 +1658,8 @@ window.votarAlerta = votarAlerta;
 window.toggleAdminMenu = toggleAdminMenu;
 window.closeAdminMenu = closeAdminMenu;
 window.actualizarAdminUI = actualizarAdminUI;
+window.renderizarTablaProductos = renderizarTablaProductos;
+window.renderizarTablaClientes = renderizarTablaClientes;
+window.renderizarTablaVentas = renderizarTablaVentas;
 
 console.log('✅ app.js cargado correctamente - Todas las funciones globales expuestas');

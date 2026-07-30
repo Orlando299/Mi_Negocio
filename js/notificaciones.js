@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// NOTIFICACIONES PUSH — Firebase Cloud Messaging v3
+// NOTIFICACIONES PUSH — Firebase Cloud Messaging v4
 // ═══════════════════════════════════════════════════════════════
 
 const FCM_SERVER_KEY = 'BIXCOeyKIITXCMLaf_RaGC2QDRKN-C4d3cD3Ocu9FGCQcz-jVQT-WT6FhJiF9RB1yjLQ3HqZS5HqEdTNJd-TJ1I';
@@ -8,21 +8,16 @@ let messaging = null;
 let fcmTokenActual = null;
 let fcmSwRegistration = null;
 
-// Detectar subpath (ej: /Mi_Negocio/)
 const BASE_PATH = location.pathname.replace(/\/[^\/]*$/, '/');
 
-// Obtener UID del usuario autenticado (Firebase Auth o sessionStorage)
 function getCurrentUID() {
-  // Intentar desde Firebase Auth primero
   if (typeof firebase !== 'undefined' && firebase.auth) {
     const user = firebase.auth().currentUser;
     if (user && user.uid) return user.uid;
   }
-  // Fallback a sessionStorage
   return sessionStorage.getItem('userUID');
 }
 
-// Inicializar Firebase Messaging
 function initMessaging() {
   if (typeof firebase === 'undefined' || !firebase.messaging) {
     console.log('[FCM] SDK de messaging no disponible');
@@ -38,7 +33,6 @@ function initMessaging() {
   }
 }
 
-// Solicitar permiso de notificaciones y obtener token
 async function solicitarPermisoNotificaciones() {
   if (!messaging) {
     if (!initMessaging()) return null;
@@ -54,13 +48,11 @@ async function solicitarPermisoNotificaciones() {
   }
 
   try {
-    // Registrar SW de FCM con ruta correcta
     const swPath = BASE_PATH + 'firebase-messaging-sw.js';
     console.log('[FCM] Registrando SW en:', swPath);
     fcmSwRegistration = await navigator.serviceWorker.register(swPath);
     console.log('[FCM] SW registrado:', fcmSwRegistration.scope);
 
-    // Obtener token
     const token = await messaging.getToken({
       serviceWorkerRegistration: fcmSwRegistration
     });
@@ -68,7 +60,12 @@ async function solicitarPermisoNotificaciones() {
     if (token) {
       console.log('[FCM] Token obtenido:', token.slice(0, 20) + '...');
       fcmTokenActual = token;
-      await guardarTokenFCM(token);
+      const guardado = await guardarTokenFCM(token);
+      if (guardado) {
+        console.log('[FCM] ✅ Token guardado correctamente');
+      } else {
+        console.warn('[FCM] ⚠️ Token NO se pudo guardar en Firestore');
+      }
       return token;
     } else {
       console.log('[FCM] No se pudo obtener token');
@@ -80,7 +77,6 @@ async function solicitarPermisoNotificaciones() {
   }
 }
 
-// Guardar token en Firestore
 async function guardarTokenFCM(token) {
   const uid = getCurrentUID();
   const empresaId = sessionStorage.getItem('empresaId');
@@ -88,22 +84,41 @@ async function guardarTokenFCM(token) {
   console.log('[FCM] Guardando token. UID:', uid?.slice(0,8), 'Empresa:', empresaId);
 
   if (!uid || !empresaId || !token) {
-    console.warn('[FCM] Faltan datos para guardar token. UID:', !!uid, 'Empresa:', !!empresaId);
-    return;
+    console.warn('[FCM] Faltan datos. UID:', !!uid, 'Empresa:', !!empresaId, 'Token:', !!token);
+    return false;
   }
 
   try {
-    await db.collection('empresas').doc(empresaId).collection('usuarios').doc(uid).update({
-      fcmToken: token,
-      fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    console.log('[FCM] ✅ Token guardado en Firestore');
+    const userRef = db.collection('empresas').doc(empresaId).collection('usuarios').doc(uid);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      // El documento existe, actualizar
+      await userRef.update({
+        fcmToken: token,
+        fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      console.log('[FCM] ✅ Token actualizado en Firestore (update)');
+      return true;
+    } else {
+      // El documento NO existe, crear con set
+      console.log('[FCM] Documento de usuario no existe, creando con set...');
+      await userRef.set({
+        uid: uid,
+        fcmToken: token,
+        fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+        rol: 'admin',
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      console.log('[FCM] ✅ Token guardado en Firestore (set con merge)');
+      return true;
+    }
   } catch (e) {
-    console.error('[FCM] Error guardando token:', e);
+    console.error('[FCM] ❌ Error guardando token:', e.code, e.message);
+    return false;
   }
 }
 
-// Escuchar mensajes en foreground
 function escucharMensajesForeground() {
   if (!messaging) return;
   messaging.onMessage((payload) => {
@@ -117,9 +132,8 @@ function escucharMensajesForeground() {
   });
 }
 
-// Enviar notificación push a un token
 async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) {
-  if (!destinoToken || !FCM_SERVER_KEY) {
+  if (!destinoToken || !FCM_SERVER_KEY || FCM_SERVER_KEY.includes('TU_SERVER_KEY')) {
     console.warn('[FCM] Server Key no configurada');
     return false;
   }
@@ -153,7 +167,6 @@ async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) 
   }
 }
 
-// Notificar a TODOS los admins de una empresa
 async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
   try {
     const adminsSnap = await db.collection('empresas').doc(empresaId).collection('usuarios')
@@ -176,7 +189,6 @@ async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
   }
 }
 
-// Exponer funciones globales
 window.initMessaging = initMessaging;
 window.solicitarPermisoNotificaciones = solicitarPermisoNotificaciones;
 window.escucharMensajesForeground = escucharMensajesForeground;

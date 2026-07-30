@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// NOTIFICACIONES PUSH — Firebase Cloud Messaging
+// NOTIFICACIONES PUSH — Firebase Cloud Messaging v3
 // ═══════════════════════════════════════════════════════════════
 
 const FCM_SERVER_KEY = 'BIXCOeyKIITXCMLaf_RaGC2QDRKN-C4d3cD3Ocu9FGCQcz-jVQT-WT6FhJiF9RB1yjLQ3HqZS5HqEdTNJd-TJ1I';
@@ -8,8 +8,19 @@ let messaging = null;
 let fcmTokenActual = null;
 let fcmSwRegistration = null;
 
-// Detectar si estamos en un subpath (ej: /Mi_Negocio/)
-const BASE_PATH = location.pathname.replace(/\/[^\/]*$/, '/'); // ej: /Mi_Negocio/
+// Detectar subpath (ej: /Mi_Negocio/)
+const BASE_PATH = location.pathname.replace(/\/[^\/]*$/, '/');
+
+// Obtener UID del usuario autenticado (Firebase Auth o sessionStorage)
+function getCurrentUID() {
+  // Intentar desde Firebase Auth primero
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    const user = firebase.auth().currentUser;
+    if (user && user.uid) return user.uid;
+  }
+  // Fallback a sessionStorage
+  return sessionStorage.getItem('userUID');
+}
 
 // Inicializar Firebase Messaging
 function initMessaging() {
@@ -43,13 +54,13 @@ async function solicitarPermisoNotificaciones() {
   }
 
   try {
-    // Registrar el SW de FCM con la ruta correcta (maneja subpaths)
+    // Registrar SW de FCM con ruta correcta
     const swPath = BASE_PATH + 'firebase-messaging-sw.js';
     console.log('[FCM] Registrando SW en:', swPath);
     fcmSwRegistration = await navigator.serviceWorker.register(swPath);
     console.log('[FCM] SW registrado:', fcmSwRegistration.scope);
 
-    // Obtener token pasando el SW registration explícito
+    // Obtener token
     const token = await messaging.getToken({
       serviceWorkerRegistration: fcmSwRegistration
     });
@@ -71,16 +82,22 @@ async function solicitarPermisoNotificaciones() {
 
 // Guardar token en Firestore
 async function guardarTokenFCM(token) {
-  const uid = sessionStorage.getItem('userUID');
+  const uid = getCurrentUID();
   const empresaId = sessionStorage.getItem('empresaId');
-  if (!uid || !empresaId || !token) return;
+
+  console.log('[FCM] Guardando token. UID:', uid?.slice(0,8), 'Empresa:', empresaId);
+
+  if (!uid || !empresaId || !token) {
+    console.warn('[FCM] Faltan datos para guardar token. UID:', !!uid, 'Empresa:', !!empresaId);
+    return;
+  }
 
   try {
     await db.collection('empresas').doc(empresaId).collection('usuarios').doc(uid).update({
       fcmToken: token,
       fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log('[FCM] Token guardado en Firestore');
+    console.log('[FCM] ✅ Token guardado en Firestore');
   } catch (e) {
     console.error('[FCM] Error guardando token:', e);
   }
@@ -166,3 +183,4 @@ window.escucharMensajesForeground = escucharMensajesForeground;
 window.enviarNotificacionPush = enviarNotificacionPush;
 window.notificarAdmins = notificarAdmins;
 window.guardarTokenFCM = guardarTokenFCM;
+window.getCurrentUID = getCurrentUID;

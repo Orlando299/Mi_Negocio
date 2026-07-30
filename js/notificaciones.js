@@ -6,7 +6,12 @@ const FCM_SERVER_KEY = 'BIXCOeyKIITXCMLaf_RaGC2QDRKN-C4d3cD3Ocu9FGCQcz-jVQT-WT6F
 
 let messaging = null;
 let fcmTokenActual = null;
+let fcmSwRegistration = null;
 
+// Detectar si estamos en un subpath (ej: /Mi_Negocio/)
+const BASE_PATH = location.pathname.replace(/\/[^\/]*$/, '/'); // ej: /Mi_Negocio/
+
+// Inicializar Firebase Messaging
 function initMessaging() {
   if (typeof firebase === 'undefined' || !firebase.messaging) {
     console.log('[FCM] SDK de messaging no disponible');
@@ -22,6 +27,7 @@ function initMessaging() {
   }
 }
 
+// Solicitar permiso de notificaciones y obtener token
 async function solicitarPermisoNotificaciones() {
   if (!messaging) {
     if (!initMessaging()) return null;
@@ -37,7 +43,17 @@ async function solicitarPermisoNotificaciones() {
   }
 
   try {
-    const token = await messaging.getToken();
+    // Registrar el SW de FCM con la ruta correcta (maneja subpaths)
+    const swPath = BASE_PATH + 'firebase-messaging-sw.js';
+    console.log('[FCM] Registrando SW en:', swPath);
+    fcmSwRegistration = await navigator.serviceWorker.register(swPath);
+    console.log('[FCM] SW registrado:', fcmSwRegistration.scope);
+
+    // Obtener token pasando el SW registration explícito
+    const token = await messaging.getToken({
+      serviceWorkerRegistration: fcmSwRegistration
+    });
+
     if (token) {
       console.log('[FCM] Token obtenido:', token.slice(0, 20) + '...');
       fcmTokenActual = token;
@@ -53,6 +69,7 @@ async function solicitarPermisoNotificaciones() {
   }
 }
 
+// Guardar token en Firestore
 async function guardarTokenFCM(token) {
   const uid = sessionStorage.getItem('userUID');
   const empresaId = sessionStorage.getItem('empresaId');
@@ -69,6 +86,7 @@ async function guardarTokenFCM(token) {
   }
 }
 
+// Escuchar mensajes en foreground
 function escucharMensajesForeground() {
   if (!messaging) return;
   messaging.onMessage((payload) => {
@@ -77,11 +95,12 @@ function escucharMensajesForeground() {
     const cuerpo = payload.notification?.body || '';
     showToast(`🔔 ${titulo}: ${cuerpo}`);
     if (Notification.permission === 'granted') {
-      new Notification(titulo, { body: cuerpo, icon: '/icon-192x192.png' });
+      new Notification(titulo, { body: cuerpo, icon: BASE_PATH + 'icon-192x192.png' });
     }
   });
 }
 
+// Enviar notificación push a un token
 async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) {
   if (!destinoToken || !FCM_SERVER_KEY) {
     console.warn('[FCM] Server Key no configurada');
@@ -100,9 +119,9 @@ async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) 
         notification: {
           title: titulo,
           body: cuerpo,
-          icon: '/icon-192x192.png',
-          badge: '/icon-72x72.png',
-          click_action: '/'
+          icon: BASE_PATH + 'icon-192x192.png',
+          badge: BASE_PATH + 'icon-72x72.png',
+          click_action: BASE_PATH
         },
         data: datos
       })
@@ -117,6 +136,7 @@ async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) 
   }
 }
 
+// Notificar a TODOS los admins de una empresa
 async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
   try {
     const adminsSnap = await db.collection('empresas').doc(empresaId).collection('usuarios')
@@ -139,6 +159,7 @@ async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
   }
 }
 
+// Exponer funciones globales
 window.initMessaging = initMessaging;
 window.solicitarPermisoNotificaciones = solicitarPermisoNotificaciones;
 window.escucharMensajesForeground = escucharMensajesForeground;

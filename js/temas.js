@@ -1,4 +1,3 @@
-// js/temas.js
 const TEMAS = {
   polar: {
     id: 'polar',
@@ -16,7 +15,13 @@ const TEMAS = {
       '--border': '#E4E7EC',
       '--shadow': '0 1px 3px rgba(0,0,0,0.08)',
       '--shadow-md': '0 4px 16px rgba(0,0,0,0.10)',
-      '--radius': '14px'
+      '--radius': '14px',
+      '--bg-primary': '#FFFFFF',
+      '--bg-secondary': '#F0F2F5',
+      '--text-primary': '#111827',
+      '--text-secondary': '#6B7280',
+      '--accent-color': '#00338D',
+      '--border-color': '#E4E7EC'
     }
   },
   empanadas: {
@@ -35,7 +40,13 @@ const TEMAS = {
       '--border': '#F0DCC8',
       '--shadow': '0 1px 3px rgba(0,0,0,0.06)',
       '--shadow-md': '0 4px 16px rgba(0,0,0,0.08)',
-      '--radius': '10px'
+      '--radius': '10px',
+      '--bg-primary': '#FFFFFF',
+      '--bg-secondary': '#FFF8F0',
+      '--text-primary': '#4B2E0A',
+      '--text-secondary': '#7A5A3A',
+      '--accent-color': '#D97706',
+      '--border-color': '#F0DCC8'
     }
   },
   comidaRapida: {
@@ -54,7 +65,13 @@ const TEMAS = {
       '--border': '#E5DDD8',
       '--shadow': '0 2px 8px rgba(0,0,0,0.10)',
       '--shadow-md': '0 4px 20px rgba(0,0,0,0.15)',
-      '--radius': '8px'
+      '--radius': '8px',
+      '--bg-primary': '#FFFFFF',
+      '--bg-secondary': '#FEF2F2',
+      '--text-primary': '#1F1A17',
+      '--text-secondary': '#6B5E55',
+      '--accent-color': '#DC2626',
+      '--border-color': '#E5DDD8'
     }
   },
   todoTipo: {
@@ -73,7 +90,13 @@ const TEMAS = {
       '--border': '#C8E6D0',
       '--shadow': '0 1px 3px rgba(0,0,0,0.05)',
       '--shadow-md': '0 4px 16px rgba(0,0,0,0.08)',
-      '--radius': '16px'
+      '--radius': '16px',
+      '--bg-primary': '#FFFFFF',
+      '--bg-secondary': '#ECFDF5',
+      '--text-primary': '#064E3B',
+      '--text-secondary': '#4A7A5A',
+      '--accent-color': '#059669',
+      '--border-color': '#C8E6D0'
     }
   }
 };
@@ -86,7 +109,6 @@ function aplicarTema(idTema) {
     root.style.setProperty(key, tema.variables[key]);
   });
   localStorage.setItem('temaSeleccionado', idTema);
-  // Actualizar selector de temas si existe
   const selectorItems = document.querySelectorAll('.tema-selector-item');
   selectorItems.forEach(el => {
     el.classList.toggle('active', el.dataset.tema === idTema);
@@ -98,7 +120,6 @@ function cargarTemaGuardado() {
   aplicarTema(temaGuardado);
 }
 
-// Exponer globalmente
 window.TEMAS = TEMAS;
 window.aplicarTema = aplicarTema;
 window.cargarTemaGuardado = cargarTemaGuardado;

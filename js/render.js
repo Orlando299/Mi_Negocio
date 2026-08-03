@@ -1,6 +1,5 @@
 // ── FUNCIONES DE RENDERIZADO CON FILTROS Y PAGINACIÓN ──
 
-// Variables de paginación por módulo
 let paginaVentas = 1;
 let paginaInv = 1;
 let paginaCli = 1;
@@ -10,14 +9,12 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
   const list = document.getElementById('ventas-list');
   const q = textFilter.toLowerCase();
 
-  // Filtrar
   let data = ventas.filter(v => {
     const matchText = !q || v.cliente.toLowerCase().includes(q) || v.id.includes(q);
     const matchStatus = statusFilter === 'todas' || v.status === statusFilter;
     return matchText && matchStatus;
   });
 
-  // Paginar
   const total = data.length;
   const totalPages = Math.ceil(total / ITEMS_POR_PAGINA);
   const start = (page - 1) * ITEMS_POR_PAGINA;
@@ -49,7 +46,6 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
     </div>
   `).join('');
 
-  // Agregar controles de paginación
   agregarPaginacion(list, totalPages, page, 'ventas');
   updateKPIs();
 }
@@ -144,7 +140,6 @@ function renderClients(textFilter = '', tagFilter = 'todos', page = 1) {
   updateKPIs();
 }
 
-// ── PAGINACIÓN: agregar controles al final de la lista ──
 function agregarPaginacion(container, totalPages, currentPage, module) {
   if (totalPages <= 1) return;
   const pagWrap = document.createElement('div');
@@ -165,7 +160,6 @@ function agregarPaginacion(container, totalPages, currentPage, module) {
   container.appendChild(pagWrap);
 }
 
-// ── REPORTES DINÁMICOS ──
 async function renderReportes(periodo = 'semana') {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) {
@@ -173,7 +167,6 @@ async function renderReportes(periodo = 'semana') {
     return;
   }
 
-  // Calcular fechas
   const ahora = new Date();
   let inicio, fin;
   if (periodo === 'semana') {
@@ -186,18 +179,17 @@ async function renderReportes(periodo = 'semana') {
   } else if (periodo === 'mes') {
     inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
     fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23,59,59,999);
-  } else { // año
+  } else {
     inicio = new Date(ahora.getFullYear(), 0, 1);
     fin = new Date(ahora.getFullYear(), 11, 31, 23,59,59,999);
   }
 
-  const ventasPeriodo = await store.obtenerVentasPorPeriodo(empresaId, inicio.toISOString(), fin.toISOString());
+  const ventasPeriodo = await store.obtenerVentasPorPeriodo(empresaId, inicio, fin);
   const totalIngresos = ventasPeriodo.reduce((sum, v) => sum + parseCurrency(v.total), 0);
   const totalPedidos = ventasPeriodo.length;
   const cancelados = ventasPeriodo.filter(v => v.status === 'cancelado').length;
   const ticketPromedio = totalPedidos > 0 ? totalIngresos / totalPedidos : 0;
 
-  // Actualizar tarjetas de resumen en reportes
   const rows = document.querySelectorAll('.stat-row');
   if (rows.length >= 4) {
     rows[0].querySelector('.stat-value').textContent = formatCurrency(totalIngresos);
@@ -206,7 +198,6 @@ async function renderReportes(periodo = 'semana') {
     rows[3].querySelector('.stat-value').textContent = cancelados;
   }
 
-  // Productos más vendidos
   const topProductos = await store.obtenerProductosMasVendidos(empresaId, 5);
   const topContainer = document.querySelector('.card .top-product');
   if (topContainer) {
@@ -232,13 +223,12 @@ async function renderReportes(periodo = 'semana') {
   }
 }
 
-// ── ACTUALIZAR KPIs ──
 function updateKPIs() {
   const hoy = new Date().toLocaleDateString();
   const ventasHoy = ventas.filter(v => {
-    if (v.fecha && v.fecha.includes('Hoy')) return v.status === 'pagado';
+    if (!v.fecha) return false;
     try {
-      const fechaVenta = new Date(v.fecha);
+      const fechaVenta = convertTimestamp(v.fecha);
       return fechaVenta.toLocaleDateString() === hoy && v.status === 'pagado';
     } catch { return false; }
   });
@@ -294,7 +284,7 @@ function renderChartVentas() {
   (window.ventas || []).forEach(v => {
     if (v.status !== 'pagado' || !v.fecha) return;
     try {
-      const f = new Date(v.fecha);
+      const f = convertTimestamp(v.fecha);
       if (f >= inicioSemana && f <= finSemana) {
         const ds = f.getDay();
         const idx = ds === 0 ? 6 : ds - 1;
@@ -375,7 +365,6 @@ function renderChartVentas() {
   console.log('[Chart] Gráfico renderizado OK');
 }
 
-// ── EXPONER FUNCIONES GLOBALES ──
 window.renderVentas = renderVentas;
 window.renderInv = renderInv;
 window.renderClients = renderClients;

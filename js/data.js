@@ -1,7 +1,6 @@
 // ── DATA STORE CON FIRESTORE (MULTI-TENANT) ──
 // Incluye paginación, manejo de errores y funciones para reportes
 
-
 class DataStore {
   constructor() {
     this.db = window.db;
@@ -10,24 +9,18 @@ class DataStore {
     this.inventario = [];
     this.clientes = [];
     this.cargado = false;
-    // Últimos documentos para paginación
     this.lastVentaDoc = null;
     this.lastInventarioDoc = null;
     this.lastClienteDoc = null;
   }
 
-  // ── CARGAR DATOS POR EMPRESA CON PAGINACIÓN ──
   async cargarDatosEmpresa(empresaId, limite = 20) {
     console.log('📦 Cargando datos para empresa:', empresaId);
     try {
-      // 1. Inventario (paginado)
       const invData = await this.cargarInventarioPaginado(empresaId, limite);
-      // 2. Clientes (paginado)
       const cliData = await this.cargarClientesPaginado(empresaId, limite);
-      // 3. Ventas (paginado)
       const venData = await this.cargarVentasPaginado(empresaId, limite);
 
-      // Asignar a variables globales
       this.inventario = invData.items;
       this.clientes = cliData.items;
       this.ventas = venData.items;
@@ -37,7 +30,6 @@ class DataStore {
       window.clientes = this.clientes;
       window.ventas = this.ventas;
 
-      // Guardar últimos documentos para paginación
       this.lastInventarioDoc = invData.lastDoc;
       this.lastClienteDoc = cliData.lastDoc;
       this.lastVentaDoc = venData.lastDoc;
@@ -50,7 +42,6 @@ class DataStore {
     }
   }
 
-  // ── PAGINACIÓN: INVENTARIO ──
   async cargarInventarioPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -62,7 +53,9 @@ class DataStore {
       const items = [];
       let lastDoc = null;
       snapshot.forEach(doc => {
-        items.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+        items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
       return { items, lastDoc };
@@ -72,7 +65,6 @@ class DataStore {
     }
   }
 
-  // ── PAGINACIÓN: CLIENTES ──
   async cargarClientesPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -84,7 +76,9 @@ class DataStore {
       const items = [];
       let lastDoc = null;
       snapshot.forEach(doc => {
-        items.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+        items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
       return { items, lastDoc };
@@ -94,7 +88,6 @@ class DataStore {
     }
   }
 
-  // ── PAGINACIÓN: VENTAS ──
   async cargarVentasPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -106,7 +99,9 @@ class DataStore {
       const items = [];
       let lastDoc = null;
       snapshot.forEach(doc => {
-        items.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+        items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
       return { items, lastDoc };
@@ -116,7 +111,6 @@ class DataStore {
     }
   }
 
-  // ── CRUD VENTAS (con manejo de errores) ──
   async addVenta(venta) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
@@ -124,9 +118,9 @@ class DataStore {
       const docRef = await this.db.collection('empresas').doc(empresaId)
         .collection('ventas').add({
           ...venta,
-          fecha: getCurrentTimestamp()
+          fecha: getServerTimestamp()
         });
-      const nuevaVenta = { id: docRef.id, ...venta, fecha: formatDateLocal(getCurrentTimestamp()) };
+      const nuevaVenta = { id: docRef.id, ...venta, fecha: formatDateLocal(new Date()) };
       this.ventas.unshift(nuevaVenta);
       window.ventas = this.ventas;
       return nuevaVenta;
@@ -166,14 +160,16 @@ class DataStore {
     }
   }
 
-  // ── CRUD INVENTARIO ──
   async addProducto(producto) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
       const docRef = await this.db.collection('empresas').doc(empresaId)
-        .collection('inventario').add(producto);
-      const nuevoProducto = { id: docRef.id, ...producto };
+        .collection('inventario').add({
+          ...producto,
+          fecha: getServerTimestamp()
+        });
+      const nuevoProducto = { id: docRef.id, ...producto, fecha: formatDateLocal(new Date()) };
       this.inventario.unshift(nuevoProducto);
       window.inventario = this.inventario;
       return nuevoProducto;
@@ -213,14 +209,16 @@ class DataStore {
     }
   }
 
-  // ── CRUD CLIENTES ──
   async addCliente(cliente) {
     try {
       const empresaId = sessionStorage.getItem('empresaId');
       if (!empresaId) throw new Error('No hay empresa seleccionada');
       const docRef = await this.db.collection('empresas').doc(empresaId)
-        .collection('clientes').add(cliente);
-      const nuevoCliente = { id: docRef.id, ...cliente };
+        .collection('clientes').add({
+          ...cliente,
+          fecha: getServerTimestamp()
+        });
+      const nuevoCliente = { id: docRef.id, ...cliente, fecha: formatDateLocal(new Date()) };
       this.clientes.unshift(nuevoCliente);
       window.clientes = this.clientes;
       return nuevoCliente;
@@ -260,7 +258,6 @@ class DataStore {
     }
   }
 
-  // ── REPORTES DINÁMICOS ──
   async obtenerVentasPorPeriodo(empresaId, inicio, fin) {
     try {
       const snapshot = await this.db.collection('empresas').doc(empresaId)
@@ -268,7 +265,11 @@ class DataStore {
         .where('fecha', '>=', inicio)
         .where('fecha', '<=', fin)
         .get();
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+        return { id: doc.id, ...data };
+      });
     } catch (error) {
       handleError(error, 'Error obteniendo ventas por período');
       return [];
@@ -277,7 +278,6 @@ class DataStore {
 
   async obtenerProductosMasVendidos(empresaId, limite = 5) {
     try {
-      // Agrupar por producto en ventas
       const ventas = await this.db.collection('empresas').doc(empresaId)
         .collection('ventas').get();
       const productos = {};
@@ -292,7 +292,6 @@ class DataStore {
         productos[nombre].cantidad += cantidad;
         productos[nombre].total += total;
       });
-      // Ordenar por cantidad y limitar
       const sorted = Object.values(productos).sort((a, b) => b.cantidad - a.cantidad);
       return sorted.slice(0, limite);
     } catch (error) {
@@ -301,7 +300,6 @@ class DataStore {
     }
   }
 
-  // ── AUTENTICACIÓN ──
   async registrarUsuario(email, password, nombre) {
     try {
       const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
@@ -332,15 +330,12 @@ class DataStore {
   }
 }
 
-// ── INSTANCIA GLOBAL ──
 const store = new DataStore();
 
-// ── VARIABLES GLOBALES ──
 let ventas = [];
 let inventario = [];
 let clientes = [];
 
-// ── SINCRONIZAR VARIABLES GLOBALES ──
 function syncGlobals() {
   ventas = store.ventas || [];
   inventario = store.inventario || [];
@@ -350,7 +345,6 @@ function syncGlobals() {
   window.clientes = clientes;
 }
 
-// ── INICIALIZAR STORE ──
 async function initStore() {
   store.auth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -373,7 +367,6 @@ async function initStore() {
           if (typeof window.mostrarPanelCliente === 'function') {
             window.mostrarPanelCliente();
           }
-          // Renderizar si existe
           if (typeof renderVentas === 'function') renderVentas('', 'todas');
           if (typeof renderInv === 'function') renderInv('', 'todos');
           if (typeof renderClients === 'function') renderClients('', 'todos');
@@ -394,7 +387,6 @@ async function initStore() {
   console.log('🚀 Store inicializado con Firestore');
 }
 
-// Exponer globalmente
 window.store = store;
 window.syncGlobals = syncGlobals;
 window.initStore = initStore;

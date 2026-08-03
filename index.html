@@ -15,32 +15,137 @@
 </head>
 <body>
 
-<!-- TOP NAV -->
-<nav class="top-nav">
+<!-- ==================== PANTALLA DE BIENVENIDA ==================== -->
+<div class="screen active" id="screen-bienvenida">
+  <div class="welcome-container">
+    <div class="welcome-logo">
+      <div class="welcome-logo-icon">📊</div>
+      <div>Mi<span>Negocio</span></div>
+    </div>
+    <p class="welcome-subtitle">Gestión inteligente para tu negocio</p>
+    
+    <div class="welcome-options">
+      <div class="welcome-card" onclick="mostrarRegistroEmpresa()">
+        <div class="welcome-icon">🏪</div>
+        <div class="welcome-title">Tengo un negocio</div>
+        <div class="welcome-desc">Registra tu empresa y empieza a gestionar ventas, inventario y clientes</div>
+        <button class="welcome-btn">Crear mi negocio →</button>
+      </div>
+      
+      <div class="divider-o"><span>o</span></div>
+      
+      <div class="welcome-card welcome-card-cliente" onclick="mostrarRegistroCliente()">
+        <div class="welcome-icon">🛒</div>
+        <div class="welcome-title">Soy cliente</div>
+        <div class="welcome-desc">Únete a un negocio con tu código de invitación y haz pedidos</div>
+        <button class="welcome-btn btn-outline">Unirme a un negocio →</button>
+      </div>
+    </div>
+    
+    <div class="welcome-login">
+      <p>¿Ya tienes cuenta? <span onclick="mostrarLoginUnificado()">Inicia sesión</span></p>
+    </div>
+    
+    <div class="welcome-footer">
+      <p>© 2026 MiNegocio · Hecho con ❤️ para emprendedores</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: REGISTRO EMPRESA ==================== -->
+<div class="modal-overlay" id="modal-registro-empresa" onclick="cerrarModalRegistroEmpresa(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">🏪 Crear mi negocio</div>
+    <div id="modal-body-registro-empresa">
+      <div class="field"><label>Nombre del negocio</label><input type="text" id="reg-emp-nombre" placeholder="Ej: Cervecería Polar"></div>
+      <div class="field"><label>Tu nombre</label><input type="text" id="reg-emp-admin" placeholder="Ej: Juan Pérez"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="reg-emp-email" placeholder="admin@tunegocio.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="reg-emp-pass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn btn-primary" onclick="registrarEmpresa()">Crear negocio</button>
+      <button class="btn btn-outline" onclick="cerrarModalRegistroEmpresa()">Volver</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: REGISTRO CLIENTE ==================== -->
+<div class="modal-overlay" id="modal-registro-cliente" onclick="cerrarModalRegistroCliente(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">🛒 Unirme a un negocio</div>
+    <div id="modal-body-registro-cliente">
+      <div class="field"><label>Tu nombre</label><input type="text" id="reg-cli-nombre" placeholder="Ej: María González"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="reg-cli-email" placeholder="correo@ejemplo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="reg-cli-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field">
+        <label>Código de invitación</label>
+        <input type="text" id="reg-cli-codigo" placeholder="Ej: A3B9K2" maxlength="6" style="text-transform:uppercase;">
+        <small style="color:var(--text3); font-size:11px;">Pídele el código a tu franquiciado</small>
+      </div>
+      <button class="btn btn-primary" onclick="registrarClienteNuevo()">Unirme</button>
+      <button class="btn btn-outline" onclick="cerrarModalRegistroCliente()">Volver</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: LOGIN UNIFICADO ==================== -->
+<div class="modal-overlay" id="modal-login" onclick="cerrarModalLogin(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">👋 Iniciar sesión</div>
+    <div id="modal-body-login">
+      <div class="field"><label>Correo electrónico</label><input type="email" id="login-email" placeholder="correo@ejemplo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="******"></div>
+      <button class="btn btn-primary" onclick="loginUnificado()">Entrar</button>
+      <button class="btn btn-outline" onclick="cerrarModalLogin()">Volver</button>
+      <p style="text-align:center; margin-top:12px; font-size:12px; color:var(--text3);">
+        ¿Olvidaste tu contraseña? <span style="color:var(--primary); cursor:pointer;" onclick="showToast('Contacta a tu franquiciado')">Recuperar</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CÓDIGO DE INVITACIÓN (ADMIN) ==================== -->
+<div class="modal-overlay" id="modal-codigo" onclick="cerrarModalCodigo(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">🎟️ Código de invitación</div>
+    <div style="text-align:center; padding:10px 0;">
+      <p style="font-size:14px; color:var(--text2); margin-bottom:16px;">Comparte este código con tus clientes para que se unan a tu negocio:</p>
+      <div id="codigo-display" style="font-size:32px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--primary); letter-spacing:4px; background:var(--primary-soft); padding:16px 24px; border-radius:var(--radius); margin-bottom:16px;">------</div>
+      <button class="btn btn-primary" onclick="copiarCodigo()">📋 Copiar código</button>
+      <button class="btn btn-outline" onclick="regenerarCodigo()" style="margin-top:8px;">🔄 Generar nuevo</button>
+      <button class="btn btn-outline" onclick="cerrarModalCodigo()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TOP NAV ==================== -->
+<nav class="top-nav" id="top-nav" style="display:none;">
   <div class="nav-logo">Mi<span>Negocio</span></div>
   <div class="nav-right">
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
-    <!-- Botón para cliente final (siempre visible) -->
+    <button class="nav-icon-btn" onclick="mostrarCodigoInvitacion()" id="btn-codigo" title="Código de invitación" style="display:none;">🎟️</button>
     <button class="nav-icon-btn" onclick="window.toggleCliente()" id="btn-cliente" title="Acceso cliente">👤</button>
-    <!-- Menú del franquiciado (solo visible cuando es admin) -->
     <div id="admin-menu" style="display:none; position:relative; cursor:pointer;">
-  <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white; cursor:pointer;" onclick="toggleAdminMenu(event)">A</span>
-  <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:180px; z-index:1000; padding:8px 0;">
-    <div style="padding:8px 16px; border-bottom:1px solid var(--border);">
-      <strong id="admin-nombre"></strong><br>
-      <span style="font-size:12px; color:var(--text3);">Franquiciado</span>
-    </div>
-    <div onclick="event.stopPropagation(); goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📊 Panel de control</div>
-    <div onclick="event.stopPropagation(); window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">👤 Ver como cliente</div>
-    <div onclick="event.stopPropagation(); cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; color:var(--danger);">🚪 Cerrar sesión
+      <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white; cursor:pointer;" onclick="toggleAdminMenu(event)">A</span>
+      <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:180px; z-index:1000; padding:8px 0;">
+        <div style="padding:8px 16px; border-bottom:1px solid var(--border);">
+          <strong id="admin-nombre"></strong><br>
+          <span style="font-size:12px; color:var(--text3);">Franquiciado</span>
+        </div>
+        <div onclick="event.stopPropagation(); mostrarCodigoInvitacion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">🎟️ Código de invitación</div>
+        <div onclick="event.stopPropagation(); goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📊 Panel de control</div>
+        <div onclick="event.stopPropagation(); window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">👤 Ver como cliente</div>
+        <div onclick="event.stopPropagation(); cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; color:var(--danger);">🚪 Cerrar sesión</div>
+      </div>
     </div>
   </div>
-</div>
 </nav>
 
-<!-- SCREEN: DASHBOARD -->
-<div class="screen active" id="screen-dashboard">
+<!-- ==================== SCREEN: DASHBOARD ==================== -->
+<div class="screen" id="screen-dashboard">
   <div class="greeting">
     <h2 id="mensaje-bienvenida">Bienvenido 👋</h2>
     <p>Resumen de hoy · <span id="fecha-hoy"></span></p>
@@ -69,7 +174,6 @@
     </div>
   </div>
 
-  <!-- Mini chart -->
   <div class="card" style="margin-bottom:12px">
     <div class="section-header">
       <span class="section-title">Ventas — últimos 7 días</span>
@@ -78,7 +182,6 @@
     <div style="height:220px; position:relative;"><canvas id="chart-ventas"></canvas></div>
   </div>
 
-  <!-- Actividad reciente -->
   <div class="card">
     <div class="section-header">
       <span class="section-title">Actividad reciente</span>
@@ -90,7 +193,7 @@
   </div>
 </div>
 
-<!-- SCREEN: VENTAS -->
+<!-- ==================== SCREEN: VENTAS ==================== -->
 <div class="screen" id="screen-ventas">
   <div class="search-bar">
     <input class="search-input" placeholder="🔍  Buscar venta o cliente..." id="venta-search" oninput="filterVentas()">
@@ -105,7 +208,7 @@
   <div id="ventas-list"></div>
 </div>
 
-<!-- SCREEN: INVENTARIO -->
+<!-- ==================== SCREEN: INVENTARIO ==================== -->
 <div class="screen" id="screen-inventario">
   <div class="search-bar">
     <input class="search-input" placeholder="🔍  Buscar producto..." id="inv-search" oninput="filterInv()">
@@ -120,7 +223,7 @@
   <div id="inv-list"></div>
 </div>
 
-<!-- SCREEN: CLIENTES -->
+<!-- ==================== SCREEN: CLIENTES ==================== -->
 <div class="screen" id="screen-clientes">
   <div class="search-bar">
     <input class="search-input" placeholder="🔍  Buscar cliente..." id="client-search" oninput="filterClients()">
@@ -135,7 +238,7 @@
   <div id="client-list"></div>
 </div>
 
-<!-- SCREEN: CONFIGURACIÓN -->
+<!-- ==================== SCREEN: CONFIGURACIÓN ==================== -->
 <div class="screen" id="screen-configuracion">
   <div class="config-container">
     <div class="config-header">
@@ -194,19 +297,8 @@
       </div>
       <div class="config-table-wrap">
         <table class="config-table">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Nombre</th>
-              <th>Categoría</th>
-              <th>Precio</th>
-              <th>Stock</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-productos">
-            <tr><td colspan="6" class="config-empty">Cargando productos...</td></tr>
-          </tbody>
+          <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
+          <tbody id="tabla-productos"><tr><td colspan="6" class="config-empty">Cargando productos...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -218,17 +310,8 @@
       </div>
       <div class="config-table-wrap">
         <table class="config-table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Teléfono</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-clientes">
-            <tr><td colspan="4" class="config-empty">Cargando clientes...</td></tr>
-          </tbody>
+          <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Acciones</th></tr></thead>
+          <tbody id="tabla-clientes"><tr><td colspan="4" class="config-empty">Cargando clientes...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -240,19 +323,8 @@
       </div>
       <div class="config-table-wrap">
         <table class="config-table">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Producto</th>
-              <th>Monto</th>
-              <th>Fecha</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-ventas">
-            <tr><td colspan="6" class="config-empty">Cargando ventas...</td></tr>
-          </tbody>
+          <thead><tr><th>Cliente</th><th>Producto</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tabla-ventas"><tr><td colspan="6" class="config-empty">Cargando ventas...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -260,10 +332,7 @@
     <div class="config-panel" id="panel-json">
       <div class="config-json-section">
         <h3>📁 Exportar / Importar datos</h3>
-        <p class="config-hint">
-          Exporta todos tus datos (productos, clientes y ventas) a un archivo JSON para respaldo o para enviar a tu administrador.
-          También puedes importar un archivo JSON para restaurar o actualizar tu información.
-        </p>
+        <p class="config-hint">Exporta todos tus datos a un archivo JSON para respaldo. También puedes importar un archivo JSON para restaurar o actualizar tu información.</p>
         <div class="config-json-buttons">
           <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar JSON</button>
           <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config-2').click()">📂 Importar JSON</button>
@@ -274,12 +343,12 @@
     </div>
 
     <div style="margin-top:20px; text-align:center;">
-      <button class="btn btn-outline" onclick="goScreen('cliente')">⬅️ Volver al panel</button>
+      <button class="btn btn-outline" onclick="goScreen('dashboard')">⬅️ Volver al panel</button>
     </div>
   </div>
 </div>
 
-<!-- SCREEN: REPORTES -->
+<!-- ==================== SCREEN: REPORTES ==================== -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">
     <div class="report-tab active" onclick="switchReportTab(this,'semana')">Semana</div>
@@ -297,34 +366,24 @@
   <div class="card" style="margin-bottom:12px">
     <div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>
     <div class="top-product">
-      <div class="top-rank">#1</div>
-      <div class="top-name">Café Caracas 250g</div>
-      <div class="top-bar-wrap"><div class="top-bar" style="width:100%"></div></div>
-      <div class="top-val">$620</div>
+      <div class="top-rank">#1</div><div class="top-name">Café Caracas 250g</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:100%"></div></div><div class="top-val">$620</div>
     </div>
     <div class="top-product">
-      <div class="top-rank">#2</div>
-      <div class="top-name">Chocolate El Rey</div>
-      <div class="top-bar-wrap"><div class="top-bar" style="width:72%"></div></div>
-      <div class="top-val">$448</div>
+      <div class="top-rank">#2</div><div class="top-name">Chocolate El Rey</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:72%"></div></div><div class="top-val">$448</div>
     </div>
     <div class="top-product">
-      <div class="top-rank">#3</div>
-      <div class="top-name">Papelón de caña</div>
-      <div class="top-bar-wrap"><div class="top-bar" style="width:55%"></div></div>
-      <div class="top-val">$341</div>
+      <div class="top-rank">#3</div><div class="top-name">Papelón de caña</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:55%"></div></div><div class="top-val">$341</div>
     </div>
     <div class="top-product">
-      <div class="top-rank">#4</div>
-      <div class="top-name">Azúcar Morena 1kg</div>
-      <div class="top-bar-wrap"><div class="top-bar" style="width:38%"></div></div>
-      <div class="top-val">$234</div>
+      <div class="top-rank">#4</div><div class="top-name">Azúcar Morena 1kg</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:38%"></div></div><div class="top-val">$234</div>
     </div>
     <div class="top-product">
-      <div class="top-rank">#5</div>
-      <div class="top-name">Caraotas negras</div>
-      <div class="top-bar-wrap"><div class="top-bar" style="width:22%"></div></div>
-      <div class="top-val">$136</div>
+      <div class="top-rank">#5</div><div class="top-name">Caraotas negras</div>
+      <div class="top-bar-wrap"><div class="top-bar" style="width:22%"></div></div><div class="top-val">$136</div>
     </div>
   </div>
   <div class="card">
@@ -335,42 +394,16 @@
   </div>
 </div>
 
-<!-- SCREEN: CLIENTE (MÓDULO PARA CLIENTES) -->
+<!-- ==================== SCREEN: CLIENTE ==================== -->
 <div class="screen" id="screen-cliente">
-  <div id="cliente-login" style="padding-top:20px;">
-    <h2 style="text-align:center; margin-bottom:20px;">👋 Acceso Cliente</h2>
-    <div id="login-form">
-      <div class="field"><label>Correo</label><input type="email" id="login-email" placeholder="correo@ejemplo.com"></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="******"></div>
-      <button class="btn btn-primary" onclick="loginCliente()">Iniciar sesión</button>
-      <p style="text-align:center; margin:10px 0;">o</p>
-      <button class="btn btn-outline" onclick="mostrarRegistro()">Registrarme</button>
-    </div>
-    <div id="registro-form" style="display:none;">
-      <div class="field"><label>Nombre</label><input type="text" id="reg-nombre" placeholder="Tu nombre"></div>
-      <div class="field"><label>Correo</label><input type="email" id="reg-email" placeholder="correo@ejemplo.com"></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" placeholder="******"></div>
-      <!-- Campo nuevo: código de franquicia -->
-      <div class="field">
-        <label>Código de franquicia</label>
-        <input type="text" id="reg-codigo" placeholder="Ej: empresa-test" required>
-        <small style="color:var(--text3); font-size:11px;">Pídele a tu franquiciado el código de acceso</small>
-      </div>
-      <button class="btn btn-primary" onclick="registrarCliente()">Registrarme</button>
-      <button class="btn btn-outline" onclick="mostrarLogin()">Volver a login</button>
-    </div>
-  </div>
-
   <div id="cliente-panel" style="display:none;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
       <h2>🛒 Bienvenido, <span id="cliente-nombre"></span></h2>
       <div style="display:flex; gap:8px;">
-        <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="goScreen('configuracion')">⚙️ Configuración</button>
         <button class="btn btn-outline" style="width:auto; padding:6px 12px;" onclick="cerrarSesion()">Cerrar sesión</button>
       </div>
     </div>
 
-    <!-- Pestañas internas -->
     <div class="config-tabs" style="margin-bottom:16px;">
       <button class="config-tab active" data-tab-cliente="catalogo">🛍️ Catálogo</button>
       <button class="config-tab" data-tab-cliente="chat">💬 Chat</button>
@@ -378,7 +411,6 @@
       <button class="config-tab" data-tab-cliente="pedidos">📋 Pedidos</button>
     </div>
 
-    <!-- Panel: Catálogo -->
     <div id="cliente-panel-catalogo" class="cliente-panel-content active">
       <div class="section-header">
         <span class="section-title">Productos disponibles</span>
@@ -389,11 +421,10 @@
       </div>
     </div>
 
-    <!-- Panel: Chat -->
     <div id="cliente-panel-chat" class="cliente-panel-content" style="display:none;">
       <div class="section-header">
         <span class="section-title">💬 Chat comunitario</span>
-        <span style="font-size:12px; color:var(--text3);">Mensajes de otros clientes de tu franquiciado</span>
+        <span style="font-size:12px; color:var(--text3);">Mensajes de otros clientes</span>
       </div>
       <div id="chat-mensajes" style="max-height:400px; overflow-y:auto; margin-bottom:12px; background:var(--bg-card); border-radius:var(--radius); padding:12px;">
         <div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Sin mensajes aún. ¡Sé el primero en escribir!</div></div>
@@ -404,78 +435,47 @@
       </div>
     </div>
 
-    <!-- Panel: Alertas -->
     <div id="cliente-panel-alertas" class="cliente-panel-content" style="display:none;">
       <div class="section-header">
         <span class="section-title">🚨 Alertas de seguridad</span>
         <span style="font-size:12px; color:var(--text3);">Reporta o consulta incidentes en tu zona</span>
       </div>
-      <button class="btn btn-danger" style="width:100%; margin-bottom:12px; padding:14px; font-size:1.2rem;" onclick="abrirModalAlerta()">
-        🚨 Enviar alerta
-      </button>
+      <button class="btn btn-danger" style="width:100%; margin-bottom:12px; padding:14px; font-size:1.2rem;" onclick="abrirModalAlerta()">🚨 Enviar alerta</button>
       <div id="alertas-lista" style="max-height:400px; overflow-y:auto;">
         <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No hay alertas activas</div></div>
       </div>
     </div>
 
-    <!-- Panel: Pedidos -->
     <div id="cliente-panel-pedidos" class="cliente-panel-content" style="display:none;">
-      <div class="section-header">
-        <span class="section-title">📋 Mis pedidos</span>
-      </div>
+      <div class="section-header"><span class="section-title">📋 Mis pedidos</span></div>
       <div id="historial-pedidos"></div>
     </div>
   </div>
 </div>
 
-<!-- BOTTOM NAV -->
-<nav class="bottom-nav">
+<!-- ==================== BOTTOM NAV ==================== -->
+<nav class="bottom-nav" id="bottom-nav" style="display:none;">
   <div class="nav-item active" onclick="goScreen('dashboard')" id="nav-dashboard">
-    <div class="nav-icon">📊</div>
-    <div class="nav-label">Inicio</div>
+    <div class="nav-icon">📊</div><div class="nav-label">Inicio</div>
   </div>
   <div class="nav-item" onclick="goScreen('ventas')" id="nav-ventas">
-    <div class="nav-icon">🛒</div>
-    <div class="nav-label">Ventas</div>
+    <div class="nav-icon">🛒</div><div class="nav-label">Ventas</div>
   </div>
   <div class="nav-item" onclick="goScreen('inventario')" id="nav-inventario">
-    <div class="nav-icon">📦</div>
-    <div class="nav-label">Inventario</div>
+    <div class="nav-icon">📦</div><div class="nav-label">Inventario</div>
   </div>
   <div class="nav-item" onclick="goScreen('clientes')" id="nav-clientes">
-    <div class="nav-icon">👥</div>
-    <div class="nav-label">Clientes</div>
+    <div class="nav-icon">👥</div><div class="nav-label">Clientes</div>
   </div>
   <div class="nav-item" onclick="goScreen('reportes')" id="nav-reportes">
-    <div class="nav-icon">📈</div>
-    <div class="nav-label">Reportes</div>
+    <div class="nav-icon">📈</div><div class="nav-label">Reportes</div>
   </div>
 </nav>
 
-<!-- FAB -->
-<button class="fab" onclick="openModal()" id="fab-btn">＋</button>
+<!-- ==================== FAB ==================== -->
+<button class="fab" onclick="openModal()" id="fab-btn" style="display:none;">＋</button>
 
-<!-- PAGE AGENT - FLOATING CONTROL PANEL -->
-<div id="agent-panel" style="position:fixed; bottom:100px; right:20px; z-index:9999; background:var(--bg-primary, #1e1e2f); border-radius:16px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); max-width:300px; display:none; border:1px solid var(--border-color, #333);">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <span style="font-weight:600; font-size:14px;">🤖 Asistente IA</span>
-    <button onclick="toggleAgentPanel()" style="background:none; border:none; color:var(--text-secondary, #aaa); cursor:pointer; font-size:18px;">✕</button>
-  </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a ventas')">📊 Ventas</button>
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a inventario')">📦 Inventario</button>
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ir a clientes')">👥 Clientes</button>
-    <button class="chip" style="font-size:11px; padding:4px 10px;" onclick="agentCommand('ayuda')">❓ Ayuda</button>
-  </div>
-  <input type="text" id="agent-input" placeholder="Escribe un comando..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color, #444); background:var(--bg-secondary, #2a2a3a); color:var(--text-primary, #eee); font-size:13px;" onkeydown="if(event.key==='Enter') sendAgentCommand()">
-  <button onclick="sendAgentCommand()" style="width:100%; margin-top:8px; padding:6px; border-radius:8px; border:none; background:var(--accent-color, #2c7be5); color:white; font-weight:600; cursor:pointer;">Enviar comando</button>
-  <div id="agent-response" style="margin-top:10px; font-size:12px; color:var(--text-secondary, #aaa); max-height:80px; overflow-y:auto;"></div>
-</div>
-
-<!-- FAB para abrir el panel de agente -->
-<button onclick="toggleAgentPanel()" style="position:fixed; bottom:100px; right:80px; z-index:9998; background:var(--accent-color, #2c7be5); border:none; border-radius:50%; width:48px; height:48px; font-size:22px; color:white; box-shadow:0 4px 16px rgba(44,123,229,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center;">🤖</button>
-
-<!-- MODAL SHEET -->
+<!-- ==================== MODAL SHEET (uso general) ==================== -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal-sheet" id="modal-sheet">
     <div class="sheet-handle"></div>
@@ -484,83 +484,42 @@
   </div>
 </div>
 
-<!-- TOAST -->
+<!-- ==================== TOAST ==================== -->
 <div class="toast" id="toast"></div>
 
-<!-- ============================================================ -->
-<!-- SCRIPTS (orden correcto, sin duplicados)                    -->
-<!-- ============================================================ -->
-
-<!-- Firebase SDK -->
+<!-- ==================== SCRIPTS ==================== -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
-
-<!-- Configuración de Firebase -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="js/firebase.js?v=4"></script>
+<script src="js/firebase.js?v=5"></script>
+<script src="js/helpers.js?v=5"></script>
+<script src="js/data.js?v=5"></script>
+<script src="js/render.js?v=5"></script>
+<script src="js/temas.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/notificaciones.js?v=5"></script>
 
-<!-- HELPERS -->
-<script src="js/helpers.js?v=4"></script>
-
-<!-- DATA STORE -->
-<script src="js/data.js?v=4"></script>
-
-<!-- RENDER -->
-<script src="js/render.js?v=4"></script>
-
-<!-- TEMAS -->
-<script src="js/temas.js?v=4"></script>
-
-<!-- APP PRINCIPAL -->
-<script src="js/app.js?v=4"></script>
-<script src="js/notificaciones.js?v=4"></script>
-
-<!-- Page Agent SDK -->
-<script src="https://cdn.jsdelivr.net/npm/page-agent@1.11.0/dist/iife/page-agent.demo.js" crossorigin="anonymous"></script>
-
-<!-- ============================================================ -->
-<!-- SCRIPT INLINE: funciones de carrito y misceláneas           -->
-<!-- ============================================================ -->
 <script>
-  // Si no existen las funciones de carrito, las definimos aquí
-  if (typeof carrito === 'undefined') {
-    var carrito = [];
-  }
+  if (typeof carrito === 'undefined') { var carrito = []; }
   if (typeof guardarCarrito === 'undefined') {
-    window.guardarCarrito = function() {
-      localStorage.setItem('carrito', JSON.stringify(carrito));
-    };
+    window.guardarCarrito = function() { localStorage.setItem('carrito', JSON.stringify(carrito)); };
   }
   if (typeof cargarCarrito === 'undefined') {
     window.cargarCarrito = function() {
       const saved = localStorage.getItem('carrito');
-      if (saved) {
-        try {
-          carrito = JSON.parse(saved);
-          return true;
-        } catch (e) { return false; }
-      }
+      if (saved) { try { carrito = JSON.parse(saved); return true; } catch (e) { return false; } }
       return false;
     };
   }
-  console.log('🔄 Funciones de carrito aseguradas (inline)');
 </script>
 
-  <script>
-  // Registrar Service Workers
+<script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // SW principal (PWA)
-      navigator.serviceWorker.register('sw.js')
-        .then((reg) => console.log('✅ SW registrado:', reg.scope))
-        .catch((err) => console.log('❌ Error SW:', err));
-
-      // SW para Firebase Messaging (debe estar en raíz)
-      navigator.serviceWorker.register('firebase-messaging-sw.js')
-        .then((reg) => console.log('✅ FCM SW registrado:', reg.scope))
-        .catch((err) => console.log('❌ Error FCM SW:', err));
+      navigator.serviceWorker.register('sw.js').then((reg) => console.log('✅ SW:', reg.scope)).catch((err) => console.log('❌ SW:', err));
+      navigator.serviceWorker.register('firebase-messaging-sw.js').then((reg) => console.log('✅ FCM SW:', reg.scope)).catch((err) => console.log('❌ FCM SW:', err));
     });
   }
 </script>

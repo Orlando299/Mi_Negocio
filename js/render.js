@@ -10,7 +10,7 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
   const q = textFilter.toLowerCase();
 
   let data = ventas.filter(v => {
-    const matchText = !q || v.cliente.toLowerCase().includes(q) || v.id.includes(q);
+    const matchText = !q || (v.cliente && v.cliente.toLowerCase().includes(q)) || (v.id && v.id.includes(q));
     const matchStatus = statusFilter === 'todas' || v.status === statusFilter;
     return matchText && matchStatus;
   });
@@ -55,7 +55,7 @@ function renderInv(textFilter = '', stockFilter = 'todos', page = 1) {
   const q = textFilter.toLowerCase();
 
   let data = inventario.filter(p => {
-    const matchText = !q || p.nombre.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+    const matchText = !q || (p.nombre && p.nombre.toLowerCase().includes(q)) || (p.cat && p.cat.toLowerCase().includes(q));
     const matchStock = stockFilter === 'todos' || p.estado === stockFilter;
     return matchText && matchStock;
   });
@@ -99,7 +99,7 @@ function renderClients(textFilter = '', tagFilter = 'todos', page = 1) {
   const q = textFilter.toLowerCase();
 
   let data = clientes.filter(c => {
-    const matchText = !q || c.nombre.toLowerCase().includes(q) || c.phone.includes(q);
+    const matchText = !q || (c.nombre && c.nombre.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q));
     const matchTag = tagFilter === 'todos' || c.tag === tagFilter;
     return matchText && matchTag;
   });
@@ -202,7 +202,6 @@ async function renderReportes(periodo = 'semana') {
   const topContainer = document.querySelector('.card .top-product');
   if (topContainer) {
     const parent = topContainer.parentElement;
-    const titulo = parent.querySelector('.section-title');
     parent.innerHTML = `<div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>`;
     if (topProductos.length === 0) {
       parent.innerHTML += '<div class="empty"><div class="empty-text">Sin datos</div></div>';

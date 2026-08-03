@@ -345,45 +345,10 @@ function syncGlobals() {
   window.clientes = clientes;
 }
 
-async function initStore() {
-  store.auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      console.log('👤 Usuario autenticado:', user.email);
-      try {
-        const empresasSnapshot = await firebase.firestore()
-          .collectionGroup('usuarios')
-          .where('uid', '==', user.uid)
-          .get();
-        if (!empresasSnapshot.empty) {
-          const usuarioDoc = empresasSnapshot.docs[0];
-          const empresaId = usuarioDoc.ref.parent.parent.id;
-          const usuarioData = usuarioDoc.data();
-          sessionStorage.setItem('empresaId', empresaId);
-          sessionStorage.setItem('userEmail', user.email);
-          sessionStorage.setItem('userName', usuarioData.nombre || user.email);
-          sessionStorage.setItem('userRol', usuarioData.rol || 'usuario');
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          if (typeof window.mostrarPanelCliente === 'function') {
-            window.mostrarPanelCliente();
-          }
-          if (typeof renderVentas === 'function') renderVentas('', 'todas');
-          if (typeof renderInv === 'function') renderInv('', 'todos');
-          if (typeof renderClients === 'function') renderClients('', 'todos');
-          if (typeof renderActividadReciente === 'function') renderActividadReciente();
-          if (typeof updateKPIs === 'function') updateKPIs();
-          if (typeof actualizarResumenConfiguracion === 'function') actualizarResumenConfiguracion();
-        } else {
-          console.warn('⚠️ No se encontró empresa para el usuario');
-        }
-      } catch (error) {
-        handleError(error, 'Error cargando empresa');
-      }
-    } else {
-      console.log('👤 Usuario no autenticado');
-      sessionStorage.clear();
-    }
-  });
+// initStore simplificado: solo inicializa el store.
+// El manejo completo de auth (detección admin/cliente y redirección) 
+// se hace en app.js dentro de firebase.auth().onAuthStateChanged
+function initStore() {
   console.log('🚀 Store inicializado con Firestore');
 }
 

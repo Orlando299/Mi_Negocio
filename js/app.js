@@ -546,29 +546,216 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Actualizar avatar y nombre del admin
-function actualizarAdminUI(nombre) {
-  const adminMenu = document.getElementById('admin-menu');
-  const avatar = document.getElementById('avatar-admin');
-  const nombreEl = document.getElementById('admin-nombre');
-  const btnCliente = document.getElementById('btn-cliente');
-  
-  if (nombre) {
-    if (adminMenu) adminMenu.style.display = 'block';
-    if (btnCliente) btnCliente.style.display = 'none'; // Ocultar botón cliente cuando es admin
-    
-    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
-    if (avatar) avatar.textContent = iniciales || 'A';
-    if (nombreEl) nombreEl.textContent = nombre;
-  } else {
-    if (adminMenu) adminMenu.style.display = 'none';
-    if (btnCliente) btnCliente.style.display = 'inline-flex';
+// NUEVO SISTEMA DE INGRESO UNIFICADO
+// ═══════════════════════════════════════════════════════════════
+
+function mostrarPantallaBienvenida() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-bienvenida').classList.add('active');
+  document.getElementById('top-nav').style.display = 'none';
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('fab-btn').style.display = 'none';
+}
+
+function mostrarRegistroEmpresa() {
+  document.getElementById('modal-registro-empresa').classList.add('open');
+}
+
+function cerrarModalRegistroEmpresa(e) {
+  if (!e || e.target === document.getElementById('modal-registro-empresa')) {
+    document.getElementById('modal-registro-empresa').classList.remove('open');
   }
 }
 
-// ── LOGIN MULTI-TENANT (MODIFICADO PARA DETECTAR ROL) ──
-async function loginCliente() {
-  const email = document.getElementById('login-email').value;
+function mostrarRegistroCliente() {
+  document.getElementById('modal-registro-cliente').classList.add('open');
+}
+
+function cerrarModalRegistroCliente(e) {
+  if (!e || e.target === document.getElementById('modal-registro-cliente')) {
+    document.getElementById('modal-registro-cliente').classList.remove('open');
+  }
+}
+
+function mostrarLoginUnificado() {
+  document.getElementById('modal-login').classList.add('open');
+}
+
+function cerrarModalLogin(e) {
+  if (!e || e.target === document.getElementById('modal-login')) {
+    document.getElementById('modal-login').classList.remove('open');
+  }
+}
+
+// ── GENERAR CÓDIGO DE ACCESO ALEATORIO ──
+function generarCodigoAcceso() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let codigo = '';
+  for (let i = 0; i < 6; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return codigo;
+}
+
+// ── REGISTRO DE EMPRESA (ADMIN) ──
+async function registrarEmpresa() {
+  const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
+  const nombreAdmin = document.getElementById('reg-emp-admin').value.trim();
+  const email = document.getElementById('reg-emp-email').value.trim();
+  const password = document.getElementById('reg-emp-pass').value;
+
+  if (!nombreNegocio || !nombreAdmin || !email || !password) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+
+  try {
+    showToast('⏳ Creando tu negocio...');
+    
+    // 1. Crear usuario en Firebase Auth
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    
+    // 2. Crear documento de empresa
+    const empresaRef = firebase.firestore().collection('empresas').doc();
+    const empresaId = empresaRef.id;
+    const codigoAcceso = generarCodigoAcceso();
+    
+    await empresaRef.set({
+      nombre: nombreNegocio,
+      codigoAcceso: codigoAcceso,
+      creadoPor: user.uid,
+      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // 3. Crear usuario admin en la subcolección
+    await empresaRef.collection('usuarios').doc(user.uid).set({
+      uid: user.uid,
+      nombre: nombreAdmin,
+      email: email,
+      rol: 'admin',
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // 4. Guardar sesión
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombreAdmin);
+    sessionStorage.setItem('userRol', 'admin');
+    sessionStorage.setItem('codigoAcceso', codigoAcceso);
+    
+    // 5. Cerrar modal y mostrar dashboard
+    cerrarModalRegistroEmpresa();
+    document.getElementById('top-nav').style.display = 'flex';
+    document.getElementById('bottom-nav').style.display = 'flex';
+    document.getElementById('fab-btn').style.display = 'flex';
+    
+    actualizarAdminUI(nombreAdmin);
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    goScreen('dashboard');
+    
+    showToast(`✅ ¡${nombreNegocio} creado con éxito!`);
+    setTimeout(() => {
+      showToast(`🎟️ Tu código de invitación es: ${codigoAcceso}`);
+    }, 2500);
+    
+  } catch (error) {
+    console.error('Error creando empresa:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este correo ya está registrado');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── REGISTRO DE CLIENTE ──
+async function registrarClienteNuevo() {
+  const nombre = document.getElementById('reg-cli-nombre').value.trim();
+  const email = document.getElementById('reg-cli-email').value.trim();
+  const password = document.getElementById('reg-cli-pass').value;
+  const codigo = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
+
+  if (!nombre || !email || !password || !codigo) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+
+  try {
+    showToast('⏳ Verificando código...');
+    
+    // 1. Buscar empresa por código de acceso
+    const empresasSnap = await firebase.firestore()
+      .collection('empresas')
+      .where('codigoAcceso', '==', codigo)
+      .limit(1)
+      .get();
+    
+    if (empresasSnap.empty) {
+      showToast('❌ Código de invitación no válido');
+      return;
+    }
+    
+    const empresaDoc = empresasSnap.docs[0];
+    const empresaId = empresaDoc.id;
+    const empresaData = empresaDoc.data();
+    
+    // 2. Crear usuario en Firebase Auth
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    
+    // 3. Guardar cliente en la empresa
+    await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(user.uid)
+      .set({
+        nombre: nombre,
+        email: email,
+        uid: user.uid,
+        creado: firebase.firestore.FieldValue.serverTimestamp(),
+        tag: 'nuevo',
+        phone: '',
+        compras: '$0.00',
+        pedidos: 0
+      });
+    
+    // 4. Guardar sesión
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombre);
+    sessionStorage.setItem('userRol', 'cliente');
+    
+    // 5. Cerrar modal y mostrar panel cliente
+    cerrarModalRegistroCliente();
+    
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    mostrarPanelCliente();
+    
+    showToast(`✅ ¡Bienvenido a ${empresaData.nombre}!`);
+    
+  } catch (error) {
+    console.error('Error registrando cliente:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este correo ya está registrado');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── LOGIN UNIFICADO (detecta admin o cliente automáticamente) ──
+async function loginUnificado() {
+  const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
 
   if (!email || !password) {
@@ -577,62 +764,90 @@ async function loginCliente() {
   }
 
   try {
+    showToast('⏳ Iniciando sesión...');
     const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    console.log('✅ Usuario autenticado:', user.uid);
 
-    const empresasSnapshot = await firebase.firestore()
+    // 1. Buscar como ADMIN (en subcolección usuarios)
+    const adminSnap = await firebase.firestore()
       .collectionGroup('usuarios')
       .where('uid', '==', user.uid)
+      .limit(1)
       .get();
 
-    if (empresasSnapshot.empty) {
-      showToast('❌ Usuario no tiene empresa asignada');
-      await firebase.auth().signOut();
+    if (!adminSnap.empty) {
+      // Es ADMIN
+      const usuarioDoc = adminSnap.docs[0];
+      const empresaId = usuarioDoc.ref.parent.parent.id;
+      const usuarioData = usuarioDoc.data();
+      
+      // Obtener código de acceso de la empresa
+      const empresaDoc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+      const codigoAcceso = empresaDoc.exists ? empresaDoc.data().codigoAcceso : '';
+
+      sessionStorage.setItem('empresaId', empresaId);
+      sessionStorage.setItem('userEmail', email);
+      sessionStorage.setItem('userName', usuarioData.nombre || email);
+      sessionStorage.setItem('userRol', 'admin');
+      sessionStorage.setItem('codigoAcceso', codigoAcceso);
+
+      cerrarModalLogin();
+      document.getElementById('top-nav').style.display = 'flex';
+      document.getElementById('bottom-nav').style.display = 'flex';
+      document.getElementById('fab-btn').style.display = 'flex';
+      
+      actualizarAdminUI(usuarioData.nombre);
+      await store.cargarDatosEmpresa(empresaId);
+      syncGlobals();
+      goScreen('dashboard');
+      
+      setTimeout(() => {
+        if (typeof solicitarPermisoNotificaciones === 'function') {
+          solicitarPermisoNotificaciones();
+        }
+      }, 1000);
+      
+      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
       return;
     }
 
-    const usuarioDoc = empresasSnapshot.docs[0];
-    const empresaId = usuarioDoc.ref.parent.parent.id;
-    const usuarioData = usuarioDoc.data();
+    // 2. Si no es admin, buscar como CLIENTE
+    const empresasSnap = await firebase.firestore().collection('empresas').get();
+    let clienteEncontrado = null;
+    let empresaIdCliente = null;
 
-    console.log('🏢 Empresa encontrada:', empresaId);
-
-    sessionStorage.setItem('empresaId', empresaId);
-    sessionStorage.setItem('userEmail', email);
-    sessionStorage.setItem('userName', usuarioData.nombre || email);
-    sessionStorage.setItem('userRol', usuarioData.rol || 'cliente');
-
-    // Determinar rol y redirigir
-    if (usuarioData.rol === 'admin') {
-      // Es franquiciado
-      actualizarAdminUI(usuarioData.nombre);
-      await store.cargarDatosEmpresa(empresaId);
-      goScreen('dashboard');
-      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-      // 🔔 Solicitar permiso de notificaciones push
-      setTimeout(() => {
-        if (typeof solicitarPermisoNotificaciones === 'function') {
-          solicitarPermisoNotificaciones().then(token => {
-            if (token) {
-              showToast('🔔 Notificaciones activadas');
-              if (typeof escucharMensajesForeground === 'function') escucharMensajesForeground();
-            }
-          });
-        }
-      }, 1000);
-      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
-    } else {
-      // Es cliente final
-      document.getElementById('admin-menu').style.display = 'none';
-      await store.cargarDatosEmpresa(empresaId);
-      mostrarPanelCliente();
-      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+    for (const empresaDoc of empresasSnap.docs) {
+      const clienteDoc = await empresaDoc.ref.collection('clientes').doc(user.uid).get();
+      if (clienteDoc.exists) {
+        clienteEncontrado = clienteDoc.data();
+        empresaIdCliente = empresaDoc.id;
+        break;
+      }
     }
 
+    if (clienteEncontrado) {
+      // Es CLIENTE
+      sessionStorage.setItem('empresaId', empresaIdCliente);
+      sessionStorage.setItem('userEmail', email);
+      sessionStorage.setItem('userName', clienteEncontrado.nombre || email);
+      sessionStorage.setItem('userRol', 'cliente');
+
+      cerrarModalLogin();
+      
+      await store.cargarDatosEmpresa(empresaIdCliente);
+      syncGlobals();
+      mostrarPanelCliente();
+      
+      showToast(`✅ Bienvenido, ${clienteEncontrado.nombre || email}`);
+      return;
+    }
+
+    // 3. No encontrado en ningún lado
+    showToast('❌ Usuario no tiene empresa asignada');
+    await firebase.auth().signOut();
+
   } catch (error) {
-    console.error('❌ Error en login:', error);
+    console.error('Error en login:', error);
     if (error.code === 'auth/user-not-found') {
       showToast('❌ Usuario no registrado');
     } else if (error.code === 'auth/wrong-password') {
@@ -643,79 +858,83 @@ async function loginCliente() {
   }
 }
 
-// ── REGISTRO DE CLIENTE (CON CÓDIGO DE FRANQUICIA) ──
-async function registrarCliente() {
-  const nombre = document.getElementById('reg-nombre').value;
-  const email = document.getElementById('reg-email').value;
-  const password = document.getElementById('reg-pass').value;
-  const codigoFranquicia = document.getElementById('reg-codigo')?.value || '';
+// ── CÓDIGO DE INVITACIÓN ──
+function mostrarCodigoInvitacion() {
+  const codigo = sessionStorage.getItem('codigoAcceso') || '------';
+  document.getElementById('codigo-display').textContent = codigo;
+  document.getElementById('modal-codigo').classList.add('open');
+}
 
-  if (!nombre || !email || !password) {
-    showToast('❌ Completa todos los campos');
-    return;
-  }
-
-  if (!codigoFranquicia) {
-    showToast('❌ El código de franquicia es obligatorio');
-    return;
-  }
-
-  try {
-    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    // Verificar que la empresa existe
-    const empresaDoc = await firebase.firestore().collection('empresas').doc(codigoFranquicia).get();
-    if (!empresaDoc.exists) {
-      showToast('❌ Código de franquicia no válido');
-      await firebase.auth().signOut();
-      return;
-    }
-
-    // Crear el cliente en la empresa
-    await firebase.firestore().collection('empresas').doc(codigoFranquicia)
-      .collection('clientes').doc(user.uid).set({
-        nombre: nombre,
-        email: email,
-        uid: user.uid,
-        creado: firebase.firestore.FieldValue.serverTimestamp(),
-        tag: 'nuevo',
-        phone: '',
-        compras: '$0.00',
-        pedidos: 0
-      });
-
-    sessionStorage.setItem('empresaId', codigoFranquicia);
-    sessionStorage.setItem('userEmail', email);
-    sessionStorage.setItem('userName', nombre);
-    sessionStorage.setItem('userRol', 'cliente');
-
-    await store.cargarDatosEmpresa(codigoFranquicia);
-    mostrarPanelCliente();
-    showToast(`✅ ¡Bienvenido, ${nombre}!`);
-
-  } catch (error) {
-    console.error('❌ Error en registro:', error);
-    showToast('❌ Error: ' + error.message);
+function cerrarModalCodigo(e) {
+  if (!e || e.target === document.getElementById('modal-codigo')) {
+    document.getElementById('modal-codigo').classList.remove('open');
   }
 }
 
-// ── MOSTRAR PANEL CLIENTE ──
-function mostrarPanelCliente() {
+function copiarCodigo() {
+  const codigo = document.getElementById('codigo-display').textContent;
+  navigator.clipboard.writeText(codigo).then(() => {
+    showToast('📋 Código copiado al portapapeles');
+  }).catch(() => {
+    showToast('❌ No se pudo copiar');
+  });
+}
+
+async function regenerarCodigo() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+  
+  const nuevoCodigo = generarCodigoAcceso();
+  
+  try {
+    await firebase.firestore().collection('empresas').doc(empresaId).update({
+      codigoAcceso: nuevoCodigo
+    });
+    sessionStorage.setItem('codigoAcceso', nuevoCodigo);
+    document.getElementById('codigo-display').textContent = nuevoCodigo;
+    showToast('✅ Nuevo código generado');
+  } catch (error) {
+    handleError(error, 'Error al regenerar código');
+  }
+}
+
+// ── CERRAR SESIÓN MEJORADO ──
+function cerrarSesion() {
+  firebase.auth().signOut();
+  sessionStorage.clear();
+  localStorage.removeItem('empresaInventario');
+  localStorage.removeItem('empresaClientes');
+  localStorage.removeItem('empresaVentas');
+  localStorage.removeItem('carrito');
+
+  document.getElementById('admin-menu').style.display = 'none';
+  document.getElementById('btn-cliente').style.display = 'inline-flex';
+  document.getElementById('btn-codigo').style.display = 'none';
+  
+  const logo = document.querySelector('.nav-logo span');
+  if (logo) logo.textContent = 'Negocio';
+  
   const loginDiv = document.getElementById('cliente-login');
+  const panelDiv = document.getElementById('cliente-panel');
+  if (loginDiv) loginDiv.style.display = 'block';
+  if (panelDiv) panelDiv.style.display = 'none';
+
+  showToast('👋 Sesión cerrada');
+  mostrarPantallaBienvenida();
+}
+
+// ── MOSTRAR PANEL CLIENTE (sin login form) ──
+function mostrarPanelCliente() {
   const panelDiv = document.getElementById('cliente-panel');
   const nombreSpan = document.getElementById('cliente-nombre');
 
-  if (loginDiv) loginDiv.style.display = 'none';
   if (panelDiv) panelDiv.style.display = 'block';
-
+  
   const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
   if (nombreSpan) nombreSpan.textContent = nombre;
 
-  // Actualizar avatar
   actualizarAvatar(nombre);
 
-  // Actualizar mensaje de bienvenida
   const bienvenidaEl = document.getElementById('mensaje-bienvenida');
   if (bienvenidaEl && nombre) {
     bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
@@ -728,7 +947,6 @@ function mostrarPanelCliente() {
     if (logo) logo.textContent = ' ' + nombreEmpresa;
   }
 
-  // Forzar renderizado de catálogo e historial
   setTimeout(() => {
     renderCatalogo();
     renderHistorial();
@@ -738,55 +956,469 @@ function mostrarPanelCliente() {
   }, 500);
 }
 
-// ── CERRAR SESIÓN UNIFICADA ──
-function cerrarSesion() {
-  firebase.auth().signOut();
-  sessionStorage.clear();
-  localStorage.removeItem('empresaInventario');
-  localStorage.removeItem('empresaClientes');
-  localStorage.removeItem('empresaVentas');
-
-  // Ocultar menú admin y mostrar botón cliente
-  document.getElementById('admin-menu').style.display = 'none';
-  document.getElementById('btn-cliente').style.display = 'inline-flex';
-
-  // Restaurar logo y avatar
-  const logo = document.querySelector('.nav-logo span');
-  if (logo) logo.textContent = 'Negocio';
-  
-  const loginDiv = document.getElementById('cliente-login');
-  const panelDiv = document.getElementById('cliente-panel');
-  if (loginDiv) loginDiv.style.display = 'block';
-  if (panelDiv) panelDiv.style.display = 'none';
-
-  showToast('👋 Sesión cerrada');
-  goScreen('dashboard');
-}
-
-function mostrarRegistro() {
-  document.getElementById('login-form').style.display = 'none';
-  document.getElementById('registro-form').style.display = 'block';
-}
-
-function mostrarLogin() {
-  document.getElementById('login-form').style.display = 'block';
-  document.getElementById('registro-form').style.display = 'none';
-}
-
+// ── TOGGLE CLIENTE (admin viendo como cliente) ──
 function toggleCliente() {
   const current = document.querySelector('.screen.active');
   if (current && current.id === 'screen-cliente') {
     goScreen('dashboard');
   } else {
     goScreen('cliente');
-    if (sessionStorage.getItem('empresaId')) {
-      mostrarPanelCliente();
-    } else {
-      document.getElementById('cliente-login').style.display = 'block';
-      document.getElementById('cliente-panel').style.display = 'none';
-    }
+    mostrarPanelCliente();
     cargarCarrito();
     actualizarCarritoCount();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUEVO SISTEMA DE INGRESO UNIFICADO
+// ═══════════════════════════════════════════════════════════════
+
+function mostrarPantallaBienvenida() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-bienvenida').classList.add('active');
+  document.getElementById('top-nav').style.display = 'none';
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('fab-btn').style.display = 'none';
+}
+
+function mostrarRegistroEmpresa() {
+  document.getElementById('modal-registro-empresa').classList.add('open');
+}
+
+function cerrarModalRegistroEmpresa(e) {
+  if (!e || e.target === document.getElementById('modal-registro-empresa')) {
+    document.getElementById('modal-registro-empresa').classList.remove('open');
+  }
+}
+
+function mostrarRegistroCliente() {
+  document.getElementById('modal-registro-cliente').classList.add('open');
+}
+
+function cerrarModalRegistroCliente(e) {
+  if (!e || e.target === document.getElementById('modal-registro-cliente')) {
+    document.getElementById('modal-registro-cliente').classList.remove('open');
+  }
+}
+
+function mostrarLoginUnificado() {
+  document.getElementById('modal-login').classList.add('open');
+}
+
+function cerrarModalLogin(e) {
+  if (!e || e.target === document.getElementById('modal-login')) {
+    document.getElementById('modal-login').classList.remove('open');
+  }
+}
+
+// ── GENERAR CÓDIGO DE ACCESO ALEATORIO ──
+function generarCodigoAcceso() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let codigo = '';
+  for (let i = 0; i < 6; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return codigo;
+}
+
+// ── REGISTRO DE EMPRESA (ADMIN) ──
+async function registrarEmpresa() {
+  const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
+  const nombreAdmin = document.getElementById('reg-emp-admin').value.trim();
+  const email = document.getElementById('reg-emp-email').value.trim();
+  const password = document.getElementById('reg-emp-pass').value;
+
+  if (!nombreNegocio || !nombreAdmin || !email || !password) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+
+  try {
+    showToast('⏳ Creando tu negocio...');
+    
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    
+    const empresaRef = firebase.firestore().collection('empresas').doc();
+    const empresaId = empresaRef.id;
+    const codigoAcceso = generarCodigoAcceso();
+    
+    await empresaRef.set({
+      nombre: nombreNegocio,
+      codigoAcceso: codigoAcceso,
+      creadoPor: user.uid,
+      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    await empresaRef.collection('usuarios').doc(user.uid).set({
+      uid: user.uid,
+      nombre: nombreAdmin,
+      email: email,
+      rol: 'admin',
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombreAdmin);
+    sessionStorage.setItem('userRol', 'admin');
+    sessionStorage.setItem('codigoAcceso', codigoAcceso);
+    
+    cerrarModalRegistroEmpresa();
+    document.getElementById('top-nav').style.display = 'flex';
+    document.getElementById('bottom-nav').style.display = 'flex';
+    document.getElementById('fab-btn').style.display = 'flex';
+    
+    actualizarAdminUI(nombreAdmin);
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    goScreen('dashboard');
+    
+    showToast(`✅ ¡${nombreNegocio} creado con éxito!`);
+    setTimeout(() => {
+      showToast(`🎟️ Tu código de invitación es: ${codigoAcceso}`);
+    }, 2500);
+    
+  } catch (error) {
+    console.error('Error creando empresa:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este correo ya está registrado');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── REGISTRO DE CLIENTE ──
+async function registrarClienteNuevo() {
+  const nombre = document.getElementById('reg-cli-nombre').value.trim();
+  const email = document.getElementById('reg-cli-email').value.trim();
+  const password = document.getElementById('reg-cli-pass').value;
+  const codigo = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
+
+  if (!nombre || !email || !password || !codigo) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+
+  try {
+    showToast('⏳ Verificando código...');
+    
+    const empresasSnap = await firebase.firestore()
+      .collection('empresas')
+      .where('codigoAcceso', '==', codigo)
+      .limit(1)
+      .get();
+    
+    if (empresasSnap.empty) {
+      showToast('❌ Código de invitación no válido');
+      return;
+    }
+    
+    const empresaDoc = empresasSnap.docs[0];
+    const empresaId = empresaDoc.id;
+    const empresaData = empresaDoc.data();
+    
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    
+    await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(user.uid)
+      .set({
+        nombre: nombre,
+        email: email,
+        uid: user.uid,
+        creado: firebase.firestore.FieldValue.serverTimestamp(),
+        tag: 'nuevo',
+        phone: '',
+        compras: '$0.00',
+        pedidos: 0
+      });
+    
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombre);
+    sessionStorage.setItem('userRol', 'cliente');
+    
+    cerrarModalRegistroCliente();
+    
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    mostrarPanelCliente();
+    
+    showToast(`✅ ¡Bienvenido a ${empresaData.nombre}!`);
+    
+  } catch (error) {
+    console.error('Error registrando cliente:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este correo ya está registrado');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── LOGIN UNIFICADO ──
+async function loginUnificado() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+
+  if (!email || !password) {
+    showToast('❌ Ingresa correo y contraseña');
+    return;
+  }
+
+  try {
+    showToast('⏳ Iniciando sesión...');
+    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    const adminSnap = await firebase.firestore()
+      .collectionGroup('usuarios')
+      .where('uid', '==', user.uid)
+      .limit(1)
+      .get();
+
+    if (!adminSnap.empty) {
+      const usuarioDoc = adminSnap.docs[0];
+      const empresaId = usuarioDoc.ref.parent.parent.id;
+      const usuarioData = usuarioDoc.data();
+      
+      const empresaDoc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+      const codigoAcceso = empresaDoc.exists ? empresaDoc.data().codigoAcceso : '';
+
+      sessionStorage.setItem('empresaId', empresaId);
+      sessionStorage.setItem('userEmail', email);
+      sessionStorage.setItem('userName', usuarioData.nombre || email);
+      sessionStorage.setItem('userRol', 'admin');
+      sessionStorage.setItem('codigoAcceso', codigoAcceso);
+
+      cerrarModalLogin();
+      document.getElementById('top-nav').style.display = 'flex';
+      document.getElementById('bottom-nav').style.display = 'flex';
+      document.getElementById('fab-btn').style.display = 'flex';
+      
+      actualizarAdminUI(usuarioData.nombre);
+      await store.cargarDatosEmpresa(empresaId);
+      syncGlobals();
+      goScreen('dashboard');
+      
+      setTimeout(() => {
+        if (typeof solicitarPermisoNotificaciones === 'function') {
+          solicitarPermisoNotificaciones();
+        }
+      }, 1000);
+      
+      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
+      return;
+    }
+
+    const empresasSnap = await firebase.firestore().collection('empresas').get();
+    let clienteEncontrado = null;
+    let empresaIdCliente = null;
+
+    for (const empresaDoc of empresasSnap.docs) {
+      const clienteDoc = await empresaDoc.ref.collection('clientes').doc(user.uid).get();
+      if (clienteDoc.exists) {
+        clienteEncontrado = clienteDoc.data();
+        empresaIdCliente = empresaDoc.id;
+        break;
+      }
+    }
+
+    if (clienteEncontrado) {
+      sessionStorage.setItem('empresaId', empresaIdCliente);
+      sessionStorage.setItem('userEmail', email);
+      sessionStorage.setItem('userName', clienteEncontrado.nombre || email);
+      sessionStorage.setItem('userRol', 'cliente');
+
+      cerrarModalLogin();
+      
+      await store.cargarDatosEmpresa(empresaIdCliente);
+      syncGlobals();
+      mostrarPanelCliente();
+      
+      showToast(`✅ Bienvenido, ${clienteEncontrado.nombre || email}`);
+      return;
+    }
+
+    showToast('❌ Usuario no tiene empresa asignada');
+    await firebase.auth().signOut();
+
+  } catch (error) {
+    console.error('Error en login:', error);
+    if (error.code === 'auth/user-not-found') {
+      showToast('❌ Usuario no registrado');
+    } else if (error.code === 'auth/wrong-password') {
+      showToast('❌ Contraseña incorrecta');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  }
+}
+
+// ── CÓDIGO DE INVITACIÓN ──
+function mostrarCodigoInvitacion() {
+  const codigo = sessionStorage.getItem('codigoAcceso') || '------';
+  document.getElementById('codigo-display').textContent = codigo;
+  document.getElementById('modal-codigo').classList.add('open');
+}
+
+function cerrarModalCodigo(e) {
+  if (!e || e.target === document.getElementById('modal-codigo')) {
+    document.getElementById('modal-codigo').classList.remove('open');
+  }
+}
+
+function copiarCodigo() {
+  const codigo = document.getElementById('codigo-display').textContent;
+  navigator.clipboard.writeText(codigo).then(() => {
+    showToast('📋 Código copiado al portapapeles');
+  }).catch(() => {
+    showToast('❌ No se pudo copiar');
+  });
+}
+
+async function regenerarCodigo() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+  
+  const nuevoCodigo = generarCodigoAcceso();
+  
+  try {
+    await firebase.firestore().collection('empresas').doc(empresaId).update({
+      codigoAcceso: nuevoCodigo
+    });
+    sessionStorage.setItem('codigoAcceso', nuevoCodigo);
+    document.getElementById('codigo-display').textContent = nuevoCodigo;
+    showToast('✅ Nuevo código generado');
+  } catch (error) {
+    handleError(error, 'Error al regenerar código');
+  }
+}
+
+// ── CERRAR SESIÓN MEJORADO ──
+function cerrarSesion() {
+  firebase.auth().signOut();
+  sessionStorage.clear();
+  localStorage.removeItem('empresaInventario');
+  localStorage.removeItem('empresaClientes');
+  localStorage.removeItem('empresaVentas');
+  localStorage.removeItem('carrito');
+
+  document.getElementById('admin-menu').style.display = 'none';
+  document.getElementById('btn-cliente').style.display = 'inline-flex';
+  document.getElementById('btn-codigo').style.display = 'none';
+  
+  const logo = document.querySelector('.nav-logo span');
+  if (logo) logo.textContent = 'Negocio';
+  
+  const panelDiv = document.getElementById('cliente-panel');
+  if (panelDiv) panelDiv.style.display = 'none';
+
+  showToast('👋 Sesión cerrada');
+  mostrarPantallaBienvenida();
+}
+
+// ── MOSTRAR PANEL CLIENTE ──
+function mostrarPanelCliente() {
+  const panelDiv = document.getElementById('cliente-panel');
+  const nombreSpan = document.getElementById('cliente-nombre');
+
+  if (panelDiv) panelDiv.style.display = 'block';
+  
+  const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
+  if (nombreSpan) nombreSpan.textContent = nombre;
+
+  actualizarAvatar(nombre);
+
+  const bienvenidaEl = document.getElementById('mensaje-bienvenida');
+  if (bienvenidaEl && nombre) {
+    bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (empresaId) {
+    const nombreEmpresa = empresaId.replace(/-/g, ' ').toUpperCase();
+    const logo = document.querySelector('.nav-logo span');
+    if (logo) logo.textContent = ' ' + nombreEmpresa;
+  }
+
+  setTimeout(() => {
+    renderCatalogo();
+    renderHistorial();
+    actualizarCarritoCount();
+    cargarMensajesChat();
+    cargarAlertas();
+  }, 500);
+}
+
+// ── TOGGLE CLIENTE ──
+function toggleCliente() {
+  const current = document.querySelector('.screen.active');
+  if (current && current.id === 'screen-cliente') {
+    goScreen('dashboard');
+  } else {
+    goScreen('cliente');
+    mostrarPanelCliente();
+    cargarCarrito();
+    actualizarCarritoCount();
+  }
+}
+
+// ── ACTUALIZAR UI ADMIN ──
+function actualizarAdminUI(nombre) {
+  const adminMenu = document.getElementById('admin-menu');
+  const avatar = document.getElementById('avatar-admin');
+  const nombreEl = document.getElementById('admin-nombre');
+  const btnCliente = document.getElementById('btn-cliente');
+  const btnCodigo = document.getElementById('btn-codigo');
+  
+  if (nombre) {
+    if (adminMenu) adminMenu.style.display = 'block';
+    if (btnCliente) btnCliente.style.display = 'none';
+    if (btnCodigo) btnCodigo.style.display = 'inline-flex';
+    
+    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
+    if (avatar) avatar.textContent = iniciales || 'A';
+    if (nombreEl) nombreEl.textContent = nombre;
+  } else {
+    if (adminMenu) adminMenu.style.display = 'none';
+    if (btnCliente) btnCliente.style.display = 'inline-flex';
+    if (btnCodigo) btnCodigo.style.display = 'none';
+  }
+}
+
+
+// ── ACTUALIZAR UI ADMIN ──
+function actualizarAdminUI(nombre) {
+  const adminMenu = document.getElementById('admin-menu');
+  const avatar = document.getElementById('avatar-admin');
+  const nombreEl = document.getElementById('admin-nombre');
+  const btnCliente = document.getElementById('btn-cliente');
+  const btnCodigo = document.getElementById('btn-codigo');
+  
+  if (nombre) {
+    if (adminMenu) adminMenu.style.display = 'block';
+    if (btnCliente) btnCliente.style.display = 'none';
+    if (btnCodigo) btnCodigo.style.display = 'inline-flex';
+    
+    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
+    if (avatar) avatar.textContent = iniciales || 'A';
+    if (nombreEl) nombreEl.textContent = nombre;
+  } else {
+    if (adminMenu) adminMenu.style.display = 'none';
+    if (btnCliente) btnCliente.style.display = 'inline-flex';
+    if (btnCodigo) btnCodigo.style.display = 'none';
   }
 }
 
@@ -1781,5 +2413,20 @@ window.renderizarTablaProductos = renderizarTablaProductos;
 window.renderizarTablaClientes = renderizarTablaClientes;
 window.renderizarTablaVentas = renderizarTablaVentas;
 window.filtrarCatalogo = filtrarCatalogo;
+window.mostrarPantallaBienvenida = mostrarPantallaBienvenida;
+window.mostrarRegistroEmpresa = mostrarRegistroEmpresa;
+window.cerrarModalRegistroEmpresa = cerrarModalRegistroEmpresa;
+window.mostrarRegistroCliente = mostrarRegistroCliente;
+window.cerrarModalRegistroCliente = cerrarModalRegistroCliente;
+window.mostrarLoginUnificado = mostrarLoginUnificado;
+window.cerrarModalLogin = cerrarModalLogin;
+window.registrarEmpresa = registrarEmpresa;
+window.registrarClienteNuevo = registrarClienteNuevo;
+window.loginUnificado = loginUnificado;
+window.mostrarCodigoInvitacion = mostrarCodigoInvitacion;
+window.cerrarModalCodigo = cerrarModalCodigo;
+window.copiarCodigo = copiarCodigo;
+window.regenerarCodigo = regenerarCodigo;
+window.generarCodigoAcceso = generarCodigoAcceso;
 
 console.log('✅ app.js cargado correctamente - Todas las funciones globales expuestas');

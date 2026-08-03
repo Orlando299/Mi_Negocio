@@ -1,12 +1,8 @@
 // ── HELPERS ──
-// Funciones utilitarias y manejo de errores centralizado
 
 function showToast(msg, type = 'info') {
   const t = document.getElementById('toast');
-  if (!t) {
-    console.warn('Toast element not found:', msg);
-    return;
-  }
+  if (!t) { console.warn('Toast not found:', msg); return; }
   t.textContent = msg;
   t.className = 'toast ' + type;
   t.classList.add('show');
@@ -43,7 +39,9 @@ function getServerTimestamp() {
 function convertTimestamp(val) {
   if (!val) return new Date(0);
   if (val.toDate) return val.toDate();
-  return new Date(val);
+  if (typeof val === 'string') return new Date(val);
+  if (val instanceof Date) return val;
+  return new Date(0);
 }
 
 function formatDateLocal(dateStr) {

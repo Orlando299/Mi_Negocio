@@ -94,15 +94,14 @@ function loadTheme() {
 }
 
 // ── FUNCIONES DE GUARDADO (usando store) ──
+
 async function guardarVenta() {
-  const modalBody = document.getElementById('modal-body');
-  const inputs = modalBody.querySelectorAll('input, select, textarea');
-  const cliente = inputs[0]?.value?.trim() || '';
-  const producto = inputs[1]?.value?.trim() || '';
-  const cantidad = parseInt(inputs[2]?.value) || 1;
-  const precioUnit = parseFloat(inputs[3]?.value?.replace('$', '')) || 0;
-  const metodo = inputs[4]?.value || 'Efectivo';
-  const notas = inputs[5]?.value || '';
+  const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
+  const producto = document.getElementById('input-producto')?.value?.trim() || '';
+  const cantidad = parseInt(document.getElementById('input-cantidad')?.value) || 1;
+  const precioUnit = parseFloat(document.getElementById('input-precio')?.value?.replace('$', '')) || 0;
+  const metodo = document.getElementById('input-metodo')?.value || 'Efectivo';
+  const notas = document.getElementById('input-notas')?.value || '';
 
   if (!cliente) { showToast('⚠️ Ingresa el nombre del cliente'); return; }
   if (!producto) { showToast('⚠️ Ingresa el nombre del producto'); return; }
@@ -111,7 +110,7 @@ async function guardarVenta() {
   const total = precioUnit * cantidad;
   const nuevaVenta = {
     cliente, producto, items: cantidad, total: formatCurrency(total),
-    status: 'pagado', metodo, notas, fecha: getCurrentTimestamp()
+    status: 'pagado', metodo, notas
   };
 
   try {
@@ -128,28 +127,26 @@ async function guardarVenta() {
 }
 
 async function guardarProducto() {
-  const modalBody = document.getElementById('modal-body');
-  const inputs = modalBody.querySelectorAll('input, select, textarea');
-  const nombre = inputs[0]?.value?.trim() || '';
-  const cat = inputs[1]?.value || 'General';
-  const precioVenta = parseFloat(inputs[2]?.value) || 0;
-  const stock = parseInt(inputs[4]?.value) || 0;
-  const stockMin = parseInt(inputs[5]?.value) || 5;
+  const nombre = document.getElementById('input-nombre')?.value?.trim() || '';
+  const cat = document.getElementById('input-categoria')?.value || 'General';
+  const precioVenta = parseFloat(document.getElementById('input-precio-venta')?.value) || 0;
+  const stock = parseInt(document.getElementById('input-stock')?.value) || 0;
+  const stockMin = parseInt(document.getElementById('input-stock-min')?.value) || 5;
 
   if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
 
   const iconMap = { 
-  'Cervezas Polar': '🍺', 
-  'Alimentos Polar': '🥫', 
-  'Bebidas': '☕', 
-  'Dulces': '🍫', 
-  'Endulzantes': '🍯', 
-  'Básicos': '🧂', 
-  'Granos': '🫘', 
-  'Lácteos': '🧀', 
-  'Cocina': '🫙' 
-};
+    'Cervezas Polar': '🍺', 
+    'Alimentos Polar': '🥫', 
+    'Bebidas': '☕', 
+    'Dulces': '🍫', 
+    'Endulzantes': '🍯', 
+    'Básicos': '🧂', 
+    'Granos': '🫘', 
+    'Lácteos': '🧀', 
+    'Cocina': '🫙' 
+  };
   const icon = iconMap[cat] || '📦';
   let estado = 'ok';
   if (stock === 0) estado = 'out';
@@ -168,11 +165,9 @@ async function guardarProducto() {
 }
 
 async function guardarCliente() {
-  const modalBody = document.getElementById('modal-body');
-  const inputs = modalBody.querySelectorAll('input, select, textarea');
-  const nombre = inputs[0]?.value?.trim() || '';
-  const apellido = inputs[1]?.value?.trim() || '';
-  const telefono = inputs[2]?.value?.trim() || '';
+  const nombre = document.getElementById('input-cliente-nombre')?.value?.trim() || '';
+  const apellido = document.getElementById('input-cliente-apellido')?.value?.trim() || '';
+  const telefono = document.getElementById('input-cliente-telefono')?.value?.trim() || '';
 
   const nombreCompleto = (nombre + ' ' + apellido).trim();
   if (!nombreCompleto) { showToast('⚠️ El nombre es obligatorio'); return; }

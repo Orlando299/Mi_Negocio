@@ -7,6 +7,9 @@ let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';
 
+// Bandera para evitar que onAuthStateChanged interfiera durante registro
+let _registrando = false;
+
 // ═══════════════════════════════════════════════════════════════
 //  NUEVO FLUJO DE INGRESO — SIN ÍNDICES (userProfiles)
 // ═══════════════════════════════════════════════════════════════
@@ -90,6 +93,7 @@ async function registrarEmpresa() {
     showToast('❌ La contraseña debe tener al menos 6 caracteres'); return;
   }
 
+  _registrando = true;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
@@ -160,6 +164,8 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+  } finally {
+    _registrando = false;
   }
 }
 
@@ -182,6 +188,7 @@ async function registrarClienteNuevo() {
   }
 
   let user = null;
+  _registrando = true;
   try {
     // 1. Crear usuario en Auth PRIMERO (para tener permisos en Firestore)
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
@@ -263,6 +270,8 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+  } finally {
+    _registrando = false;
   }
 }
 
@@ -1875,6 +1884,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Verificar sesión existente al cargar la página — SIN ÍNDICES (userProfiles)
   firebase.auth().onAuthStateChanged(async (user) => {
+    if (_registrando) {
+      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+      return;
+    }
     if (user) {
       try {
         const perfilDoc = await firebase.firestore()
@@ -1882,10 +1895,9 @@ document.addEventListener('DOMContentLoaded', () => {
           .get();
 
         if (!perfilDoc.exists) {
-          // El perfil aún no existe — probablemente está en medio de un registro.
-          // NO hacemos signOut para no interrumpir registrarEmpresa() o registrarClienteNuevo().
-          // Solo mostramos bienvenida y esperamos a que el registro termine.
-          console.log('⏳ Perfil pendiente para uid:', user.uid, '- esperando registro...');
+          // Perfil no encontrado y no estamos registrando — sesión inválida
+          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+          await firebase.auth().signOut();
           mostrarPantallaBienvenida();
           return;
         }

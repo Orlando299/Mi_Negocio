@@ -3,13 +3,12 @@
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion'];
 
-// Filtros activos por módulo
 let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';
 
 // ═══════════════════════════════════════════════════════════════
-//  NUEVO FLUJO DE INGRESO — PANTALLA DE BIENVENIDA
+//  NUEVO FLUJO DE INGRESO — SIN ÍNDICES (userProfiles)
 // ═══════════════════════════════════════════════════════════════
 
 function mostrarPantallaBienvenida() {
@@ -76,7 +75,7 @@ function generarCodigoAcceso() {
   return codigo;
 }
 
-// ── REGISTRO DE EMPRESA (ADMIN) ──
+// ── REGISTRO DE FRANQUICIA (ADMIN) ──
 
 async function registrarEmpresa() {
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
@@ -103,6 +102,7 @@ async function registrarEmpresa() {
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Crear admin en subcolección de la empresa
     await firebase.firestore()
       .collection('empresas').doc(empresaRef.id)
       .collection('usuarios').doc(user.uid)
@@ -112,6 +112,18 @@ async function registrarEmpresa() {
         email: email,
         rol: 'admin',
         fcmToken: ''
+      });
+
+    // Crear perfil raíz para login SIN ÍNDICES
+    await firebase.firestore()
+      .collection('userProfiles').doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombreAdmin,
+        email: email,
+        rol: 'admin',
+        empresaId: empresaRef.id,
+        creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
     sessionStorage.setItem('empresaId', empresaRef.id);
@@ -137,10 +149,10 @@ async function registrarEmpresa() {
       }
     }, 1000);
 
-    showToast(`✅ ¡Franquicia "${nombreNegocio}" creado! Código: ${codigoAcceso}`);
+    showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
 
   } catch (error) {
-    console.error('❌ Error registrando empresa:', error);
+    console.error('❌ Error registrando franquicia:', error);
     if (error.code === 'auth/email-already-in-use') {
       showToast('❌ Este correo ya está registrado');
     } else if (error.code === 'auth/invalid-email') {
@@ -186,6 +198,7 @@ async function registrarClienteNuevo() {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
+    // Crear cliente en subcolección de la empresa
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('clientes').doc(user.uid)
@@ -198,6 +211,18 @@ async function registrarClienteNuevo() {
         phone: '',
         compras: '$0.00',
         pedidos: 0
+      });
+
+    // Crear perfil raíz para login SIN ÍNDICES
+    await firebase.firestore()
+      .collection('userProfiles').doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombre,
+        email: email,
+        rol: 'cliente',
+        empresaId: empresaId,
+        creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
     sessionStorage.setItem('empresaId', empresaId);
@@ -229,7 +254,7 @@ async function registrarClienteNuevo() {
   }
 }
 
-// ── LOGIN UNIFICADO (DETECTA ADMIN / CLIENTE) ──
+// ── LOGIN UNIFICADO SIN ÍNDICES (lee userProfiles/{uid}) ──
 
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
@@ -243,29 +268,35 @@ async function loginUnificado() {
     const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
-    // 1. Buscar como ADMIN
-    const adminSnapshot = await firebase.firestore()
-      .collectionGroup('usuarios')
-      .where('uid', '==', user.uid)
+    // Leer perfil raíz directamente — SIN collectionGroup, SIN índices
+    const perfilDoc = await firebase.firestore()
+      .collection('userProfiles').doc(user.uid)
       .get();
 
-    if (!adminSnapshot.empty) {
-      const usuarioDoc = adminSnapshot.docs[0];
-      const empresaId  = usuarioDoc.ref.parent.parent.id;
-      const usuarioData = usuarioDoc.data();
+    if (!perfilDoc.exists) {
+      showToast('❌ Perfil de usuario no encontrado');
+      await firebase.auth().signOut();
+      return;
+    }
 
-      sessionStorage.setItem('empresaId', empresaId);
-      sessionStorage.setItem('userEmail', email);
-      sessionStorage.setItem('userName', usuarioData.nombre || email);
-      sessionStorage.setItem('userRol', 'admin');
+    const perfil = perfilDoc.data();
+    const empresaId = perfil.empresaId;
+    const rol = perfil.rol;
+    const nombre = perfil.nombre || email;
 
-      cerrarModalLogin();
-      ocultarPantallaBienvenida();
-      actualizarAdminUI(usuarioData.nombre);
+    sessionStorage.setItem('empresaId', empresaId);
+    sessionStorage.setItem('userEmail', email);
+    sessionStorage.setItem('userName', nombre);
+    sessionStorage.setItem('userRol', rol);
+
+    cerrarModalLogin();
+    ocultarPantallaBienvenida();
+
+    if (rol === 'admin') {
+      actualizarAdminUI(nombre);
       await store.cargarDatosEmpresa(empresaId);
       syncGlobals();
       goScreen('dashboard');
-
       setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
 
       setTimeout(() => {
@@ -279,42 +310,17 @@ async function loginUnificado() {
         }
       }, 1000);
 
-      showToast(`✅ Bienvenido, ${usuarioData.nombre || email}`);
-      return;
-    }
-
-    // 2. Buscar como CLIENTE
-    const clienteSnapshot = await firebase.firestore()
-      .collectionGroup('clientes')
-      .where('uid', '==', user.uid)
-      .get();
-
-    if (!clienteSnapshot.empty) {
-      const clienteDoc = clienteSnapshot.docs[0];
-      const empresaId  = clienteDoc.ref.parent.parent.id;
-      const clienteData = clienteDoc.data();
-
-      sessionStorage.setItem('empresaId', empresaId);
-      sessionStorage.setItem('userEmail', email);
-      sessionStorage.setItem('userName', clienteData.nombre || email);
-      sessionStorage.setItem('userRol', 'cliente');
-
-      cerrarModalLogin();
-      ocultarPantallaBienvenida();
+      showToast(`✅ Bienvenido, ${nombre}`);
+    } else {
+      // Cliente
       document.getElementById('admin-menu').style.display = 'none';
       document.getElementById('btn-codigo').style.display = 'none';
-
       await store.cargarDatosEmpresa(empresaId);
       syncGlobals();
       goScreen('cliente');
       mostrarPanelCliente();
-
-      showToast(`✅ Bienvenido, ${clienteData.nombre || email}`);
-      return;
+      showToast(`✅ Bienvenido, ${nombre}`);
     }
-
-    showToast('❌ Usuario no tiene acceso a ningún negocio');
-    await firebase.auth().signOut();
 
   } catch (error) {
     console.error('❌ Error en login:', error);
@@ -334,7 +340,7 @@ async function loginUnificado() {
 
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
-  if (!empresaId) { showToast('⚠️ No hay empresa seleccionada'); return; }
+  if (!empresaId) { showToast('⚠️ No hay franquicia seleccionada'); return; }
 
   try {
     const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
@@ -394,7 +400,6 @@ function goScreen(name) {
   const fabBtn = document.getElementById('fab-btn');
   if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
 
-  // Ocultar bienvenida al navegar
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
 
@@ -423,7 +428,6 @@ function goScreen(name) {
   }
 }
 
-// ── FILTROS POR CHIP ──
 function filterChip(el, ctx) {
   const chips = el.closest('.chips').querySelectorAll('.chip');
   chips.forEach(c => c.classList.remove('active'));
@@ -446,14 +450,12 @@ function filterVentas() { renderVentas(document.getElementById('venta-search').v
 function filterInv()     { renderInv(document.getElementById('inv-search').value, filtroInv, 1); }
 function filterClients() { renderClients(document.getElementById('client-search').value, filtroCli, 1); }
 
-// ── REPORT TABS ──
 function switchReportTab(el, period) {
   document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   renderReportes(period);
 }
 
-// ── TEMA OSCURO ──
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
@@ -470,8 +472,6 @@ function loadTheme() {
     if (themeBtn) themeBtn.textContent = '☀️';
   }
 }
-
-// ── FUNCIONES DE GUARDADO (usando store) ──
 
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
@@ -565,7 +565,6 @@ async function guardarCliente() {
     handleError(error);
   }
 }
-// ── EDICIÓN (usando store) ──
 
 function editVenta(id) {
   const v = store.ventas.find(item => item.id === id);
@@ -718,8 +717,6 @@ async function updateClienteFromModal(nombreOriginal) {
   }
 }
 
-// ── ELIMINACIÓN CON CONFIRMACIÓN ──
-
 function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
     try {
@@ -764,8 +761,6 @@ function confirmDeleteCliente(nombre) {
     }
   });
 }
-
-// ── MODALES ──
 
 const modals = {
   ventas: {
@@ -886,7 +881,6 @@ function confirmAction() {
   closeModal();
 }
 
-// ── MENÚ DEL ADMIN ──
 function toggleAdminMenu(event) {
   if (event) event.stopPropagation();
   const dropdown = document.getElementById('admin-dropdown');
@@ -934,8 +928,6 @@ function actualizarAdminUI(nombre) {
   }
 }
 
-// ── LOGIN / REGISTRO LEGACY (wrappers al nuevo flujo) ──
-
 async function loginCliente() {
   await loginUnificado();
 }
@@ -952,7 +944,6 @@ function mostrarLogin() {
   mostrarLoginUnificado();
 }
 
-// ── MOSTRAR PANEL CLIENTE ──
 function mostrarPanelCliente() {
   const panelDiv = document.getElementById('cliente-panel');
   const nombreSpan = document.getElementById('cliente-nombre');
@@ -990,7 +981,6 @@ function mostrarPanelCliente() {
   }, 500);
 }
 
-// ── CERRAR SESIÓN MEJORADO ──
 function cerrarSesion() {
   firebase.auth().signOut();
   sessionStorage.clear();
@@ -1003,7 +993,7 @@ function cerrarSesion() {
   document.getElementById('btn-cliente').style.display = 'inline-flex';
 
   const logo = document.querySelector('.nav-logo span');
-  if (logo) logo.textContent = 'Negocio';
+  if (logo) logo.textContent = 'Franquicia Polar';
 
   const panelDiv = document.getElementById('cliente-panel');
   if (panelDiv) panelDiv.style.display = 'none';
@@ -1023,7 +1013,6 @@ function toggleCliente() {
   }
 }
 
-// ── FUNCIONES DE CATÁLOGO Y CARRITO ──
 let filtroCatalogo = 'todas';
 
 function renderCatalogo() {
@@ -1259,7 +1248,6 @@ function renderHistorial() {
   `).join('');
 }
 
-// ── ACTIVIDAD RECIENTE ──
 function renderActividadReciente() {
   const container = document.getElementById('actividad-list');
   if (!container) return;
@@ -1280,7 +1268,6 @@ function renderActividadReciente() {
   `).join('');
 }
 
-// ── CONFIGURACIÓN ──
 function cambiarTabConfiguracion(tabId) {
   document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
@@ -1388,7 +1375,6 @@ function actualizarResumenConfiguracion() {
   }
 }
 
-// ── EXPORTAR / IMPORTAR JSON ──
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
   const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
@@ -1502,7 +1488,6 @@ async function importarDatosJSON(event) {
   }
 }
 
-// ── AVATAR DINÁMICO ──
 function actualizarAvatar(nombre) {
   const avatarEl = document.getElementById('avatar-iniciales');
   if (!avatarEl) return;
@@ -1514,7 +1499,6 @@ function actualizarAvatar(nombre) {
   }
 }
 
-// ── FUNCIONES DE CHAT ──
 async function enviarMensajeChat() {
   const input = document.getElementById('chat-input');
   const texto = input.value.trim();
@@ -1595,7 +1579,6 @@ async function cargarMensajesChat() {
   }
 }
 
-// ── FUNCIONES DE ALERTAS ──
 function abrirModalAlerta() {
   const body = `
     <div class="field">
@@ -1743,7 +1726,6 @@ async function votarAlerta(alertaId, voto) {
   }
 }
 
-// ── PAGE AGENT: COMANDOS MANUALES ENRIQUECIDOS ──
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
 
@@ -1795,7 +1777,6 @@ function executeManualCommand(comando) {
   return `ℹ️ Comando no reconocido. Escribe "ayuda" para ver opciones.`;
 }
 
-// ── PAGE AGENT - CONFIGURACIÓN (integrada) ──
 let agent = null;
 let agentReady = false;
 let ws = null;
@@ -1852,7 +1833,6 @@ function connectWebSocket() {
   return null;
 }
 
-// ── PESTAÑAS DEL MÓDULO CLIENTE ──
 function cambiarTabCliente(tabId) {
   document.querySelectorAll('.cliente-panel-content').forEach(p => p.style.display = 'none');
   const panel = document.getElementById('cliente-panel-' + tabId);
@@ -1881,72 +1861,53 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarCarrito();
   initStore();
 
-  // Verificar sesión existente al cargar la página
+  // Verificar sesión existente al cargar la página — SIN ÍNDICES (userProfiles)
   firebase.auth().onAuthStateChanged(async (user) => {
     if (user) {
       try {
-        // 1. Buscar como ADMIN
-        const adminSnapshot = await firebase.firestore()
-          .collectionGroup('usuarios')
-          .where('uid', '==', user.uid)
+        const perfilDoc = await firebase.firestore()
+          .collection('userProfiles').doc(user.uid)
           .get();
 
-        if (!adminSnapshot.empty) {
-          const usuarioDoc = adminSnapshot.docs[0];
-          const empresaId = usuarioDoc.ref.parent.parent.id;
-          const usuarioData = usuarioDoc.data();
+        if (!perfilDoc.exists) {
+          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+          await firebase.auth().signOut();
+          mostrarPantallaBienvenida();
+          return;
+        }
 
-          sessionStorage.setItem('empresaId', empresaId);
-          sessionStorage.setItem('userEmail', user.email);
-          sessionStorage.setItem('userName', usuarioData.nombre || user.email);
-          sessionStorage.setItem('userRol', 'admin');
+        const perfil = perfilDoc.data();
+        const empresaId = perfil.empresaId;
+        const rol = perfil.rol;
+        const nombre = perfil.nombre || user.email;
 
-          ocultarPantallaBienvenida();
-          actualizarAdminUI(usuarioData.nombre);
+        sessionStorage.setItem('empresaId', empresaId);
+        sessionStorage.setItem('userEmail', user.email);
+        sessionStorage.setItem('userName', nombre);
+        sessionStorage.setItem('userRol', rol);
+
+        ocultarPantallaBienvenida();
+
+        if (rol === 'admin') {
+          actualizarAdminUI(nombre);
           await store.cargarDatosEmpresa(empresaId);
           syncGlobals();
           goScreen('dashboard');
           setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-          return;
-        }
-
-        // 2. Buscar como CLIENTE
-        const clienteSnapshot = await firebase.firestore()
-          .collectionGroup('clientes')
-          .where('uid', '==', user.uid)
-          .get();
-
-        if (!clienteSnapshot.empty) {
-          const clienteDoc = clienteSnapshot.docs[0];
-          const empresaId = clienteDoc.ref.parent.parent.id;
-          const clienteData = clienteDoc.data();
-
-          sessionStorage.setItem('empresaId', empresaId);
-          sessionStorage.setItem('userEmail', user.email);
-          sessionStorage.setItem('userName', clienteData.nombre || user.email);
-          sessionStorage.setItem('userRol', 'cliente');
-
-          ocultarPantallaBienvenida();
+        } else {
           document.getElementById('admin-menu').style.display = 'none';
           document.getElementById('btn-codigo').style.display = 'none';
-
           await store.cargarDatosEmpresa(empresaId);
           syncGlobals();
           goScreen('cliente');
           mostrarPanelCliente();
-          return;
         }
 
-        // Usuario autenticado pero sin empresa asignada
-        await firebase.auth().signOut();
-        mostrarPantallaBienvenida();
-
       } catch (error) {
-        console.error('Error verificando sesión:', error);
+        console.error('❌ Error verificando sesión:', error);
         mostrarPantallaBienvenida();
       }
     } else {
-      // No hay usuario autenticado
       mostrarPantallaBienvenida();
     }
   });
@@ -2057,7 +2018,7 @@ window.renderizarTablaClientes = renderizarTablaClientes;
 window.renderizarTablaVentas = renderizarTablaVentas;
 window.filtrarCatalogo = filtrarCatalogo;
 
-// ── NUEVO FLUJO: EXPONER FUNCIONES GLOBALES ──
+// Nuevo flujo
 window.mostrarPantallaBienvenida = mostrarPantallaBienvenida;
 window.ocultarPantallaBienvenida = ocultarPantallaBienvenida;
 window.mostrarRegistroEmpresa = mostrarRegistroEmpresa;
@@ -2075,4 +2036,4 @@ window.copiarCodigo = copiarCodigo;
 window.regenerarCodigo = regenerarCodigo;
 window.cerrarModalCodigo = cerrarModalCodigo;
 
-console.log('✅ app.js cargado correctamente — Nuevo flujo de ingreso activo');
+console.log('✅ app.js cargado correctamente — Nuevo flujo SIN ÍNDICES activo');

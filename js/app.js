@@ -1870,8 +1870,10 @@ document.addEventListener('DOMContentLoaded', () => {
           .get();
 
         if (!perfilDoc.exists) {
-          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-          await firebase.auth().signOut();
+          // El perfil aún no existe — probablemente está en medio de un registro.
+          // NO hacemos signOut para no interrumpir registrarEmpresa() o registrarClienteNuevo().
+          // Solo mostramos bienvenida y esperamos a que el registro termine.
+          console.log('⏳ Perfil pendiente para uid:', user.uid, '- esperando registro...');
           mostrarPantallaBienvenida();
           return;
         }

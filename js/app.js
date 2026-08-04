@@ -35,20 +35,34 @@ function ocultarPantallaBienvenida() {
 // ── MODALES DEL FLUJO DE INGRESO ──
 
 function mostrarRegistroEmpresa() {
-  document.getElementById('modal-registro-empresa').classList.add('open');
+  const modal = document.getElementById('modal-registro-empresa');
+  if (modal) {
+    modal.style.cssText = ''; // Limpia cualquier cierre forzado anterior
+    modal.classList.add('open');
+  }
 }
 function cerrarModalRegistroEmpresa(e) {
-  if (!e || e.target === document.getElementById('modal-registro-empresa')) {
-    document.getElementById('modal-registro-empresa').classList.remove('open');
+  if (e && e.target !== document.getElementById('modal-registro-empresa') && e.target !== e.currentTarget) return;
+  const modal = document.getElementById('modal-registro-empresa');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
   }
 }
 
 function mostrarRegistroCliente() {
-  document.getElementById('modal-registro-cliente').classList.add('open');
+  const modal = document.getElementById('modal-registro-cliente');
+  if (modal) {
+    modal.style.cssText = '';
+    modal.classList.add('open');
+  }
 }
 function cerrarModalRegistroCliente(e) {
-  if (!e || e.target === document.getElementById('modal-registro-cliente')) {
-    document.getElementById('modal-registro-cliente').classList.remove('open');
+  if (e && e.target !== document.getElementById('modal-registro-cliente') && e.target !== e.currentTarget) return;
+  const modal = document.getElementById('modal-registro-cliente');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
   }
 }
 

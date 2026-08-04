@@ -136,6 +136,9 @@ async function registrarEmpresa() {
     sessionStorage.setItem('userRol', 'admin');
 
     cerrarModalRegistroEmpresa();
+// Cierre forzado del modal por si la función anterior falla
+const modalEmp = document.getElementById('modal-registro-empresa');
+if (modalEmp) { modalEmp.classList.remove('open'); modalEmp.style.display = 'none'; }
     ocultarPantallaBienvenida();
     actualizarAdminUI(nombreAdmin);
     await store.cargarDatosEmpresa(empresaRef.id);
@@ -244,6 +247,9 @@ async function registrarClienteNuevo() {
     sessionStorage.setItem('userRol', 'cliente');
 
     cerrarModalRegistroCliente();
+// Cierre forzado del modal por si la función anterior falla
+const modalCli = document.getElementById('modal-registro-cliente');
+if (modalCli) { modalCli.classList.remove('open'); modalCli.style.display = 'none'; }
     ocultarPantallaBienvenida();
     document.getElementById('admin-menu').style.display = 'none';
     document.getElementById('btn-codigo').style.display = 'none';

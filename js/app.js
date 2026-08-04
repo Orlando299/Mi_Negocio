@@ -1,87 +1,114 @@
-// ── NAVEGACIÓN Y LÓGICA PRINCIPAL ──
-
+// ── VARIABLES GLOBALES ──
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion'];
-
 let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';
+let filtroCatalogo = 'todas';
 
 // Bandera para evitar que onAuthStateChanged interfiera durante registro
 let _registrando = false;
 
 // ═══════════════════════════════════════════════════════════════
-//  NUEVO FLUJO DE INGRESO — SIN ÍNDICES (userProfiles)
+//  FUNCIONES AUXILIARES DE MODALES
+// ═══════════════════════════════════════════════════════════════
+
+function forzarCierreModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
+  // Doble verificación
+  setTimeout(() => {
+    if (modal.classList.contains('open')) {
+      modal.classList.remove('open');
+      modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
+    }
+  }, 200);
+  setTimeout(() => {
+    if (modal.classList.contains('open')) {
+      modal.classList.remove('open');
+      modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-9999;';
+    }
+  }, 500);
+}
+
+function abrirModalId(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.style.cssText = '';
+  modal.classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PANTALLA DE BIENVENIDA
 // ═══════════════════════════════════════════════════════════════
 
 function mostrarPantallaBienvenida() {
-  document.getElementById('screen-bienvenida').classList.add('active');
+  const bienvenida = document.getElementById('screen-bienvenida');
+  if (bienvenida) bienvenida.classList.add('active');
   document.getElementById('top-nav').style.display = 'none';
   document.getElementById('bottom-nav').style.display = 'none';
   document.getElementById('fab-btn').style.display = 'none';
   screens.forEach(s => {
-    const screenEl = document.getElementById('screen-' + s);
-    if (screenEl) screenEl.classList.remove('active');
+    const el = document.getElementById('screen-' + s);
+    if (el) el.classList.remove('active');
   });
+  // Cerrar TODOS los modales al mostrar bienvenida
+  forzarCierreModal('modal-registro-empresa');
+  forzarCierreModal('modal-registro-cliente');
+  forzarCierreModal('modal-login');
+  forzarCierreModal('modal-codigo');
+  forzarCierreModal('modal');
 }
 
 function ocultarPantallaBienvenida() {
-  document.getElementById('screen-bienvenida').classList.remove('active');
+  const bienvenida = document.getElementById('screen-bienvenida');
+  if (bienvenida) bienvenida.classList.remove('active');
   document.getElementById('top-nav').style.display = 'flex';
   document.getElementById('bottom-nav').style.display = 'flex';
   document.getElementById('fab-btn').style.display = 'flex';
 }
 
-// ── MODALES DEL FLUJO DE INGRESO ──
+// ═══════════════════════════════════════════════════════════════
+//  MODALES DE REGISTRO / LOGIN
+// ═══════════════════════════════════════════════════════════════
 
 function mostrarRegistroEmpresa() {
-  const modal = document.getElementById('modal-registro-empresa');
-  if (modal) {
-    modal.style.cssText = ''; // Limpia cualquier cierre forzado anterior
-    modal.classList.add('open');
-  }
+  abrirModalId('modal-registro-empresa');
 }
+
 function cerrarModalRegistroEmpresa(e) {
-  if (e && e.target !== document.getElementById('modal-registro-empresa') && e.target !== e.currentTarget) return;
-  const modal = document.getElementById('modal-registro-empresa');
-  if (modal) {
-    modal.classList.remove('open');
-    modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
-  }
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-registro-empresa');
 }
 
 function mostrarRegistroCliente() {
-  const modal = document.getElementById('modal-registro-cliente');
-  if (modal) {
-    modal.style.cssText = '';
-    modal.classList.add('open');
-  }
+  abrirModalId('modal-registro-cliente');
 }
+
 function cerrarModalRegistroCliente(e) {
-  if (e && e.target !== document.getElementById('modal-registro-cliente') && e.target !== e.currentTarget) return;
-  const modal = document.getElementById('modal-registro-cliente');
-  if (modal) {
-    modal.classList.remove('open');
-    modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
-  }
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-registro-cliente');
 }
 
 function mostrarLoginUnificado() {
-  document.getElementById('modal-login').classList.add('open');
+  abrirModalId('modal-login');
 }
+
 function cerrarModalLogin(e) {
-  if (!e || e.target === document.getElementById('modal-login')) {
-    document.getElementById('modal-login').classList.remove('open');
-  }
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-login');
 }
 
 function cerrarModalCodigo(e) {
-  if (!e || e.target === document.getElementById('modal-codigo')) {
-    document.getElementById('modal-codigo').classList.remove('open');
-  }
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-codigo');
 }
 
-// ── GENERADOR DE CÓDIGO DE ACCESO ──
+// ═══════════════════════════════════════════════════════════════
+//  GENERADOR DE CÓDIGO
+// ═══════════════════════════════════════════════════════════════
 
 function generarCodigoAcceso() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -92,7 +119,9 @@ function generarCodigoAcceso() {
   return codigo;
 }
 
-// ── REGISTRO DE FRANQUICIA (ADMIN) ──
+// ═══════════════════════════════════════════════════════════════
+//  REGISTRO DE FRANQUICIA (ADMIN)
+// ═══════════════════════════════════════════════════════════════
 
 async function registrarEmpresa() {
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
@@ -120,7 +149,6 @@ async function registrarEmpresa() {
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    // Crear admin en subcolección de la empresa
     await firebase.firestore()
       .collection('empresas').doc(empresaRef.id)
       .collection('usuarios').doc(user.uid)
@@ -132,7 +160,6 @@ async function registrarEmpresa() {
         fcmToken: ''
       });
 
-    // Crear perfil raíz para login SIN ÍNDICES
     await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .set({
@@ -149,10 +176,9 @@ async function registrarEmpresa() {
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
 
-    cerrarModalRegistroEmpresa();
-// Cierre forzado del modal por si la función anterior falla
-const modalEmp = document.getElementById('modal-registro-empresa');
-if (modalEmp) { modalEmp.classList.remove('open'); modalEmp.style.display = 'none'; }
+    // CIERRE DEFINITIVO DEL MODAL
+    forzarCierreModal('modal-registro-empresa');
+
     ocultarPantallaBienvenida();
     actualizarAdminUI(nombreAdmin);
     await store.cargarDatosEmpresa(empresaRef.id);
@@ -182,11 +208,13 @@ if (modalEmp) { modalEmp.classList.remove('open'); modalEmp.style.display = 'non
       showToast('❌ Error: ' + error.message);
     }
   } finally {
-    _registrando = false;
+    setTimeout(() => { _registrando = false; }, 800);
   }
 }
 
-// ── REGISTRO DE CLIENTE POR CÓDIGO ──
+// ═══════════════════════════════════════════════════════════════
+//  REGISTRO DE CLIENTE
+// ═══════════════════════════════════════════════════════════════
 
 async function registrarClienteNuevo() {
   const nombre   = document.getElementById('reg-cli-nombre').value.trim();
@@ -207,18 +235,15 @@ async function registrarClienteNuevo() {
   let user = null;
   _registrando = true;
   try {
-    // 1. Crear usuario en Auth PRIMERO (para tener permisos en Firestore)
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
 
-    // 2. Ahora buscar la empresa por código (usuario ya autenticado)
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
       .get();
 
     if (empresasSnapshot.empty) {
-      // Código inválido — limpiar usuario creado
       await user.delete();
       showToast('❌ Código de invitación no válido');
       return;
@@ -228,7 +253,6 @@ async function registrarClienteNuevo() {
     const empresaId  = empresaDoc.id;
     const empresaData = empresaDoc.data();
 
-    // 3. Crear cliente en subcolección de la empresa
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('clientes').doc(user.uid)
@@ -243,7 +267,6 @@ async function registrarClienteNuevo() {
         pedidos: 0
       });
 
-    // 4. Crear perfil raíz para login SIN ÍNDICES
     await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .set({
@@ -260,10 +283,9 @@ async function registrarClienteNuevo() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
 
-    cerrarModalRegistroCliente();
-// Cierre forzado del modal por si la función anterior falla
-const modalCli = document.getElementById('modal-registro-cliente');
-if (modalCli) { modalCli.classList.remove('open'); modalCli.style.display = 'none'; }
+    // CIERRE DEFINITIVO DEL MODAL
+    forzarCierreModal('modal-registro-cliente');
+
     ocultarPantallaBienvenida();
     document.getElementById('admin-menu').style.display = 'none';
     document.getElementById('btn-codigo').style.display = 'none';
@@ -277,7 +299,6 @@ if (modalCli) { modalCli.classList.remove('open'); modalCli.style.display = 'non
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
-    // Si creamos usuario pero falló después, intentar limpiar
     if (user && !empresaId) {
       try { await user.delete(); } catch(e) {}
     }
@@ -291,11 +312,13 @@ if (modalCli) { modalCli.classList.remove('open'); modalCli.style.display = 'non
       showToast('❌ Error: ' + error.message);
     }
   } finally {
-    _registrando = false;
+    setTimeout(() => { _registrando = false; }, 800);
   }
 }
 
-// ── LOGIN UNIFICADO SIN ÍNDICES (lee userProfiles/{uid}) ──
+// ═══════════════════════════════════════════════════════════════
+//  LOGIN UNIFICADO
+// ═══════════════════════════════════════════════════════════════
 
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
@@ -309,7 +332,6 @@ async function loginUnificado() {
     const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
-    // Leer perfil raíz directamente — SIN collectionGroup, SIN índices
     const perfilDoc = await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .get();
@@ -330,7 +352,7 @@ async function loginUnificado() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', rol);
 
-    cerrarModalLogin();
+    forzarCierreModal('modal-login');
     ocultarPantallaBienvenida();
 
     if (rol === 'admin') {
@@ -353,7 +375,6 @@ async function loginUnificado() {
 
       showToast(`✅ Bienvenido, ${nombre}`);
     } else {
-      // Cliente
       document.getElementById('admin-menu').style.display = 'none';
       document.getElementById('btn-codigo').style.display = 'none';
       await store.cargarDatosEmpresa(empresaId);
@@ -377,7 +398,9 @@ async function loginUnificado() {
   }
 }
 
-// ── CÓDIGO DE INVITACIÓN (ADMIN) ──
+// ═══════════════════════════════════════════════════════════════
+//  CÓDIGO DE INVITACIÓN
+// ═══════════════════════════════════════════════════════════════
 
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -388,7 +411,7 @@ async function mostrarCodigoInvitacion() {
     if (doc.exists) {
       const data = doc.data();
       document.getElementById('codigo-display').textContent = data.codigoAcceso || '------';
-      document.getElementById('modal-codigo').classList.add('open');
+      abrirModalId('modal-codigo');
     }
   } catch (error) {
     handleError(error, 'Error cargando código');
@@ -426,7 +449,7 @@ async function regenerarCodigo() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FIN NUEVO FLUJO DE INGRESO
+//  NAVEGACIÓN
 // ═══════════════════════════════════════════════════════════════
 
 function goScreen(name) {
@@ -513,6 +536,10 @@ function loadTheme() {
     if (themeBtn) themeBtn.textContent = '☀️';
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  GUARDAR (CRUD)
+// ═══════════════════════════════════════════════════════════════
 
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
@@ -606,6 +633,10 @@ async function guardarCliente() {
     handleError(error);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  EDICIÓN
+// ═══════════════════════════════════════════════════════════════
 
 function editVenta(id) {
   const v = store.ventas.find(item => item.id === id);
@@ -758,6 +789,10 @@ async function updateClienteFromModal(nombreOriginal) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ELIMINACIÓN
+// ═══════════════════════════════════════════════════════════════
+
 function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
     try {
@@ -802,6 +837,10 @@ function confirmDeleteCliente(nombre) {
     }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  MODALES
+// ═══════════════════════════════════════════════════════════════
 
 const modals = {
   ventas: {
@@ -899,19 +938,18 @@ function openModal() {
   const m = modals[currentScreen] || modals.dashboard;
   document.getElementById('modal-title').textContent = m.title;
   document.getElementById('modal-body').innerHTML = m.body;
-  document.getElementById('modal').classList.add('open');
+  abrirModalId('modal');
 }
 
 function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal')) {
-    document.getElementById('modal').classList.remove('open');
-  }
+  if (e && e.target !== e.currentTarget && e.target !== document.getElementById('modal')) return;
+  forzarCierreModal('modal');
 }
 
 function openModalWithContent(title, bodyHTML) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHTML;
-  document.getElementById('modal').classList.add('open');
+  abrirModalId('modal');
 }
 
 function confirmAction() {
@@ -921,6 +959,22 @@ function confirmAction() {
   }
   closeModal();
 }
+
+function openConfirmModal(mensaje, callback) {
+  window._confirmAction = callback;
+  const body = `
+    <p style="margin-bottom:16px; font-size:15px;">${mensaje}</p>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-danger" onclick="confirmAction()">Sí, eliminar</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `;
+  openModalWithContent('Confirmar acción', body);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MENÚ ADMIN
+// ═══════════════════════════════════════════════════════════════
 
 function toggleAdminMenu(event) {
   if (event) event.stopPropagation();
@@ -968,6 +1022,10 @@ function actualizarAdminUI(nombre) {
     if (btnCodigo) btnCodigo.style.display = 'none';
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  LEGACY WRAPPERS
+// ═══════════════════════════════════════════════════════════════
 
 async function loginCliente() {
   await loginUnificado();
@@ -1054,7 +1112,9 @@ function toggleCliente() {
   }
 }
 
-let filtroCatalogo = 'todas';
+// ═══════════════════════════════════════════════════════════════
+//  CATÁLOGO Y CARRITO
+// ═══════════════════════════════════════════════════════════════
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
@@ -1309,6 +1369,10 @@ function renderActividadReciente() {
   `).join('');
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════
+
 function cambiarTabConfiguracion(tabId) {
   document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
@@ -1415,6 +1479,10 @@ function actualizarResumenConfiguracion() {
     usuarioEl.textContent = `👤 ${nombre}`;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORTAR / IMPORTAR JSON
+// ═══════════════════════════════════════════════════════════════
 
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -1540,6 +1608,10 @@ function actualizarAvatar(nombre) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════════════════════════
+
 async function enviarMensajeChat() {
   const input = document.getElementById('chat-input');
   const texto = input.value.trim();
@@ -1619,6 +1691,10 @@ async function cargarMensajesChat() {
     handleError(error, 'Error cargando mensajes');
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  ALERTAS
+// ═══════════════════════════════════════════════════════════════
 
 function abrirModalAlerta() {
   const body = `
@@ -1767,6 +1843,10 @@ async function votarAlerta(alertaId, voto) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  PAGE AGENT
+// ═══════════════════════════════════════════════════════════════
+
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
 
@@ -1887,7 +1967,10 @@ function cambiarTabCliente(tabId) {
   if (tabId === 'pedidos') renderHistorial();
 }
 
-// ── INICIALIZACIÓN ──
+// ═══════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ═══════════════════════════════════════════════════════════════
+
 document.addEventListener('DOMContentLoaded', () => {
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -1898,14 +1981,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadTheme();
-  cargarTemaGuardado();
-  cargarCarrito();
-  initStore();
+  if (typeof cargarTemaGuardado === 'function') cargarTemaGuardado();
+  if (typeof cargarCarrito === 'function') cargarCarrito();
+  if (typeof initStore === 'function') initStore();
 
-  // Verificar sesión existente al cargar la página — SIN ÍNDICES (userProfiles)
+  // Verificar sesión existente — SIN ÍNDICES (userProfiles)
   firebase.auth().onAuthStateChanged(async (user) => {
     if (_registrando) {
       console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+      return;
+    }
+    // Si ya hay sesión activa en sessionStorage, el registro/login ya la manejó
+    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
       return;
     }
     if (user) {
@@ -1915,7 +2003,6 @@ document.addEventListener('DOMContentLoaded', () => {
           .get();
 
         if (!perfilDoc.exists) {
-          // Perfil no encontrado y no estamos registrando — sesión inválida
           console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
           await firebase.auth().signOut();
           mostrarPantallaBienvenida();
@@ -1999,87 +2086,43 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🤖 Sistema de comandos listo (modo mixto)');
 });
 
-// ── EXPONER FUNCIONES GLOBALES ──
-window.goScreen = goScreen;
-window.filterChip = filterChip;
-window.filterVentas = filterVentas;
-window.filterInv = filterInv;
-window.filterClients = filterClients;
-window.switchReportTab = switchReportTab;
-window.toggleTheme = toggleTheme;
-window.loadTheme = loadTheme;
-window.guardarVenta = guardarVenta;
-window.guardarProducto = guardarProducto;
-window.guardarCliente = guardarCliente;
-window.editVenta = editVenta;
-window.updateVentaFromModal = updateVentaFromModal;
-window.editProducto = editProducto;
-window.updateProductoFromModal = updateProductoFromModal;
-window.editCliente = editCliente;
-window.updateClienteFromModal = updateClienteFromModal;
-window.confirmDeleteVenta = confirmDeleteVenta;
-window.confirmDeleteProducto = confirmDeleteProducto;
-window.confirmDeleteCliente = confirmDeleteCliente;
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.openModalWithContent = openModalWithContent;
-window.confirmAction = confirmAction;
-window.loginCliente = loginCliente;
-window.registrarCliente = registrarCliente;
-window.mostrarRegistro = mostrarRegistro;
-window.mostrarLogin = mostrarLogin;
-window.toggleCliente = toggleCliente;
-window.mostrarPanelCliente = mostrarPanelCliente;
-window.cerrarSesion = cerrarSesion;
-window.renderCatalogo = renderCatalogo;
-window.agregarAlCarrito = agregarAlCarrito;
-window.actualizarCarritoCount = actualizarCarritoCount;
-window.verCarrito = verCarrito;
-window.vaciarCarrito = vaciarCarrito;
-window.realizarPedido = realizarPedido;
-window.renderHistorial = renderHistorial;
-window.renderActividadReciente = renderActividadReciente;
-window.actualizarResumenConfiguracion = actualizarResumenConfiguracion;
-window.exportarDatosJSON = exportarDatosJSON;
-window.importarDatosJSON = importarDatosJSON;
-window.actualizarAvatar = actualizarAvatar;
-window.agentCommand = agentCommand;
-window.sendAgentCommand = sendAgentCommand;
-window.toggleAgentPanel = toggleAgentPanel;
-window.executeAgentCommand = executeAgentCommand;
-window.executeManualCommand = executeManualCommand;
-window.cambiarTabConfiguracion = cambiarTabConfiguracion;
-window.cambiarTabCliente = cambiarTabCliente;
-window.enviarMensajeChat = enviarMensajeChat;
-window.cargarMensajesChat = cargarMensajesChat;
-window.abrirModalAlerta = abrirModalAlerta;
-window.enviarAlerta = enviarAlerta;
-window.cargarAlertas = cargarAlertas;
-window.votarAlerta = votarAlerta;
-window.toggleAdminMenu = toggleAdminMenu;
-window.closeAdminMenu = closeAdminMenu;
-window.actualizarAdminUI = actualizarAdminUI;
-window.renderizarTablaProductos = renderizarTablaProductos;
-window.renderizarTablaClientes = renderizarTablaClientes;
-window.renderizarTablaVentas = renderizarTablaVentas;
-window.filtrarCatalogo = filtrarCatalogo;
+// ═══════════════════════════════════════════════════════════════
+//  EXPONER FUNCIONES GLOBALES
+// ═══════════════════════════════════════════════════════════════
 
-// Nuevo flujo
-window.mostrarPantallaBienvenida = mostrarPantallaBienvenida;
-window.ocultarPantallaBienvenida = ocultarPantallaBienvenida;
-window.mostrarRegistroEmpresa = mostrarRegistroEmpresa;
-window.cerrarModalRegistroEmpresa = cerrarModalRegistroEmpresa;
-window.mostrarRegistroCliente = mostrarRegistroCliente;
-window.cerrarModalRegistroCliente = cerrarModalRegistroCliente;
-window.mostrarLoginUnificado = mostrarLoginUnificado;
-window.cerrarModalLogin = cerrarModalLogin;
-window.registrarEmpresa = registrarEmpresa;
-window.registrarClienteNuevo = registrarClienteNuevo;
-window.loginUnificado = loginUnificado;
-window.generarCodigoAcceso = generarCodigoAcceso;
-window.mostrarCodigoInvitacion = mostrarCodigoInvitacion;
-window.copiarCodigo = copiarCodigo;
-window.regenerarCodigo = regenerarCodigo;
-window.cerrarModalCodigo = cerrarModalCodigo;
+const funcionesGlobales = {
+  goScreen, filterChip, filterVentas, filterInv, filterClients,
+  switchReportTab, toggleTheme, loadTheme,
+  guardarVenta, guardarProducto, guardarCliente,
+  editVenta, updateVentaFromModal, editProducto, updateProductoFromModal,
+  editCliente, updateClienteFromModal,
+  confirmDeleteVenta, confirmDeleteProducto, confirmDeleteCliente,
+  openModal, closeModal, openModalWithContent, confirmAction, openConfirmModal,
+  loginCliente, registrarCliente, mostrarRegistro, mostrarLogin,
+  toggleCliente, mostrarPanelCliente, cerrarSesion,
+  renderCatalogo, agregarAlCarrito, actualizarCarritoCount, verCarrito,
+  vaciarCarrito, realizarPedido, renderHistorial, renderActividadReciente,
+  actualizarResumenConfiguracion,
+  exportarDatosJSON, importarDatosJSON, actualizarAvatar,
+  agentCommand, sendAgentCommand, toggleAgentPanel, executeAgentCommand, executeManualCommand,
+  cambiarTabConfiguracion, cambiarTabCliente,
+  enviarMensajeChat, cargarMensajesChat,
+  abrirModalAlerta, enviarAlerta, cargarAlertas, votarAlerta,
+  toggleAdminMenu, closeAdminMenu, actualizarAdminUI,
+  renderizarTablaProductos, renderizarTablaClientes, renderizarTablaVentas,
+  filtrarCatalogo,
+  // Nuevo flujo
+  mostrarPantallaBienvenida, ocultarPantallaBienvenida,
+  mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
+  mostrarRegistroCliente, cerrarModalRegistroCliente,
+  mostrarLoginUnificado, cerrarModalLogin,
+  registrarEmpresa, registrarClienteNuevo, loginUnificado,
+  generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
+  forzarCierreModal, abrirModalId
+};
+
+Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {
+  window[nombre] = fn;
+});
 
 console.log('✅ app.js cargado correctamente — Nuevo flujo SIN ÍNDICES activo');

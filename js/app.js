@@ -181,24 +181,30 @@ async function registrarClienteNuevo() {
     showToast('❌ El código debe tener 6 caracteres'); return;
   }
 
+  let user = null;
   try {
+    // 1. Crear usuario en Auth PRIMERO (para tener permisos en Firestore)
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    user = userCredential.user;
+
+    // 2. Ahora buscar la empresa por código (usuario ya autenticado)
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
       .get();
 
     if (empresasSnapshot.empty) {
-      showToast('❌ Código de invitación no válido'); return;
+      // Código inválido — limpiar usuario creado
+      await user.delete();
+      showToast('❌ Código de invitación no válido');
+      return;
     }
 
     const empresaDoc = empresasSnapshot.docs[0];
     const empresaId  = empresaDoc.id;
     const empresaData = empresaDoc.data();
 
-    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    // Crear cliente en subcolección de la empresa
+    // 3. Crear cliente en subcolección de la empresa
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('clientes').doc(user.uid)
@@ -213,7 +219,7 @@ async function registrarClienteNuevo() {
         pedidos: 0
       });
 
-    // Crear perfil raíz para login SIN ÍNDICES
+    // 4. Crear perfil raíz para login SIN ÍNDICES
     await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .set({
@@ -244,10 +250,16 @@ async function registrarClienteNuevo() {
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
+    // Si creamos usuario pero falló después, intentar limpiar
+    if (user && !empresaId) {
+      try { await user.delete(); } catch(e) {}
+    }
     if (error.code === 'auth/email-already-in-use') {
       showToast('❌ Este correo ya está registrado');
     } else if (error.code === 'auth/invalid-email') {
       showToast('❌ Correo electrónico inválido');
+    } else if (error.code === 'auth/weak-password') {
+      showToast('❌ La contraseña debe tener al menos 6 caracteres');
     } else {
       showToast('❌ Error: ' + error.message);
     }

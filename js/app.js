@@ -137,7 +137,7 @@ async function registrarEmpresa() {
       }
     }, 1000);
 
-    showToast(`✅ ¡Negocio "${nombreNegocio}" creado! Código: ${codigoAcceso}`);
+    showToast(`✅ ¡Franquicia "${nombreNegocio}" creado! Código: ${codigoAcceso}`);
 
   } catch (error) {
     console.error('❌ Error registrando empresa:', error);
@@ -215,7 +215,7 @@ async function registrarClienteNuevo() {
     goScreen('cliente');
     mostrarPanelCliente();
 
-    showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu negocio'}!`);
+    showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);

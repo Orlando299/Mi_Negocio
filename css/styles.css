@@ -811,3 +811,11 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 #modal-codigo {
   z-index: 250;
 }
+
+/* NUCLEAR: cualquier modal sin .open debe estar OCULTO */
+.modal-overlay:not(.open) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

@@ -193,10 +193,6 @@ function generarCodigoAcceso() {
 }
 
 async function registrarEmpresa() {
-  // Cerrar cualquier instancia previa
-  forzarCierreModal('modal-registro-empresa', true);
-  await new Promise(r => setTimeout(r, 100));
-
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
@@ -211,12 +207,14 @@ async function registrarEmpresa() {
     return;
   }
 
+  // Deshabilitar botón para evitar múltiples envíos
+  const btn = document.querySelector('#modal-registro-empresa .btn-primary');
+  if (btn) btn.disabled = true;
+
   _registrando = true;
-  let user = null;
-  let empresaId = null;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    user = userCredential.user;
+    const user = userCredential.user;
 
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
@@ -225,7 +223,7 @@ async function registrarEmpresa() {
       creadoPor: user.uid,
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
-    empresaId = empresaRef.id;
+    const empresaId = empresaRef.id;
 
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
@@ -254,29 +252,12 @@ async function registrarEmpresa() {
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
 
-    // Cerrar modal con destrucción
-    forzarCierreModal('modal-registro-empresa', true);
-    await new Promise(r => setTimeout(r, 200));
-    forzarReflowBody();
-
-    ocultarPantallaBienvenida();
-    actualizarAdminUI(nombreAdmin);
-    await store.cargarDatosEmpresa(empresaId);
-    syncGlobals();
-    goScreen('dashboard');
-
-    setTimeout(() => {
-      if (typeof solicitarPermisoNotificaciones === 'function') {
-        solicitarPermisoNotificaciones().then(token => {
-          if (token) {
-            showToast('🔔 Notificaciones activadas');
-            if (typeof escucharMensajesForeground === 'function') escucharMensajesForeground();
-          }
-        });
-      }
-    }, 1000);
-
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
+
+    // Recargar la página para limpiar cualquier estado de modal
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
 
   } catch (error) {
     console.error('❌ Error registrando franquicia:', error);
@@ -287,31 +268,14 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Cerrar modal incluso en error
-    forzarCierreModal('modal-registro-empresa', true);
-    forzarReflowBody();
-  } 
-finally {
-  // Eliminar modal inmediatamente
-  forzarCierreModal('modal-registro-empresa', true);
-  forzarReflowBody();
-
-  // Esperar a que el DOM se actualice y luego liberar banderas
-  setTimeout(() => {
-    // Cierre adicional por si acaso
-    forzarCierreModal('modal-registro-empresa', true);
+    // Re-habilitar botón en caso de error
+    if (btn) btn.disabled = false;
+  } finally {
     _registrando = false;
-    _bloquearModales = false;
-    console.log('🔓 Bandera _registrando liberada');
-  }, 300);
-}
+  }
 }
 
 async function registrarClienteNuevo() {
-  // Cerrar cualquier instancia previa
-  forzarCierreModal('modal-registro-cliente', true);
-  await new Promise(r => setTimeout(r, 100));
-
   const nombre   = document.getElementById('reg-cli-nombre').value.trim();
   const email    = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
@@ -330,9 +294,12 @@ async function registrarClienteNuevo() {
     return;
   }
 
+  const btn = document.querySelector('#modal-registro-cliente .btn-primary');
+  if (btn) btn.disabled = true;
+
+  _registrando = true;
   let user = null;
   let empresaId = null;
-  _registrando = true;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
@@ -345,6 +312,7 @@ async function registrarClienteNuevo() {
     if (empresasSnapshot.empty) {
       await user.delete();
       showToast('❌ Código de invitación no válido');
+      if (btn) btn.disabled = false;
       return;
     }
 
@@ -382,21 +350,12 @@ async function registrarClienteNuevo() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
 
-    // Cerrar modal con destrucción
-    forzarCierreModal('modal-registro-cliente', true);
-    await new Promise(r => setTimeout(r, 200));
-    forzarReflowBody();
-
-    ocultarPantallaBienvenida();
-    document.getElementById('admin-menu').style.display = 'none';
-    document.getElementById('btn-codigo').style.display = 'none';
-
-    await store.cargarDatosEmpresa(empresaId);
-    syncGlobals();
-    goScreen('cliente');
-    mostrarPanelCliente();
-
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
+
+    // Recargar la página para limpiar cualquier estado de modal
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
@@ -412,24 +371,10 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Cerrar modal incluso en error
-    forzarCierreModal('modal-registro-cliente', true);
-    forzarReflowBody();
-  } 
- finally {
-  // Eliminar modal inmediatamente
-  forzarCierreModal('modal-registro-empresa', true);
-  forzarReflowBody();
-
-  // Esperar a que el DOM se actualice y luego liberar banderas
-  setTimeout(() => {
-    // Cierre adicional por si acaso
-    forzarCierreModal('modal-registro-cliente', true);
+    if (btn) btn.disabled = false;
+  } finally {
     _registrando = false;
-    _bloquearModales = false;
-    console.log('🔓 Bandera _registrando liberada');
-  }, 300);
-}
+  }
 }
 
 

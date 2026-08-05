@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minegocio-v1';
+const CACHE_NAME = 'minegocio-v2';
 const STATIC_ASSETS = [
   '/Mi_Negocio/',
   '/Mi_Negocio/index.html',
@@ -14,36 +14,72 @@ const STATIC_ASSETS = [
 
 // Instalación: cachear recursos estáticos
 self.addEventListener('install', (event) => {
-  console.log('[SW] Instalando...');
+  console.log('[SW v2] Instalando...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     }).catch((err) => {
-      console.warn('[SW] Error cacheando estáticos:', err);
+      console.warn('[SW v2] Error cacheando estáticos:', err);
     })
   );
   self.skipWaiting();
 });
 
-// Activación: limpiar caches viejas
+// Activación: limpiar TODAS las caches viejas (incluyendo v1)
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activado');
+  console.log('[SW v2] Activado - limpiando caches viejas');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME).map((key) => {
+          console.log('[SW v2] Eliminando cache vieja:', key);
+          return caches.delete(key);
+        })
       );
+    }).then(() => {
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
-// Fetch: estrategia Cache-First para estáticos, Network-First para API
+// Fetch: estrategia por tipo de recurso
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Firebase y APIs externas: siempre red
+  // === HTML: Network-First (siempre fresco) ===
+  if (request.destination === 'document' || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      fetch(request).then((response) => {
+        // Actualizar cache en segundo plano
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      }).catch(() => {
+        return caches.match(request);
+      })
+    );
+    return;
+  }
+
+  // === CSS y JS: Network-First (siempre fresco) ===
+  if (url.pathname.endsWith('.css') || 
+      url.pathname.endsWith('.js') ||
+      request.destination === 'style' ||
+      request.destination === 'script') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      }).catch(() => {
+        return caches.match(request);
+      })
+    );
+    return;
+  }
+
+  // === Firebase y APIs externas: siempre red ===
   if (url.hostname.includes('firebase') || 
       url.hostname.includes('googleapis') || 
       url.hostname.includes('gstatic') ||
@@ -52,18 +88,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Recursos estáticos: cache primero
+  // === Recursos estáticos restantes: cache primero ===
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {
-        // Refrescar en segundo plano
         fetch(request).then((response) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
         }).catch(() => {});
         return cached;
       }
       return fetch(request).then((response) => {
-        // Cachear nuevos recursos estáticos
         if (request.method === 'GET' && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));

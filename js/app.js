@@ -10,7 +10,7 @@ let filtroCatalogo = 'todas';
 let _registrando = false;
 
 // ═══════════════════════════════════════════════════════════════
-//  DETECCIÓN TEMPRANA DE SESIÓN
+//  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
 // ═══════════════════════════════════════════════════════════════
 (function detectarSesionTemprano() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -19,27 +19,37 @@ let _registrando = false;
 
   if (empresaId && userRol) {
     console.log('🔐 Sesión detectada temprano, redirigiendo...');
-    
+    // Ocultar bienvenida con fuerza
     const bienvenida = document.getElementById('screen-bienvenida');
     if (bienvenida) {
       bienvenida.classList.remove('active');
       bienvenida.style.display = 'none';
+      bienvenida.style.visibility = 'hidden';
+      bienvenida.style.pointerEvents = 'none';
+      bienvenida.style.opacity = '0';
     }
-    
-    document.getElementById('top-nav').style.display = 'flex';
-    document.getElementById('bottom-nav').style.display = 'flex';
-    document.getElementById('fab-btn').style.display = 'flex';
-    
+    // Mostrar navegación
+    const topNav = document.getElementById('top-nav');
+    const bottomNav = document.getElementById('bottom-nav');
+    const fabBtn = document.getElementById('fab-btn');
+    if (topNav) topNav.style.display = 'flex';
+    if (bottomNav) bottomNav.style.display = 'flex';
+    if (fabBtn) fabBtn.style.display = 'flex';
+
+    // Navegar a la pantalla correcta
     if (userRol === 'admin') {
       if (typeof actualizarAdminUI === 'function') actualizarAdminUI(userName);
       if (typeof goScreen === 'function') goScreen('dashboard');
     } else {
-      document.getElementById('admin-menu').style.display = 'none';
-      document.getElementById('btn-codigo').style.display = 'none';
+      const adminMenu = document.getElementById('admin-menu');
+      const btnCodigo = document.getElementById('btn-codigo');
+      if (adminMenu) adminMenu.style.display = 'none';
+      if (btnCodigo) btnCodigo.style.display = 'none';
       if (typeof goScreen === 'function') goScreen('cliente');
       if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
     }
-    
+
+    // Cargar datos de la empresa (después de que el DOM esté listo)
     setTimeout(() => {
       if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
         store.cargarDatosEmpresa(empresaId).then(() => {
@@ -74,13 +84,12 @@ if ('serviceWorker' in navigator) {
 const _modalTemplates = {};
 
 function forzarReflowBody() {
-  // Fuerza al navegador a recalcular todo el layout y descartar capas de pintura cacheadas
   const body = document.body;
   const originalDisplay = body.style.display;
   body.style.display = 'none';
-  void body.offsetHeight; // Forzar reflow
+  void body.offsetHeight;
   body.style.display = originalDisplay || '';
-  void body.offsetHeight; // Segundo reflow
+  void body.offsetHeight;
   console.log('🔄 Reflow forzado en body');
 }
 
@@ -102,41 +111,29 @@ function forzarCierreModal(modalId, destruir = false) {
 
   if (destruir) {
     try {
-      // Guardar template por si se necesita
       guardarTemplateModal(modalId);
-
-      // Estrategia 1: remove() (estándar)
       if (modal.remove) {
         modal.remove();
         console.log('🗑️ Modal eliminado con remove():', modalId);
-      } 
-      // Estrategia 2: parentNode.removeChild (fallback)
-      else if (modal.parentNode) {
+      } else if (modal.parentNode) {
         modal.parentNode.removeChild(modal);
         console.log('🗑️ Modal eliminado con removeChild():', modalId);
-      } 
-      // Estrategia 3: reemplazar con un texto vacío (último recurso)
-      else {
+      } else {
         modal.outerHTML = '';
         console.log('🗑️ Modal eliminado con outerHTML:', modalId);
       }
-
-      // Verificar que realmente se eliminó
       if (document.getElementById(modalId)) {
-        console.warn('⚠️ El modal aún existe después de eliminarlo, forzando ocultación extrema');
+        console.warn('⚠️ El modal aún existe, forzando ocultación extrema');
         const m = document.getElementById(modalId);
         if (m) {
           m.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
           m.hidden = true;
           m.classList.remove('open');
-          // Intentar eliminar nuevamente con parentNode
           if (m.parentNode) m.parentNode.removeChild(m);
         }
       }
-
     } catch (e) {
       console.error('❌ Error destruyendo modal:', e);
-      // Fallback: ocultar completamente
       modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
       modal.hidden = true;
       modal.classList.remove('open');
@@ -144,7 +141,6 @@ function forzarCierreModal(modalId, destruir = false) {
     return;
   }
 
-  // Si no se destruye, solo ocultar
   modal.classList.remove('open');
   modal.hidden = true;
   modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
@@ -155,15 +151,10 @@ function abrirModalId(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
-  // Limpiar TODOS los estilos de cierre previos
   modal.style.cssText = '';
   modal.classList.remove('open');
   modal.hidden = false;
-
-  // Forzar reflow para que el navegador procese la limpieza
   void modal.offsetHeight;
-
-  // Restaurar propiedades base necesarias
   modal.style.display = '';
   modal.style.opacity = '';
   modal.style.visibility = '';
@@ -180,18 +171,25 @@ function abrirModalId(modalId) {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  PANTALLA DE BIENVENIDA
+//  PANTALLA DE BIENVENIDA (CON VERIFICACIÓN DE SESIÓN)
 // ═══════════════════════════════════════════════════════════════
 
 function mostrarPantallaBienvenida() {
-  // Si hay sesión, no hacer nada
+  // Si hay sesión activa, no mostrar bienvenida
   if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
     console.log('⏳ Sesión activa, no se muestra bienvenida');
     return;
   }
 
   const bienvenida = document.getElementById('screen-bienvenida');
-  if (bienvenida) bienvenida.classList.add('active');
+  if (bienvenida) {
+    // Restaurar estilos para que sea visible
+    bienvenida.style.display = '';
+    bienvenida.style.visibility = '';
+    bienvenida.style.pointerEvents = '';
+    bienvenida.style.opacity = '';
+    bienvenida.classList.add('active');
+  }
   document.getElementById('top-nav').style.display = 'none';
   document.getElementById('bottom-nav').style.display = 'none';
   document.getElementById('fab-btn').style.display = 'none';
@@ -208,7 +206,13 @@ function mostrarPantallaBienvenida() {
 
 function ocultarPantallaBienvenida() {
   const bienvenida = document.getElementById('screen-bienvenida');
-  if (bienvenida) bienvenida.classList.remove('active');
+  if (bienvenida) {
+    bienvenida.classList.remove('active');
+    bienvenida.style.display = 'none';
+    bienvenida.style.visibility = 'hidden';
+    bienvenida.style.pointerEvents = 'none';
+    bienvenida.style.opacity = '0';
+  }
   document.getElementById('top-nav').style.display = 'flex';
   document.getElementById('bottom-nav').style.display = 'flex';
   document.getElementById('fab-btn').style.display = 'flex';
@@ -243,6 +247,10 @@ function generarCodigoAcceso() {
   return codigo;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  REGISTRO Y LOGIN
+// ═══════════════════════════════════════════════════════════════
+
 async function registrarEmpresa() {
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
@@ -258,7 +266,6 @@ async function registrarEmpresa() {
     return;
   }
 
-  // Deshabilitar botón para evitar múltiples envíos
   const btn = document.querySelector('#modal-registro-empresa .btn-primary');
   if (btn) btn.disabled = true;
 
@@ -305,7 +312,7 @@ async function registrarEmpresa() {
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
 
-    // Recargar la página para limpiar cualquier estado de modal
+    // Recargar para limpiar estado
     setTimeout(() => {
       window.location.reload();
     }, 1500);
@@ -319,7 +326,6 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Re-habilitar botón en caso de error
     if (btn) btn.disabled = false;
   } finally {
     _registrando = false;
@@ -403,7 +409,6 @@ async function registrarClienteNuevo() {
 
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
 
-    // Recargar la página para limpiar cualquier estado de modal
     setTimeout(() => {
       window.location.reload();
     }, 1500);
@@ -428,13 +433,13 @@ async function registrarClienteNuevo() {
   }
 }
 
-
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
 
   if (!email || !password) {
-    showToast('❌ Ingresa correo y contraseña'); return;
+    showToast('❌ Ingresa correo y contraseña');
+    return;
   }
 
   try {
@@ -464,36 +469,11 @@ async function loginUnificado() {
     forzarCierreModal('modal-login', true);
     forzarReflowBody();
     await new Promise(r => setTimeout(r, 100));
-    ocultarPantallaBienvenida();
 
-    if (rol === 'admin') {
-      actualizarAdminUI(nombre);
-      await store.cargarDatosEmpresa(empresaId);
-      syncGlobals();
-      goScreen('dashboard');
-      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-
-      setTimeout(() => {
-        if (typeof solicitarPermisoNotificaciones === 'function') {
-          solicitarPermisoNotificaciones().then(token => {
-            if (token) {
-              showToast('🔔 Notificaciones activadas');
-              if (typeof escucharMensajesForeground === 'function') escucharMensajesForeground();
-            }
-          });
-        }
-      }, 1000);
-
-      showToast(`✅ Bienvenido, ${nombre}`);
-    } else {
-      document.getElementById('admin-menu').style.display = 'none';
-      document.getElementById('btn-codigo').style.display = 'none';
-      await store.cargarDatosEmpresa(empresaId);
-      syncGlobals();
-      goScreen('cliente');
-      mostrarPanelCliente();
-      showToast(`✅ Bienvenido, ${nombre}`);
-    }
+    // Recargar para limpiar estado
+    setTimeout(() => {
+      window.location.reload();
+    }, 300);
 
   } catch (error) {
     console.error('❌ Error en login:', error);
@@ -508,6 +488,10 @@ async function loginUnificado() {
     }
   }
 }
+
+// ================================================================
+//  FUNCIONES DE NAVEGACIÓN, GESTIÓN Y RENDERIZADO (COMPLETAS)
+// ================================================================
 
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -639,7 +623,6 @@ function loadTheme() {
     if (themeBtn) themeBtn.textContent = '☀️';
   }
 }
-
 
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
@@ -2037,6 +2020,10 @@ function cambiarTabCliente(tabId) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN (DOMContentLoaded) con onAuthStateChanged mejorado
+// ═══════════════════════════════════════════════════════════════
+
 document.addEventListener('DOMContentLoaded', () => {
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -2051,30 +2038,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof cargarCarrito === 'function') cargarCarrito();
   if (typeof initStore === 'function') initStore();
 
-  // Verificar sesión existente — SIN ÍNDICES (userProfiles)
+  // Verificar sesión existente
   firebase.auth().onAuthStateChanged(async (user) => {
     if (_registrando) {
       console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
       return;
     }
-    // Si ya hay sesión activa en sessionStorage, el registro/login ya la manejó
- if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-  console.log('ℹ️ Sesión ya activa en sessionStorage, ocultando bienvenida...');
-  ocultarPantallaBienvenida();
-  const empresaId = sessionStorage.getItem('empresaId');
-  const rol = sessionStorage.getItem('userRol');
-  const nombre = sessionStorage.getItem('userName') || 'Usuario';
-  if (rol === 'admin') {
-    actualizarAdminUI(nombre);
-    goScreen('dashboard');
-  } else {
-    document.getElementById('admin-menu').style.display = 'none';
-    document.getElementById('btn-codigo').style.display = 'none';
-    goScreen('cliente');
-    mostrarPanelCliente();
-  }
-  return;
-}
+    // Si ya hay sesión activa en sessionStorage, no hacer nada (ya manejado por detección temprana)
+    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+      return;
+    }
     if (user) {
       try {
         const perfilDoc = await firebase.firestore()
@@ -2098,6 +2072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('userName', nombre);
         sessionStorage.setItem('userRol', rol);
 
+        // Ocultar bienvenida con fuerza
         ocultarPantallaBienvenida();
 
         if (rol === 'admin') {
@@ -2120,6 +2095,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarPantallaBienvenida();
       }
     } else {
+      // No hay usuario, mostrar bienvenida
       mostrarPantallaBienvenida();
     }
   });
@@ -2204,4 +2180,4 @@ Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {
   window[nombre] = fn;
 });
 
-console.log('✅ app.js cargado correctamente — Nuevo flujo SIN ÍNDICES activo');
+console.log('✅ app.js cargado correctamente — Versión unificada con mejoras de sesión');

@@ -28,6 +28,17 @@ if ('serviceWorker' in navigator) {
 // Templates para recrear modales si se necesitan
 const _modalTemplates = {};
 
+function forzarReflowBody() {
+  // Fuerza al navegador a recalcular todo el layout y descartar capas de pintura cacheadas
+  const body = document.body;
+  const originalDisplay = body.style.display;
+  body.style.display = 'none';
+  void body.offsetHeight; // Forzar reflow
+  body.style.display = originalDisplay || '';
+  void body.offsetHeight; // Segundo reflow
+  console.log('🔄 Reflow forzado en body');
+}
+
 function guardarTemplateModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal && !_modalTemplates[modalId]) {
@@ -387,6 +398,7 @@ async function loginUnificado() {
     sessionStorage.setItem('userRol', rol);
 
     forzarCierreModal('modal-login', true);
+    forzarReflowBody();
     await new Promise(r => setTimeout(r, 100));
     ocultarPantallaBienvenida();
 

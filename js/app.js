@@ -274,11 +274,11 @@ async function registrarEmpresa() {
     forzarReflowBody();
   } 
   finally {
-  // Cerrar y destruir el modal ANTES de liberar la bandera
   forzarCierreModal('modal-registro-empresa', true);
   forzarReflowBody();
-  // Liberar la bandera después de asegurar el cierre
-  _registrando = false;
+  setTimeout(() => {
+    _registrando = false;
+  }, 200);
 }
 }
 
@@ -394,7 +394,9 @@ async function registrarClienteNuevo() {
   finally {
   forzarCierreModal('modal-registro-cliente', true);
   forzarReflowBody();
-  _registrando = false;
+  setTimeout(() => {
+    _registrando = false;
+  }, 200);
 }
 }
 

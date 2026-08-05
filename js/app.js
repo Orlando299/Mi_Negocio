@@ -25,98 +25,56 @@ if ('serviceWorker' in navigator) {
 //  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR)
 // ═══════════════════════════════════════════════════════════════
 
-function forzarCierreModal(modalId, eliminarDelDOM = false) {
+// Templates para recrear modales si se necesitan
+const _modalTemplates = {};
+
+function guardarTemplateModal(modalId) {
   const modal = document.getElementById(modalId);
-  if (!modal) return;
+  if (modal && !_modalTemplates[modalId]) {
+    _modalTemplates[modalId] = modal.outerHTML;
+  }
+}
 
-  console.log('🔒 forzarCierreModal ejecutado para:', modalId);
-
-  // === CAPA 0: Inyectar CSS nuclear directamente en el DOM (ignora cache del SW) ===
-  if (!document.getElementById('modal-nuclear-css')) {
-    const style = document.createElement('style');
-    style.id = 'modal-nuclear-css';
-    style.textContent = `
-      .modal-overlay:not(.open),
-      .modal-overlay:not(.open) * {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        position: fixed !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        z-index: -9999 !important;
-        transform: translateY(100vh) !important;
-        max-height: 0 !important;
-        overflow: hidden !important;
-      }
-      .modal-overlay.open { display: flex !important; }
-    `;
-    document.head.appendChild(style);
-    console.log('☢️ CSS nuclear inyectado en DOM');
+function forzarCierreModal(modalId, destruir = false) {
+  const modal = document.getElementById(modalId);
+  if (!modal) {
+    console.log('⚠️ Modal no encontrado (ya destruido?):', modalId);
+    return;
   }
 
-  // Quitar foco de cualquier input dentro del modal
+  console.log('🔒 Cerrando modal:', modalId, '| destruir:', destruir);
+
+  // Guardar template antes de destruir (por si se necesita recrear)
+  if (destruir) {
+    guardarTemplateModal(modalId);
+  }
+
+  // Quitar foco
   const activeEl = document.activeElement;
   if (activeEl && modal.contains(activeEl)) {
     activeEl.blur();
-    if (document.body.focus) document.body.focus();
   }
 
-  // === CAPA 1: Remover clase open ===
-  modal.classList.remove('open');
-
-  // === CAPA 2: hidden attribute (más fuerte que CSS) ===
-  modal.hidden = true;
-
-  // === CAPA 3: Style inline con !important ===
-  modal.style.setProperty('display', 'none', 'important');
-  modal.style.setProperty('opacity', '0', 'important');
-  modal.style.setProperty('visibility', 'hidden', 'important');
-  modal.style.setProperty('pointer-events', 'none', 'important');
-  modal.style.setProperty('z-index', '-9999', 'important');
-  modal.style.setProperty('position', 'fixed', 'important');
-  modal.style.setProperty('top', '-9999px', 'important');
-  modal.style.setProperty('left', '-9999px', 'important');
-  modal.style.setProperty('transform', 'translateY(100vh)', 'important');
-
-  // === CAPA 4: MutationObserver — si ALGO intenta reabrir, lo anula ===
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes') {
-        const isOpen = modal.classList.contains('open');
-        const isHidden = modal.hidden;
-        if (isOpen || !isHidden) {
-          console.log('🛡️ Observer bloqueando reapertura de:', modalId);
-          modal.classList.remove('open');
-          modal.hidden = true;
-          modal.style.setProperty('display', 'none', 'important');
-        }
-      }
-    });
-  });
-  observer.observe(modal, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
-
-  // === CAPA 5: Verificación periódica durante 5 segundos ===
-  let checks = 0;
-  const interval = setInterval(() => {
-    checks++;
-    if (modal.classList.contains('open') || !modal.hidden) {
-      console.log('🛡️ Interval bloqueando reapertura de:', modalId);
-      modal.classList.remove('open');
+  // === ESTRATEGIA NUCLEAR: eliminar del DOM inmediatamente ===
+  if (destruir && modal.parentNode) {
+    try {
+      modal.parentNode.removeChild(modal);
+      console.log('🗑️ Modal DESTRUIDO del DOM:', modalId);
+    } catch (e) {
+      console.error('❌ Error destruyendo modal:', e);
+      // Fallback: ocultar todo lo posible
+      modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
       modal.hidden = true;
-      modal.style.setProperty('display', 'none', 'important');
+      modal.classList.remove('open');
     }
-    if (checks >= 10) {
-      clearInterval(interval);
-      observer.disconnect();
-      // Si se pidió eliminar del DOM, lo removemos completamente
-      if (eliminarDelDOM && modal.parentNode) {
-        modal.parentNode.removeChild(modal);
-        console.log('🗑️ Modal eliminado del DOM:', modalId);
-      }
-    }
-  }, 500);
+    return;
+  }
+
+  // Si no se destruye, solo ocultar
+  modal.classList.remove('open');
+  modal.hidden = true;
+  modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
+  console.log('👁️ Modal oculto:', modalId);
 }
 
 function abrirModalId(modalId) {

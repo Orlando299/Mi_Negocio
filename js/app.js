@@ -10,25 +10,75 @@ let filtroCatalogo = 'todas';
 let _registrando = false;
 
 // ═══════════════════════════════════════════════════════════════
-//  FUNCIONES AUXILIARES DE MODALES
+//  LIMPIEZA DE SERVICE WORKERS (evita cache problemático)
+// ═══════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(reg => {
+      console.log('🧹 SW unregister:', reg.scope);
+      reg.unregister();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR)
 // ═══════════════════════════════════════════════════════════════
 
 function forzarCierreModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
+
+  // Quitar foco de cualquier input dentro del modal
+  const activeEl = document.activeElement;
+  if (activeEl && modal.contains(activeEl)) {
+    activeEl.blur();
+    if (document.body.focus) document.body.focus();
+  }
+
+  // Capa 1: Remover clase open
   modal.classList.remove('open');
-  modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
-  // Doble verificación
-  setTimeout(() => {
+
+  // Capa 2: Style inline con !important usando setProperty
+  modal.style.setProperty('display', 'none', 'important');
+  modal.style.setProperty('opacity', '0', 'important');
+  modal.style.setProperty('visibility', 'hidden', 'important');
+  modal.style.setProperty('pointer-events', 'none', 'important');
+  modal.style.setProperty('z-index', '-9999', 'important');
+  modal.style.setProperty('position', 'fixed', 'important');
+  modal.style.setProperty('top', '-9999px', 'important');
+  modal.style.setProperty('left', '-9999px', 'important');
+
+  // Capa 3: MutationObserver — si ALGO intenta reabrir el modal, lo anula
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes') {
+        const isOpen = modal.classList.contains('open');
+        const computedDisplay = window.getComputedStyle(modal).display;
+        if (isOpen || computedDisplay !== 'none') {
+          modal.classList.remove('open');
+          modal.style.setProperty('display', 'none', 'important');
+          modal.style.setProperty('opacity', '0', 'important');
+          modal.style.setProperty('visibility', 'hidden', 'important');
+          modal.style.setProperty('top', '-9999px', 'important');
+        }
+      }
+    });
+  });
+
+  observer.observe(modal, { attributes: true, attributeFilter: ['class', 'style'] });
+
+  // Capa 4: Verificación periódica durante 3 segundos
+  let checks = 0;
+  const interval = setInterval(() => {
+    checks++;
     if (modal.classList.contains('open')) {
       modal.classList.remove('open');
-      modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-1;';
+      modal.style.setProperty('display', 'none', 'important');
     }
-  }, 200);
-  setTimeout(() => {
-    if (modal.classList.contains('open')) {
-      modal.classList.remove('open');
-      modal.style.cssText = 'display:none !important; opacity:0; visibility:hidden; pointer-events:none; position:fixed; z-index:-9999;';
+    if (checks >= 6) {
+      clearInterval(interval);
+      observer.disconnect();
     }
   }, 500);
 }
@@ -36,9 +86,27 @@ function forzarCierreModal(modalId) {
 function abrirModalId(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
+
+  // Limpiar TODOS los estilos de cierre previos
   modal.style.cssText = '';
+  modal.classList.remove('open');
+
+  // Forzar reflow para que el navegador procese la limpieza
+  void modal.offsetHeight;
+
+  // Restaurar propiedades base necesarias
+  modal.style.display = '';
+  modal.style.opacity = '';
+  modal.style.visibility = '';
+  modal.style.pointerEvents = '';
+  modal.style.zIndex = '';
+  modal.style.position = '';
+  modal.style.top = '';
+  modal.style.left = '';
+
   modal.classList.add('open');
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 //  PANTALLA DE BIENVENIDA
@@ -54,7 +122,6 @@ function mostrarPantallaBienvenida() {
     const el = document.getElementById('screen-' + s);
     if (el) el.classList.remove('active');
   });
-  // Cerrar TODOS los modales al mostrar bienvenida
   forzarCierreModal('modal-registro-empresa');
   forzarCierreModal('modal-registro-cliente');
   forzarCierreModal('modal-login');
@@ -70,45 +137,25 @@ function ocultarPantallaBienvenida() {
   document.getElementById('fab-btn').style.display = 'flex';
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  MODALES DE REGISTRO / LOGIN
-// ═══════════════════════════════════════════════════════════════
-
-function mostrarRegistroEmpresa() {
-  abrirModalId('modal-registro-empresa');
-}
-
+function mostrarRegistroEmpresa() { abrirModalId('modal-registro-empresa'); }
 function cerrarModalRegistroEmpresa(e) {
   if (e && e.target !== e.currentTarget) return;
   forzarCierreModal('modal-registro-empresa');
 }
-
-function mostrarRegistroCliente() {
-  abrirModalId('modal-registro-cliente');
-}
-
+function mostrarRegistroCliente() { abrirModalId('modal-registro-cliente'); }
 function cerrarModalRegistroCliente(e) {
   if (e && e.target !== e.currentTarget) return;
   forzarCierreModal('modal-registro-cliente');
 }
-
-function mostrarLoginUnificado() {
-  abrirModalId('modal-login');
-}
-
+function mostrarLoginUnificado() { abrirModalId('modal-login'); }
 function cerrarModalLogin(e) {
   if (e && e.target !== e.currentTarget) return;
   forzarCierreModal('modal-login');
 }
-
 function cerrarModalCodigo(e) {
   if (e && e.target !== e.currentTarget) return;
   forzarCierreModal('modal-codigo');
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  GENERADOR DE CÓDIGO
-// ═══════════════════════════════════════════════════════════════
 
 function generarCodigoAcceso() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -118,10 +165,6 @@ function generarCodigoAcceso() {
   }
   return codigo;
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  REGISTRO DE FRANQUICIA (ADMIN)
-// ═══════════════════════════════════════════════════════════════
 
 async function registrarEmpresa() {
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
@@ -176,8 +219,8 @@ async function registrarEmpresa() {
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
 
-    // CIERRE DEFINITIVO DEL MODAL
     forzarCierreModal('modal-registro-empresa');
+    await new Promise(r => setTimeout(r, 100));
 
     ocultarPantallaBienvenida();
     actualizarAdminUI(nombreAdmin);
@@ -212,10 +255,6 @@ async function registrarEmpresa() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  REGISTRO DE CLIENTE
-// ═══════════════════════════════════════════════════════════════
-
 async function registrarClienteNuevo() {
   const nombre   = document.getElementById('reg-cli-nombre').value.trim();
   const email    = document.getElementById('reg-cli-email').value.trim();
@@ -233,6 +272,7 @@ async function registrarClienteNuevo() {
   }
 
   let user = null;
+  let empresaId = null;
   _registrando = true;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
@@ -250,7 +290,7 @@ async function registrarClienteNuevo() {
     }
 
     const empresaDoc = empresasSnapshot.docs[0];
-    const empresaId  = empresaDoc.id;
+    empresaId = empresaDoc.id;
     const empresaData = empresaDoc.data();
 
     await firebase.firestore()
@@ -283,8 +323,8 @@ async function registrarClienteNuevo() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
 
-    // CIERRE DEFINITIVO DEL MODAL
     forzarCierreModal('modal-registro-cliente');
+    await new Promise(r => setTimeout(r, 100));
 
     ocultarPantallaBienvenida();
     document.getElementById('admin-menu').style.display = 'none';
@@ -316,9 +356,6 @@ async function registrarClienteNuevo() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  LOGIN UNIFICADO
-// ═══════════════════════════════════════════════════════════════
 
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
@@ -398,10 +435,6 @@ async function loginUnificado() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CÓDIGO DE INVITACIÓN
-// ═══════════════════════════════════════════════════════════════
-
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { showToast('⚠️ No hay franquicia seleccionada'); return; }
@@ -447,10 +480,6 @@ async function regenerarCodigo() {
     handleError(error, 'Error regenerando código');
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  NAVEGACIÓN
-// ═══════════════════════════════════════════════════════════════
 
 function goScreen(name) {
   screens.forEach(s => {
@@ -537,9 +566,6 @@ function loadTheme() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  GUARDAR (CRUD)
-// ═══════════════════════════════════════════════════════════════
 
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
@@ -633,10 +659,6 @@ async function guardarCliente() {
     handleError(error);
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  EDICIÓN
-// ═══════════════════════════════════════════════════════════════
 
 function editVenta(id) {
   const v = store.ventas.find(item => item.id === id);
@@ -789,9 +811,6 @@ async function updateClienteFromModal(nombreOriginal) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  ELIMINACIÓN
-// ═══════════════════════════════════════════════════════════════
 
 function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
@@ -837,10 +856,6 @@ function confirmDeleteCliente(nombre) {
     }
   });
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  MODALES
-// ═══════════════════════════════════════════════════════════════
 
 const modals = {
   ventas: {
@@ -972,10 +987,6 @@ function openConfirmModal(mensaje, callback) {
   openModalWithContent('Confirmar acción', body);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  MENÚ ADMIN
-// ═══════════════════════════════════════════════════════════════
-
 function toggleAdminMenu(event) {
   if (event) event.stopPropagation();
   const dropdown = document.getElementById('admin-dropdown');
@@ -1023,9 +1034,6 @@ function actualizarAdminUI(nombre) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  LEGACY WRAPPERS
-// ═══════════════════════════════════════════════════════════════
 
 async function loginCliente() {
   await loginUnificado();
@@ -1111,10 +1119,6 @@ function toggleCliente() {
     actualizarCarritoCount();
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  CATÁLOGO Y CARRITO
-// ═══════════════════════════════════════════════════════════════
 
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
@@ -1260,6 +1264,7 @@ function vaciarCarrito() {
   showToast('🗑️ Carrito vacío');
 }
 
+
 async function realizarPedido() {
   if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
@@ -1369,10 +1374,6 @@ function renderActividadReciente() {
   `).join('');
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CONFIGURACIÓN
-// ═══════════════════════════════════════════════════════════════
-
 function cambiarTabConfiguracion(tabId) {
   document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
@@ -1480,9 +1481,6 @@ function actualizarResumenConfiguracion() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  EXPORTAR / IMPORTAR JSON
-// ═══════════════════════════════════════════════════════════════
 
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -1526,7 +1524,12 @@ async function importarDatosJSON(event) {
       return;
     }
 
-    const confirmMsg = `⚠️ ¿Reemplazar TODOS los datos?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`;
+    const confirmMsg = `⚠️ ¿Reemplazar TODOS los datos?
+
+Se importarán:
+- ${data.inventario.length} productos
+- ${data.clientes.length} clientes
+- ${data.ventas.length} ventas`;
     if (!confirm(confirmMsg)) {
       event.target.value = '';
       return;
@@ -1608,10 +1611,6 @@ function actualizarAvatar(nombre) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CHAT
-// ═══════════════════════════════════════════════════════════════
-
 async function enviarMensajeChat() {
   const input = document.getElementById('chat-input');
   const texto = input.value.trim();
@@ -1676,7 +1675,7 @@ async function cargarMensajesChat() {
 
     if (container) {
       container.innerHTML = mensajes.map(m => `
-        <div style="padding:8px 12px; margin-bottom:6px; background:var(--bg); border-radius:var(--radius); border-left:3px solid ${m.uid === firebase.auth().currentUser?.uid ? 'var(--primary)' : 'var(--border)'};">
+        <div style="padding:8px 12px; margin-bottom:6px; background:var(--bg); border-radius:var(--radius); border-left:3px solid ${m.uid === firebase.auth().currentUser?.uid ? 'var(--primary)' : 'var(--border)'}">
           <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text3);">
             <strong>${m.remitente}</strong>
             <span>${formatDateLocal(m.fecha?.toDate?.() || m.fecha)}</span>
@@ -1692,9 +1691,6 @@ async function cargarMensajesChat() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  ALERTAS
-// ═══════════════════════════════════════════════════════════════
 
 function abrirModalAlerta() {
   const body = `
@@ -1800,7 +1796,7 @@ async function cargarAlertas() {
 
     if (container) {
       container.innerHTML = alertas.map(a => `
-        <div class="card" style="padding:12px; margin-bottom:8px; border-left:4px solid ${a.estado === 'activa' ? 'var(--danger)' : 'var(--green)'};">
+        <div class="card" style="padding:12px; margin-bottom:8px; border-left:4px solid ${a.estado === 'activa' ? 'var(--danger)' : 'var(--green)'}">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <strong>${tipoIcon[a.tipo] || '⚠️'} ${a.tipo}</strong>
             <span style="font-size:12px; color:var(--text3);">${formatDateLocal(a.fecha?.toDate?.() || a.fecha)}</span>
@@ -1843,10 +1839,6 @@ async function votarAlerta(alertaId, voto) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  PAGE AGENT
-// ═══════════════════════════════════════════════════════════════
-
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
 
@@ -1883,7 +1875,10 @@ function executeManualCommand(comando) {
   if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) { toggleTheme(); return '✅ Cambiando tema'; }
 
   if (cmd.includes('ayuda') || cmd.includes('comandos')) {
-    return `ℹ️ **Comandos disponibles:**\n• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"\n• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"\n• "nueva venta", "cambiar tema"`;
+    return `ℹ️ **Comandos disponibles:**
+• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"
+• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"
+• "nueva venta", "cambiar tema"`;
   }
 
   if (cmd.includes('hola') || cmd.includes('buenos días') || cmd.includes('buenas tardes')) {
@@ -1967,9 +1962,6 @@ function cambiarTabCliente(tabId) {
   if (tabId === 'pedidos') renderHistorial();
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  INICIALIZACIÓN
-// ═══════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];

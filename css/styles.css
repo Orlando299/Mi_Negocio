@@ -819,3 +819,43 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+/* ============================================================
+   REGLAS NUCLEAR PARA CIERRE DE MODALES
+   ============================================================ */
+
+/* Modales de registro: z-index superior */
+#modal-registro-empresa,
+#modal-registro-cliente,
+#modal-login,
+#modal-codigo {
+  z-index: 250;
+}
+
+/* CUALQUIER modal-overlay sin .open debe estar COMPLETAMENTE OCULTO */
+.modal-overlay:not(.open) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  z-index: -9999 !important;
+}
+
+/* Prevención: si algo fuerza display:flex con !important, anularlo */
+.modal-overlay:not(.open)[style*="display: flex"],
+.modal-overlay:not(.open)[style*="display:flex"] {
+  display: none !important;
+}
+
+/* Animación de entrada solo cuando tiene .open */
+.modal-overlay.open .modal-sheet {
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

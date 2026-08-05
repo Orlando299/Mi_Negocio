@@ -239,10 +239,7 @@ async function registrarEmpresa() {
   _bloquearModales = true;
   _registrando = true;
 
-  // Cerrar cualquier instancia previa
-  forzarCierreModal('modal-registro-empresa', true);
-  await new Promise(r => setTimeout(r, 100));
-
+  // Leer valores ANTES de cerrar el modal
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
@@ -260,6 +257,11 @@ async function registrarEmpresa() {
     _registrando = false;
     return;
   }
+
+  // Cerrar modal (opcional, pero podemos hacerlo)
+  forzarCierreModal('modal-registro-empresa', true);
+  await new Promise(r => setTimeout(r, 100));
+  forzarReflowBody();
 
   let user = null;
   let empresaId = null;
@@ -305,7 +307,7 @@ async function registrarEmpresa() {
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
 
-    // Recargar la página después de un breve retraso
+    // Recargar página después de 600ms
     setTimeout(() => {
       console.log('🔄 Recargando página para limpiar estado de render...');
       window.location.reload();
@@ -320,7 +322,7 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Cerrar modal en caso de error
+    // Cerrar modal en caso de error (pero ya no existe, manejarlo)
     forzarCierreModal('modal-registro-empresa', true);
     forzarReflowBody();
     _bloquearModales = false;

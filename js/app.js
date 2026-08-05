@@ -8,6 +8,55 @@ let filtroCatalogo = 'todas';
 
 // Bandera para evitar que onAuthStateChanged interfiera durante registro
 let _registrando = false;
+let _bloquearModales = false; // NUEVA BANDERA
+
+// ═══════════════════════════════════════════════════════════════
+//  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
+// ═══════════════════════════════════════════════════════════════
+(function detectarSesionTemprano() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  const userRol = sessionStorage.getItem('userRol');
+  const userName = sessionStorage.getItem('userName');
+
+  if (empresaId && userRol) {
+    console.log('🔐 Sesión detectada temprano, redirigiendo...');
+    // Ocultar bienvenida inmediatamente
+    const bienvenida = document.getElementById('screen-bienvenida');
+    if (bienvenida) bienvenida.classList.remove('active');
+    const topNav = document.getElementById('top-nav');
+    const bottomNav = document.getElementById('bottom-nav');
+    const fabBtn = document.getElementById('fab-btn');
+    if (topNav) topNav.style.display = 'flex';
+    if (bottomNav) bottomNav.style.display = 'flex';
+    if (fabBtn) fabBtn.style.display = 'flex';
+
+    // Navegar a la pantalla correcta
+    if (userRol === 'admin') {
+      if (typeof actualizarAdminUI === 'function') actualizarAdminUI(userName);
+      if (typeof goScreen === 'function') goScreen('dashboard');
+    } else {
+      const adminMenu = document.getElementById('admin-menu');
+      const btnCodigo = document.getElementById('btn-codigo');
+      if (adminMenu) adminMenu.style.display = 'none';
+      if (btnCodigo) btnCodigo.style.display = 'none';
+      if (typeof goScreen === 'function') goScreen('cliente');
+      if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
+    }
+
+    // Cargar datos de la empresa (después de que el DOM esté listo)
+    setTimeout(() => {
+      if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
+        store.cargarDatosEmpresa(empresaId).then(() => {
+          if (typeof syncGlobals === 'function') syncGlobals();
+          if (typeof updateKPIs === 'function') updateKPIs();
+          if (userRol === 'admin' && typeof renderChartVentas === 'function') {
+            setTimeout(() => renderChartVentas(), 300);
+          }
+        });
+      }
+    }, 100);
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════════
 //  LIMPIEZA DE SERVICE WORKERS (evita cache problemático)
@@ -22,20 +71,19 @@ if ('serviceWorker' in navigator) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR)
+//  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR MEJORADA)
 // ═══════════════════════════════════════════════════════════════
 
 // Templates para recrear modales si se necesitan
 const _modalTemplates = {};
 
 function forzarReflowBody() {
-  // Fuerza al navegador a recalcular todo el layout y descartar capas de pintura cacheadas
   const body = document.body;
   const originalDisplay = body.style.display;
   body.style.display = 'none';
-  void body.offsetHeight; // Forzar reflow
+  void body.offsetHeight;
   body.style.display = originalDisplay || '';
-  void body.offsetHeight; // Segundo reflow
+  void body.offsetHeight;
   console.log('🔄 Reflow forzado en body');
 }
 
@@ -57,41 +105,34 @@ function forzarCierreModal(modalId, destruir = false) {
 
   if (destruir) {
     try {
-      // Guardar template por si se necesita
       guardarTemplateModal(modalId);
 
-      // Estrategia 1: remove() (estándar)
+      // Múltiples estrategias de eliminación
       if (modal.remove) {
         modal.remove();
         console.log('🗑️ Modal eliminado con remove():', modalId);
-      } 
-      // Estrategia 2: parentNode.removeChild (fallback)
-      else if (modal.parentNode) {
+      } else if (modal.parentNode) {
         modal.parentNode.removeChild(modal);
         console.log('🗑️ Modal eliminado con removeChild():', modalId);
-      } 
-      // Estrategia 3: reemplazar con un texto vacío (último recurso)
-      else {
+      } else {
         modal.outerHTML = '';
         console.log('🗑️ Modal eliminado con outerHTML:', modalId);
       }
 
       // Verificar que realmente se eliminó
       if (document.getElementById(modalId)) {
-        console.warn('⚠️ El modal aún existe después de eliminarlo, forzando ocultación extrema');
+        console.warn('⚠️ El modal aún existe, forzando ocultación extrema');
         const m = document.getElementById(modalId);
         if (m) {
           m.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
           m.hidden = true;
           m.classList.remove('open');
-          // Intentar eliminar nuevamente con parentNode
           if (m.parentNode) m.parentNode.removeChild(m);
         }
       }
 
     } catch (e) {
       console.error('❌ Error destruyendo modal:', e);
-      // Fallback: ocultar completamente
       modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
       modal.hidden = true;
       modal.classList.remove('open');
@@ -107,18 +148,17 @@ function forzarCierreModal(modalId, destruir = false) {
 }
 
 function abrirModalId(modalId) {
+  if (_bloquearModales) {
+    console.log('🚫 Modales bloqueados, ignorando apertura de', modalId);
+    return;
+  }
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
-  // Limpiar TODOS los estilos de cierre previos
   modal.style.cssText = '';
   modal.classList.remove('open');
   modal.hidden = false;
-
-  // Forzar reflow para que el navegador procese la limpieza
   void modal.offsetHeight;
-
-  // Restaurar propiedades base necesarias
   modal.style.display = '';
   modal.style.opacity = '';
   modal.style.visibility = '';
@@ -132,7 +172,6 @@ function abrirModalId(modalId) {
   modal.classList.add('open');
   console.log('📂 Modal abierto:', modalId);
 }
-
 
 // ═══════════════════════════════════════════════════════════════
 //  PANTALLA DE BIENVENIDA
@@ -192,7 +231,18 @@ function generarCodigoAcceso() {
   return codigo;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  REGISTRO Y LOGIN (CON RECARGA AUTOMÁTICA)
+// ═══════════════════════════════════════════════════════════════
+
 async function registrarEmpresa() {
+  _bloquearModales = true;
+  _registrando = true;
+
+  // Cerrar cualquier instancia previa
+  forzarCierreModal('modal-registro-empresa', true);
+  await new Promise(r => setTimeout(r, 100));
+
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
@@ -200,21 +250,22 @@ async function registrarEmpresa() {
 
   if (!nombreNegocio || !nombreAdmin || !email || !password) {
     showToast('❌ Completa todos los campos');
+    _bloquearModales = false;
+    _registrando = false;
     return;
   }
   if (password.length < 6) {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    _bloquearModales = false;
+    _registrando = false;
     return;
   }
 
-  // Deshabilitar botón para evitar múltiples envíos
-  const btn = document.querySelector('#modal-registro-empresa .btn-primary');
-  if (btn) btn.disabled = true;
-
-  _registrando = true;
+  let user = null;
+  let empresaId = null;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
+    user = userCredential.user;
 
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
@@ -223,7 +274,7 @@ async function registrarEmpresa() {
       creadoPor: user.uid,
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
-    const empresaId = empresaRef.id;
+    empresaId = empresaRef.id;
 
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
@@ -254,10 +305,11 @@ async function registrarEmpresa() {
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
 
-    // Recargar la página para limpiar cualquier estado de modal
+    // Recargar la página después de un breve retraso
     setTimeout(() => {
+      console.log('🔄 Recargando página para limpiar estado de render...');
       window.location.reload();
-    }, 1500);
+    }, 600);
 
   } catch (error) {
     console.error('❌ Error registrando franquicia:', error);
@@ -268,14 +320,21 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Re-habilitar botón en caso de error
-    if (btn) btn.disabled = false;
-  } finally {
+    // Cerrar modal en caso de error
+    forzarCierreModal('modal-registro-empresa', true);
+    forzarReflowBody();
+    _bloquearModales = false;
     _registrando = false;
   }
 }
 
 async function registrarClienteNuevo() {
+  _bloquearModales = true;
+  _registrando = true;
+
+  forzarCierreModal('modal-registro-cliente', true);
+  await new Promise(r => setTimeout(r, 100));
+
   const nombre   = document.getElementById('reg-cli-nombre').value.trim();
   const email    = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
@@ -283,21 +342,23 @@ async function registrarClienteNuevo() {
 
   if (!nombre || !email || !password || !codigo) {
     showToast('❌ Completa todos los campos');
+    _bloquearModales = false;
+    _registrando = false;
     return;
   }
   if (password.length < 6) {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    _bloquearModales = false;
+    _registrando = false;
     return;
   }
   if (codigo.length !== 6) {
     showToast('❌ El código debe tener 6 caracteres');
+    _bloquearModales = false;
+    _registrando = false;
     return;
   }
 
-  const btn = document.querySelector('#modal-registro-cliente .btn-primary');
-  if (btn) btn.disabled = true;
-
-  _registrando = true;
   let user = null;
   let empresaId = null;
   try {
@@ -312,7 +373,9 @@ async function registrarClienteNuevo() {
     if (empresasSnapshot.empty) {
       await user.delete();
       showToast('❌ Código de invitación no válido');
-      if (btn) btn.disabled = false;
+      forzarCierreModal('modal-registro-cliente', true);
+      _bloquearModales = false;
+      _registrando = false;
       return;
     }
 
@@ -352,10 +415,11 @@ async function registrarClienteNuevo() {
 
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
 
-    // Recargar la página para limpiar cualquier estado de modal
+    // Recargar para limpiar estado
     setTimeout(() => {
+      console.log('🔄 Recargando página para limpiar estado de render...');
       window.location.reload();
-    }, 1500);
+    }, 600);
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
@@ -371,19 +435,20 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    if (btn) btn.disabled = false;
-  } finally {
+    forzarCierreModal('modal-registro-cliente', true);
+    forzarReflowBody();
+    _bloquearModales = false;
     _registrando = false;
   }
 }
-
 
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
 
   if (!email || !password) {
-    showToast('❌ Ingresa correo y contraseña'); return;
+    showToast('❌ Ingresa correo y contraseña');
+    return;
   }
 
   try {
@@ -413,36 +478,11 @@ async function loginUnificado() {
     forzarCierreModal('modal-login', true);
     forzarReflowBody();
     await new Promise(r => setTimeout(r, 100));
-    ocultarPantallaBienvenida();
 
-    if (rol === 'admin') {
-      actualizarAdminUI(nombre);
-      await store.cargarDatosEmpresa(empresaId);
-      syncGlobals();
-      goScreen('dashboard');
-      setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-
-      setTimeout(() => {
-        if (typeof solicitarPermisoNotificaciones === 'function') {
-          solicitarPermisoNotificaciones().then(token => {
-            if (token) {
-              showToast('🔔 Notificaciones activadas');
-              if (typeof escucharMensajesForeground === 'function') escucharMensajesForeground();
-            }
-          });
-        }
-      }, 1000);
-
-      showToast(`✅ Bienvenido, ${nombre}`);
-    } else {
-      document.getElementById('admin-menu').style.display = 'none';
-      document.getElementById('btn-codigo').style.display = 'none';
-      await store.cargarDatosEmpresa(empresaId);
-      syncGlobals();
-      goScreen('cliente');
-      mostrarPanelCliente();
-      showToast(`✅ Bienvenido, ${nombre}`);
-    }
+    // Recargar para limpiar cualquier estado residual
+    setTimeout(() => {
+      window.location.reload();
+    }, 300);
 
   } catch (error) {
     console.error('❌ Error en login:', error);
@@ -457,6 +497,11 @@ async function loginUnificado() {
     }
   }
 }
+
+// ================================================================
+//  A PARTIR DE AQUÍ SE MANTIENE TODO EL CÓDIGO ORIGINAL
+//  (funciones de navegación, gestión, renderizado, etc.)
+// ================================================================
 
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -588,7 +633,6 @@ function loadTheme() {
     if (themeBtn) themeBtn.textContent = '☀️';
   }
 }
-
 
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
@@ -834,7 +878,6 @@ async function updateClienteFromModal(nombreOriginal) {
   }
 }
 
-
 function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
     try {
@@ -1056,7 +1099,6 @@ function actualizarAdminUI(nombre) {
     if (btnCodigo) btnCodigo.style.display = 'none';
   }
 }
-
 
 async function loginCliente() {
   await loginUnificado();
@@ -1287,7 +1329,6 @@ function vaciarCarrito() {
   showToast('🗑️ Carrito vacío');
 }
 
-
 async function realizarPedido() {
   if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
@@ -1504,7 +1545,6 @@ function actualizarResumenConfiguracion() {
   }
 }
 
-
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
   const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
@@ -1713,7 +1753,6 @@ async function cargarMensajesChat() {
     handleError(error, 'Error cargando mensajes');
   }
 }
-
 
 function abrirModalAlerta() {
   const body = `
@@ -1985,6 +2024,9 @@ function cambiarTabCliente(tabId) {
   if (tabId === 'pedidos') renderHistorial();
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN (DOMContentLoaded)
+// ═══════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
   const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -2000,13 +2042,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof cargarCarrito === 'function') cargarCarrito();
   if (typeof initStore === 'function') initStore();
 
-  // Verificar sesión existente — SIN ÍNDICES (userProfiles)
+  // onAuthStateChanged con bloqueo
   firebase.auth().onAuthStateChanged(async (user) => {
-    if (_registrando) {
+    if (_registrando || _bloquearModales) {
       console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
       return;
     }
-    // Si ya hay sesión activa en sessionStorage, el registro/login ya la manejó
     if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
       console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
       return;
@@ -2034,8 +2075,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('userName', nombre);
         sessionStorage.setItem('userRol', rol);
 
+        // Si ya estamos en la página, simplemente ocultamos bienvenida y navegamos
+        // (la detección temprana ya se ejecutó antes)
         ocultarPantallaBienvenida();
-
         if (rol === 'admin') {
           actualizarAdminUI(nombre);
           await store.cargarDatosEmpresa(empresaId);

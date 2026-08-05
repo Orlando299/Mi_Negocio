@@ -10,6 +10,51 @@ let filtroCatalogo = 'todas';
 let _registrando = false;
 
 // ═══════════════════════════════════════════════════════════════
+//  DETECCIÓN TEMPRANA DE SESIÓN
+// ═══════════════════════════════════════════════════════════════
+(function detectarSesionTemprano() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  const userRol = sessionStorage.getItem('userRol');
+  const userName = sessionStorage.getItem('userName');
+
+  if (empresaId && userRol) {
+    console.log('🔐 Sesión detectada temprano, redirigiendo...');
+    
+    const bienvenida = document.getElementById('screen-bienvenida');
+    if (bienvenida) {
+      bienvenida.classList.remove('active');
+      bienvenida.style.display = 'none';
+    }
+    
+    document.getElementById('top-nav').style.display = 'flex';
+    document.getElementById('bottom-nav').style.display = 'flex';
+    document.getElementById('fab-btn').style.display = 'flex';
+    
+    if (userRol === 'admin') {
+      if (typeof actualizarAdminUI === 'function') actualizarAdminUI(userName);
+      if (typeof goScreen === 'function') goScreen('dashboard');
+    } else {
+      document.getElementById('admin-menu').style.display = 'none';
+      document.getElementById('btn-codigo').style.display = 'none';
+      if (typeof goScreen === 'function') goScreen('cliente');
+      if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
+    }
+    
+    setTimeout(() => {
+      if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
+        store.cargarDatosEmpresa(empresaId).then(() => {
+          if (typeof syncGlobals === 'function') syncGlobals();
+          if (typeof updateKPIs === 'function') updateKPIs();
+          if (userRol === 'admin' && typeof renderChartVentas === 'function') {
+            setTimeout(() => renderChartVentas(), 300);
+          }
+        });
+      }
+    }, 100);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════
 //  LIMPIEZA DE SERVICE WORKERS (evita cache problemático)
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
@@ -139,6 +184,12 @@ function abrirModalId(modalId) {
 // ═══════════════════════════════════════════════════════════════
 
 function mostrarPantallaBienvenida() {
+  // Si hay sesión, no hacer nada
+  if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+    console.log('⏳ Sesión activa, no se muestra bienvenida');
+    return;
+  }
+
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.add('active');
   document.getElementById('top-nav').style.display = 'none';
@@ -2007,10 +2058,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     // Si ya hay sesión activa en sessionStorage, el registro/login ya la manejó
-    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-      return;
-    }
+ if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+  console.log('ℹ️ Sesión ya activa en sessionStorage, ocultando bienvenida...');
+  ocultarPantallaBienvenida();
+  const empresaId = sessionStorage.getItem('empresaId');
+  const rol = sessionStorage.getItem('userRol');
+  const nombre = sessionStorage.getItem('userName') || 'Usuario';
+  if (rol === 'admin') {
+    actualizarAdminUI(nombre);
+    goScreen('dashboard');
+  } else {
+    document.getElementById('admin-menu').style.display = 'none';
+    document.getElementById('btn-codigo').style.display = 'none';
+    goScreen('cliente');
+    mostrarPanelCliente();
+  }
+  return;
+}
     if (user) {
       try {
         const perfilDoc = await firebase.firestore()

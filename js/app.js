@@ -175,22 +175,30 @@ function generarCodigoAcceso() {
 }
 
 async function registrarEmpresa() {
+  // Cerrar cualquier instancia previa
+  forzarCierreModal('modal-registro-empresa', true);
+  await new Promise(r => setTimeout(r, 100));
+
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
   const password      = document.getElementById('reg-emp-pass').value;
 
   if (!nombreNegocio || !nombreAdmin || !email || !password) {
-    showToast('❌ Completa todos los campos'); return;
+    showToast('❌ Completa todos los campos');
+    return;
   }
   if (password.length < 6) {
-    showToast('❌ La contraseña debe tener al menos 6 caracteres'); return;
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
   }
 
   _registrando = true;
+  let user = null;
+  let empresaId = null;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
+    user = userCredential.user;
 
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
@@ -199,9 +207,10 @@ async function registrarEmpresa() {
       creadoPor: user.uid,
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
+    empresaId = empresaRef.id;
 
     await firebase.firestore()
-      .collection('empresas').doc(empresaRef.id)
+      .collection('empresas').doc(empresaId)
       .collection('usuarios').doc(user.uid)
       .set({
         uid: user.uid,
@@ -218,21 +227,23 @@ async function registrarEmpresa() {
         nombre: nombreAdmin,
         email: email,
         rol: 'admin',
-        empresaId: empresaRef.id,
+        empresaId: empresaId,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-    sessionStorage.setItem('empresaId', empresaRef.id);
+    sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
 
-    forzarCierreModal('modal-registro-empresa');
-    await new Promise(r => setTimeout(r, 100));
+    // Cerrar modal con destrucción
+    forzarCierreModal('modal-registro-empresa', true);
+    await new Promise(r => setTimeout(r, 200));
+    forzarReflowBody();
 
     ocultarPantallaBienvenida();
     actualizarAdminUI(nombreAdmin);
-    await store.cargarDatosEmpresa(empresaRef.id);
+    await store.cargarDatosEmpresa(empresaId);
     syncGlobals();
     goScreen('dashboard');
 
@@ -258,25 +269,38 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+    // Cerrar modal incluso en error
+    forzarCierreModal('modal-registro-empresa', true);
+    forzarReflowBody();
   } finally {
-    setTimeout(() => { _registrando = false; }, 800);
+    _registrando = false;
+    // Asegurar cierre definitivo
+    forzarCierreModal('modal-registro-empresa', true);
+    forzarReflowBody();
   }
 }
 
 async function registrarClienteNuevo() {
+  // Cerrar cualquier instancia previa
+  forzarCierreModal('modal-registro-cliente', true);
+  await new Promise(r => setTimeout(r, 100));
+
   const nombre   = document.getElementById('reg-cli-nombre').value.trim();
   const email    = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
   const codigo   = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
 
   if (!nombre || !email || !password || !codigo) {
-    showToast('❌ Completa todos los campos'); return;
+    showToast('❌ Completa todos los campos');
+    return;
   }
   if (password.length < 6) {
-    showToast('❌ La contraseña debe tener al menos 6 caracteres'); return;
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
   }
   if (codigo.length !== 6) {
-    showToast('❌ El código debe tener 6 caracteres'); return;
+    showToast('❌ El código debe tener 6 caracteres');
+    return;
   }
 
   let user = null;
@@ -331,8 +355,10 @@ async function registrarClienteNuevo() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
 
-    forzarCierreModal('modal-registro-cliente');
-    await new Promise(r => setTimeout(r, 100));
+    // Cerrar modal con destrucción
+    forzarCierreModal('modal-registro-cliente', true);
+    await new Promise(r => setTimeout(r, 200));
+    forzarReflowBody();
 
     ocultarPantallaBienvenida();
     document.getElementById('admin-menu').style.display = 'none';
@@ -359,8 +385,14 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+    // Cerrar modal incluso en error
+    forzarCierreModal('modal-registro-cliente', true);
+    forzarReflowBody();
   } finally {
-    setTimeout(() => { _registrando = false; }, 800);
+    _registrando = false;
+    // Asegurar cierre definitivo
+    forzarCierreModal('modal-registro-cliente', true);
+    forzarReflowBody();
   }
 }
 

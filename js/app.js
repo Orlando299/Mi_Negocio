@@ -272,12 +272,14 @@ async function registrarEmpresa() {
     // Cerrar modal incluso en error
     forzarCierreModal('modal-registro-empresa', true);
     forzarReflowBody();
-  } finally {
-    _registrando = false;
-    // Asegurar cierre definitivo
-    forzarCierreModal('modal-registro-empresa', true);
-    forzarReflowBody();
-  }
+  } 
+  finally {
+  // Cerrar y destruir el modal ANTES de liberar la bandera
+  forzarCierreModal('modal-registro-empresa', true);
+  forzarReflowBody();
+  // Liberar la bandera después de asegurar el cierre
+  _registrando = false;
+}
 }
 
 async function registrarClienteNuevo() {
@@ -388,12 +390,12 @@ async function registrarClienteNuevo() {
     // Cerrar modal incluso en error
     forzarCierreModal('modal-registro-cliente', true);
     forzarReflowBody();
-  } finally {
-    _registrando = false;
-    // Asegurar cierre definitivo
-    forzarCierreModal('modal-registro-cliente', true);
-    forzarReflowBody();
-  }
+  } 
+  finally {
+  forzarCierreModal('modal-registro-cliente', true);
+  forzarReflowBody();
+  _registrando = false;
+}
 }
 
 

@@ -55,25 +55,43 @@ function forzarCierreModal(modalId, destruir = false) {
 
   console.log('🔒 Cerrando modal:', modalId, '| destruir:', destruir);
 
-  // Guardar template antes de destruir (por si se necesita recrear)
   if (destruir) {
-    guardarTemplateModal(modalId);
-  }
-
-  // Quitar foco
-  const activeEl = document.activeElement;
-  if (activeEl && modal.contains(activeEl)) {
-    activeEl.blur();
-  }
-
-  // === ESTRATEGIA NUCLEAR: eliminar del DOM inmediatamente ===
-  if (destruir && modal.parentNode) {
     try {
-      modal.parentNode.removeChild(modal);
-      console.log('🗑️ Modal DESTRUIDO del DOM:', modalId);
+      // Guardar template por si se necesita
+      guardarTemplateModal(modalId);
+
+      // Estrategia 1: remove() (estándar)
+      if (modal.remove) {
+        modal.remove();
+        console.log('🗑️ Modal eliminado con remove():', modalId);
+      } 
+      // Estrategia 2: parentNode.removeChild (fallback)
+      else if (modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+        console.log('🗑️ Modal eliminado con removeChild():', modalId);
+      } 
+      // Estrategia 3: reemplazar con un texto vacío (último recurso)
+      else {
+        modal.outerHTML = '';
+        console.log('🗑️ Modal eliminado con outerHTML:', modalId);
+      }
+
+      // Verificar que realmente se eliminó
+      if (document.getElementById(modalId)) {
+        console.warn('⚠️ El modal aún existe después de eliminarlo, forzando ocultación extrema');
+        const m = document.getElementById(modalId);
+        if (m) {
+          m.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
+          m.hidden = true;
+          m.classList.remove('open');
+          // Intentar eliminar nuevamente con parentNode
+          if (m.parentNode) m.parentNode.removeChild(m);
+        }
+      }
+
     } catch (e) {
       console.error('❌ Error destruyendo modal:', e);
-      // Fallback: ocultar todo lo posible
+      // Fallback: ocultar completamente
       modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
       modal.hidden = true;
       modal.classList.remove('open');
@@ -273,12 +291,19 @@ async function registrarEmpresa() {
     forzarCierreModal('modal-registro-empresa', true);
     forzarReflowBody();
   } 
-  finally {
+finally {
+  // Eliminar modal inmediatamente
   forzarCierreModal('modal-registro-empresa', true);
   forzarReflowBody();
+
+  // Esperar a que el DOM se actualice y luego liberar banderas
   setTimeout(() => {
+    // Cierre adicional por si acaso
+    forzarCierreModal('modal-registro-empresa', true);
     _registrando = false;
-  }, 200);
+    _bloquearModales = false;
+    console.log('🔓 Bandera _registrando liberada');
+  }, 300);
 }
 }
 
@@ -391,12 +416,19 @@ async function registrarClienteNuevo() {
     forzarCierreModal('modal-registro-cliente', true);
     forzarReflowBody();
   } 
-  finally {
-  forzarCierreModal('modal-registro-cliente', true);
+ finally {
+  // Eliminar modal inmediatamente
+  forzarCierreModal('modal-registro-empresa', true);
   forzarReflowBody();
+
+  // Esperar a que el DOM se actualice y luego liberar banderas
   setTimeout(() => {
+    // Cierre adicional por si acaso
+    forzarCierreModal('modal-registro-cliente', true);
     _registrando = false;
-  }, 200);
+    _bloquearModales = false;
+    console.log('🔓 Bandera _registrando liberada');
+  }, 300);
 }
 }
 

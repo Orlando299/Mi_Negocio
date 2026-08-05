@@ -1,3 +1,5 @@
+document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
 // ── VARIABLES GLOBALES ──
 let currentScreen = 'dashboard';
 const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion'];
@@ -236,10 +238,20 @@ function generarCodigoAcceso() {
 // ═══════════════════════════════════════════════════════════════
 
 async function registrarEmpresa() {
+  // === DESHABILITAR BOTÓN PARA EVITAR DOBLE CLIC O CLIC FANTASMA ===
+  const btn = document.querySelector('#modal-body-registro-empresa .btn-primary');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Registrando...';
+  }
+
   _bloquearModales = true;
   _registrando = true;
 
-  // Leer valores ANTES de cerrar el modal
+  // Cerrar cualquier instancia previa
+  forzarCierreModal('modal-registro-empresa', true);
+  await new Promise(r => setTimeout(r, 100));
+
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
@@ -247,21 +259,25 @@ async function registrarEmpresa() {
 
   if (!nombreNegocio || !nombreAdmin || !email || !password) {
     showToast('❌ Completa todos los campos');
+    // Restaurar botón si hay error
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Crear negocio';
+    }
     _bloquearModales = false;
     _registrando = false;
     return;
   }
   if (password.length < 6) {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Crear negocio';
+    }
     _bloquearModales = false;
     _registrando = false;
     return;
   }
-
-  // Cerrar modal (opcional, pero podemos hacerlo)
-  forzarCierreModal('modal-registro-empresa', true);
-  await new Promise(r => setTimeout(r, 100));
-  forzarReflowBody();
 
   let user = null;
   let empresaId = null;
@@ -307,7 +323,7 @@ async function registrarEmpresa() {
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
 
-    // Recargar página después de 600ms
+    // Recargar la página después de un breve retraso
     setTimeout(() => {
       console.log('🔄 Recargando página para limpiar estado de render...');
       window.location.reload();
@@ -322,7 +338,12 @@ async function registrarEmpresa() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    // Cerrar modal en caso de error (pero ya no existe, manejarlo)
+    // Restaurar botón en caso de error
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Crear negocio';
+    }
+    // Cerrar modal en caso de error
     forzarCierreModal('modal-registro-empresa', true);
     forzarReflowBody();
     _bloquearModales = false;
@@ -331,6 +352,13 @@ async function registrarEmpresa() {
 }
 
 async function registrarClienteNuevo() {
+  // === DESHABILITAR BOTÓN PARA EVITAR DOBLE CLIC O CLIC FANTASMA ===
+  const btn = document.querySelector('#modal-body-registro-cliente .btn-primary');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Registrando...';
+  }
+
   _bloquearModales = true;
   _registrando = true;
 
@@ -344,18 +372,30 @@ async function registrarClienteNuevo() {
 
   if (!nombre || !email || !password || !codigo) {
     showToast('❌ Completa todos los campos');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Unirme';
+    }
     _bloquearModales = false;
     _registrando = false;
     return;
   }
   if (password.length < 6) {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Unirme';
+    }
     _bloquearModales = false;
     _registrando = false;
     return;
   }
   if (codigo.length !== 6) {
     showToast('❌ El código debe tener 6 caracteres');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Unirme';
+    }
     _bloquearModales = false;
     _registrando = false;
     return;
@@ -376,6 +416,10 @@ async function registrarClienteNuevo() {
       await user.delete();
       showToast('❌ Código de invitación no válido');
       forzarCierreModal('modal-registro-cliente', true);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Unirme';
+      }
       _bloquearModales = false;
       _registrando = false;
       return;
@@ -436,6 +480,11 @@ async function registrarClienteNuevo() {
       showToast('❌ La contraseña debe tener al menos 6 caracteres');
     } else {
       showToast('❌ Error: ' + error.message);
+    }
+    // Restaurar botón en caso de error
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Unirme';
     }
     forzarCierreModal('modal-registro-cliente', true);
     forzarReflowBody();
@@ -2044,65 +2093,68 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof cargarCarrito === 'function') cargarCarrito();
   if (typeof initStore === 'function') initStore();
 
-  // onAuthStateChanged con bloqueo
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (_registrando || _bloquearModales) {
-      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
-      return;
-    }
-    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-      return;
-    }
-    if (user) {
-      try {
-        const perfilDoc = await firebase.firestore()
-          .collection('userProfiles').doc(user.uid)
-          .get();
+// onAuthStateChanged con bloqueo
+firebase.auth().onAuthStateChanged(async (user) => {
+  if (_registrando || _bloquearModales) {
+    console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+    return;
+  }
+  if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+    console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+    return;
+  }
+  if (user) {
+    try {
+      const perfilDoc = await firebase.firestore()
+        .collection('userProfiles').doc(user.uid)
+        .get();
 
-        if (!perfilDoc.exists) {
-          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-          await firebase.auth().signOut();
-          mostrarPantallaBienvenida();
-          return;
-        }
-
-        const perfil = perfilDoc.data();
-        const empresaId = perfil.empresaId;
-        const rol = perfil.rol;
-        const nombre = perfil.nombre || user.email;
-
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', user.email);
-        sessionStorage.setItem('userName', nombre);
-        sessionStorage.setItem('userRol', rol);
-
-        // Si ya estamos en la página, simplemente ocultamos bienvenida y navegamos
-        // (la detección temprana ya se ejecutó antes)
-        ocultarPantallaBienvenida();
-        if (rol === 'admin') {
-          actualizarAdminUI(nombre);
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('dashboard');
-          setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-        } else {
-          document.getElementById('admin-menu').style.display = 'none';
-          document.getElementById('btn-codigo').style.display = 'none';
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('cliente');
-          mostrarPanelCliente();
-        }
-
-      } catch (error) {
-        console.error('❌ Error verificando sesión:', error);
+      if (!perfilDoc.exists) {
+        console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+        await firebase.auth().signOut();
         mostrarPantallaBienvenida();
+        return;
       }
-    } else {
+
+      const perfil = perfilDoc.data();
+      const empresaId = perfil.empresaId;
+      const rol = perfil.rol;
+      const nombre = perfil.nombre || user.email;
+
+      sessionStorage.setItem('empresaId', empresaId);
+      sessionStorage.setItem('userEmail', user.email);
+      sessionStorage.setItem('userName', nombre);
+      sessionStorage.setItem('userRol', rol);
+
+      ocultarPantallaBienvenida();
+
+      // === ELIMINAR TODOS LOS MODALES DEL DOM ===
+      document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+      console.log('🗑️ Modales eliminados del DOM en onAuthStateChanged');
+
+      if (rol === 'admin') {
+        actualizarAdminUI(nombre);
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('dashboard');
+        setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
+      } else {
+        document.getElementById('admin-menu').style.display = 'none';
+        document.getElementById('btn-codigo').style.display = 'none';
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('cliente');
+        mostrarPanelCliente();
+      }
+
+    } catch (error) {
+      console.error('❌ Error verificando sesión:', error);
       mostrarPantallaBienvenida();
     }
-  });
+  } else {
+    mostrarPantallaBienvenida();
+  }
+});
 
   // Eventos para pestañas de configuración
   document.addEventListener('click', function(e) {

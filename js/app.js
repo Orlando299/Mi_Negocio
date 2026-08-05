@@ -25,9 +25,36 @@ if ('serviceWorker' in navigator) {
 //  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR)
 // ═══════════════════════════════════════════════════════════════
 
-function forzarCierreModal(modalId) {
+function forzarCierreModal(modalId, eliminarDelDOM = false) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
+
+  console.log('🔒 forzarCierreModal ejecutado para:', modalId);
+
+  // === CAPA 0: Inyectar CSS nuclear directamente en el DOM (ignora cache del SW) ===
+  if (!document.getElementById('modal-nuclear-css')) {
+    const style = document.createElement('style');
+    style.id = 'modal-nuclear-css';
+    style.textContent = `
+      .modal-overlay:not(.open),
+      .modal-overlay:not(.open) * {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        position: fixed !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        z-index: -9999 !important;
+        transform: translateY(100vh) !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+      }
+      .modal-overlay.open { display: flex !important; }
+    `;
+    document.head.appendChild(style);
+    console.log('☢️ CSS nuclear inyectado en DOM');
+  }
 
   // Quitar foco de cualquier input dentro del modal
   const activeEl = document.activeElement;
@@ -36,10 +63,13 @@ function forzarCierreModal(modalId) {
     if (document.body.focus) document.body.focus();
   }
 
-  // Capa 1: Remover clase open
+  // === CAPA 1: Remover clase open ===
   modal.classList.remove('open');
 
-  // Capa 2: Style inline con !important usando setProperty
+  // === CAPA 2: hidden attribute (más fuerte que CSS) ===
+  modal.hidden = true;
+
+  // === CAPA 3: Style inline con !important ===
   modal.style.setProperty('display', 'none', 'important');
   modal.style.setProperty('opacity', '0', 'important');
   modal.style.setProperty('visibility', 'hidden', 'important');
@@ -48,37 +78,43 @@ function forzarCierreModal(modalId) {
   modal.style.setProperty('position', 'fixed', 'important');
   modal.style.setProperty('top', '-9999px', 'important');
   modal.style.setProperty('left', '-9999px', 'important');
+  modal.style.setProperty('transform', 'translateY(100vh)', 'important');
 
-  // Capa 3: MutationObserver — si ALGO intenta reabrir el modal, lo anula
+  // === CAPA 4: MutationObserver — si ALGO intenta reabrir, lo anula ===
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       if (mutation.type === 'attributes') {
         const isOpen = modal.classList.contains('open');
-        const computedDisplay = window.getComputedStyle(modal).display;
-        if (isOpen || computedDisplay !== 'none') {
+        const isHidden = modal.hidden;
+        if (isOpen || !isHidden) {
+          console.log('🛡️ Observer bloqueando reapertura de:', modalId);
           modal.classList.remove('open');
+          modal.hidden = true;
           modal.style.setProperty('display', 'none', 'important');
-          modal.style.setProperty('opacity', '0', 'important');
-          modal.style.setProperty('visibility', 'hidden', 'important');
-          modal.style.setProperty('top', '-9999px', 'important');
         }
       }
     });
   });
+  observer.observe(modal, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
 
-  observer.observe(modal, { attributes: true, attributeFilter: ['class', 'style'] });
-
-  // Capa 4: Verificación periódica durante 3 segundos
+  // === CAPA 5: Verificación periódica durante 5 segundos ===
   let checks = 0;
   const interval = setInterval(() => {
     checks++;
-    if (modal.classList.contains('open')) {
+    if (modal.classList.contains('open') || !modal.hidden) {
+      console.log('🛡️ Interval bloqueando reapertura de:', modalId);
       modal.classList.remove('open');
+      modal.hidden = true;
       modal.style.setProperty('display', 'none', 'important');
     }
-    if (checks >= 6) {
+    if (checks >= 10) {
       clearInterval(interval);
       observer.disconnect();
+      // Si se pidió eliminar del DOM, lo removemos completamente
+      if (eliminarDelDOM && modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+        console.log('🗑️ Modal eliminado del DOM:', modalId);
+      }
     }
   }, 500);
 }
@@ -90,6 +126,7 @@ function abrirModalId(modalId) {
   // Limpiar TODOS los estilos de cierre previos
   modal.style.cssText = '';
   modal.classList.remove('open');
+  modal.hidden = false;
 
   // Forzar reflow para que el navegador procese la limpieza
   void modal.offsetHeight;
@@ -103,8 +140,10 @@ function abrirModalId(modalId) {
   modal.style.position = '';
   modal.style.top = '';
   modal.style.left = '';
+  modal.style.transform = '';
 
   modal.classList.add('open');
+  console.log('📂 Modal abierto:', modalId);
 }
 
 
@@ -389,7 +428,8 @@ async function loginUnificado() {
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', rol);
 
-    forzarCierreModal('modal-login');
+    forzarCierreModal('modal-login', true);
+    await new Promise(r => setTimeout(r, 100));
     ocultarPantallaBienvenida();
 
     if (rol === 'admin') {

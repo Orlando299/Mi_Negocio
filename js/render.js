@@ -34,6 +34,7 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
         <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
         <div>
           <button class="btn-icon edit" onclick="editVenta('${v.id}')" title="Editar">✏️</button>
+          ${v.status === 'pendiente' ? `<button class="btn-icon" onclick="abrirModalDespacho('${v.id}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
           <button class="btn-icon danger" onclick="confirmDeleteVenta('${v.id}')" title="Eliminar">🗑️</button>
           <button class="btn-icon" onclick="generarFactura('${v.id}')" title="Factura" style="color:var(--primary);">🧾</button>
         </div>

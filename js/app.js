@@ -9,6 +9,13 @@ let filtroCatalogo = 'todas';
 // Bandera para evitar que onAuthStateChanged interfiera durante registro
 let _registrando = false;
 
+// ── CONFIGURACIÓN DE TIPOS DE ENVASE (para despacho) ──
+const TIPOS_ENVASE = {
+  botella_222ml: { nombre: 'Botella retornable 222 ml', unidadesPorEnvase: 36 },
+  botella_330ml: { nombre: 'Botella retornable 330 ml', unidadesPorEnvase: 24 },
+  botella_350ml: { nombre: 'Botella de refresco 350 ml', unidadesPorEnvase: 24 }
+};
+
 // ═══════════════════════════════════════════════════════════════
 //  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
 // ═══════════════════════════════════════════════════════════════
@@ -19,7 +26,6 @@ let _registrando = false;
 
   if (empresaId && userRol) {
     console.log('🔐 Sesión detectada temprano, redirigiendo...');
-    // Ocultar bienvenida con fuerza
     const bienvenida = document.getElementById('screen-bienvenida');
     if (bienvenida) {
       bienvenida.classList.remove('active');
@@ -28,7 +34,6 @@ let _registrando = false;
       bienvenida.style.pointerEvents = 'none';
       bienvenida.style.opacity = '0';
     }
-    // Mostrar navegación
     const topNav = document.getElementById('top-nav');
     const bottomNav = document.getElementById('bottom-nav');
     const fabBtn = document.getElementById('fab-btn');
@@ -36,7 +41,6 @@ let _registrando = false;
     if (bottomNav) bottomNav.style.display = 'flex';
     if (fabBtn) fabBtn.style.display = 'flex';
 
-    // Navegar a la pantalla correcta
     if (userRol === 'admin') {
       if (typeof actualizarAdminUI === 'function') actualizarAdminUI(userName);
       if (typeof goScreen === 'function') goScreen('dashboard');
@@ -49,7 +53,6 @@ let _registrando = false;
       if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
     }
 
-    // Cargar datos de la empresa (después de que el DOM esté listo)
     setTimeout(() => {
       if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
         store.cargarDatosEmpresa(empresaId).then(() => {
@@ -65,7 +68,7 @@ let _registrando = false;
 })();
 
 // ═══════════════════════════════════════════════════════════════
-//  LIMPIEZA DE SERVICE WORKERS (evita cache problemático)
+//  LIMPIEZA DE SERVICE WORKERS
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -77,10 +80,8 @@ if ('serviceWorker' in navigator) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FUNCIONES AUXILIARES DE MODALES (VERSIÓN NUCLEAR)
+//  FUNCIONES AUXILIARES DE MODALES
 // ═══════════════════════════════════════════════════════════════
-
-// Templates para recrear modales si se necesitan
 const _modalTemplates = {};
 
 function forzarReflowBody() {
@@ -106,9 +107,7 @@ function forzarCierreModal(modalId, destruir = false) {
     console.log('⚠️ Modal no encontrado (ya destruido?):', modalId);
     return;
   }
-
   console.log('🔒 Cerrando modal:', modalId, '| destruir:', destruir);
-
   if (destruir) {
     try {
       guardarTemplateModal(modalId);
@@ -140,7 +139,6 @@ function forzarCierreModal(modalId, destruir = false) {
     }
     return;
   }
-
   modal.classList.remove('open');
   modal.hidden = true;
   modal.style.cssText = 'display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;position:fixed!important;top:-99999px!important;left:-99999px!important;z-index:-99999!important;transform:scale(0)!important;';
@@ -150,7 +148,6 @@ function forzarCierreModal(modalId, destruir = false) {
 function abrirModalId(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
-
   modal.style.cssText = '';
   modal.classList.remove('open');
   modal.hidden = false;
@@ -164,26 +161,20 @@ function abrirModalId(modalId) {
   modal.style.top = '';
   modal.style.left = '';
   modal.style.transform = '';
-
   modal.classList.add('open');
   console.log('📂 Modal abierto:', modalId);
 }
 
-
 // ═══════════════════════════════════════════════════════════════
-//  PANTALLA DE BIENVENIDA (CON VERIFICACIÓN DE SESIÓN)
+//  PANTALLA DE BIENVENIDA Y REGISTRO/LOGIN
 // ═══════════════════════════════════════════════════════════════
-
 function mostrarPantallaBienvenida() {
-  // Si hay sesión activa, no mostrar bienvenida
   if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
     console.log('⏳ Sesión activa, no se muestra bienvenida');
     return;
   }
-
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) {
-    // Restaurar estilos para que sea visible
     bienvenida.style.display = '';
     bienvenida.style.visibility = '';
     bienvenida.style.pointerEvents = '';
@@ -247,16 +238,11 @@ function generarCodigoAcceso() {
   return codigo;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  REGISTRO Y LOGIN
-// ═══════════════════════════════════════════════════════════════
-
 async function registrarEmpresa() {
   const nombreNegocio = document.getElementById('reg-emp-nombre').value.trim();
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
   const password      = document.getElementById('reg-emp-pass').value;
-
   if (!nombreNegocio || !nombreAdmin || !email || !password) {
     showToast('❌ Completa todos los campos');
     return;
@@ -265,15 +251,12 @@ async function registrarEmpresa() {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
     return;
   }
-
   const btn = document.querySelector('#modal-registro-empresa .btn-primary');
   if (btn) btn.disabled = true;
-
   _registrando = true;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
       nombre: nombreNegocio,
@@ -282,7 +265,6 @@ async function registrarEmpresa() {
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
     const empresaId = empresaRef.id;
-
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('usuarios').doc(user.uid)
@@ -293,7 +275,6 @@ async function registrarEmpresa() {
         rol: 'admin',
         fcmToken: ''
       });
-
     await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .set({
@@ -304,19 +285,12 @@ async function registrarEmpresa() {
         empresaId: empresaId,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
-
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
-
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
-
-    // Recargar para limpiar estado
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
-
+    setTimeout(() => { window.location.reload(); }, 1500);
   } catch (error) {
     console.error('❌ Error registrando franquicia:', error);
     if (error.code === 'auth/email-already-in-use') {
@@ -337,7 +311,6 @@ async function registrarClienteNuevo() {
   const email    = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
   const codigo   = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
-
   if (!nombre || !email || !password || !codigo) {
     showToast('❌ Completa todos los campos');
     return;
@@ -350,33 +323,27 @@ async function registrarClienteNuevo() {
     showToast('❌ El código debe tener 6 caracteres');
     return;
   }
-
   const btn = document.querySelector('#modal-registro-cliente .btn-primary');
   if (btn) btn.disabled = true;
-
   _registrando = true;
   let user = null;
   let empresaId = null;
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
-
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
       .get();
-
     if (empresasSnapshot.empty) {
       await user.delete();
       showToast('❌ Código de invitación no válido');
       if (btn) btn.disabled = false;
       return;
     }
-
     const empresaDoc = empresasSnapshot.docs[0];
     empresaId = empresaDoc.id;
     const empresaData = empresaDoc.data();
-
     await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('clientes').doc(user.uid)
@@ -390,7 +357,6 @@ async function registrarClienteNuevo() {
         compras: '$0.00',
         pedidos: 0
       });
-
     await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .set({
@@ -401,18 +367,12 @@ async function registrarClienteNuevo() {
         empresaId: empresaId,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
-
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
-
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
-
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
-
+    setTimeout(() => { window.location.reload(); }, 1500);
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
     if (user && !empresaId) {
@@ -436,45 +396,33 @@ async function registrarClienteNuevo() {
 async function loginUnificado() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
-
   if (!email || !password) {
     showToast('❌ Ingresa correo y contraseña');
     return;
   }
-
   try {
     const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
     const perfilDoc = await firebase.firestore()
       .collection('userProfiles').doc(user.uid)
       .get();
-
     if (!perfilDoc.exists) {
       showToast('❌ Perfil de usuario no encontrado');
       await firebase.auth().signOut();
       return;
     }
-
     const perfil = perfilDoc.data();
     const empresaId = perfil.empresaId;
     const rol = perfil.rol;
     const nombre = perfil.nombre || email;
-
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', rol);
-
     forzarCierreModal('modal-login', true);
     forzarReflowBody();
     await new Promise(r => setTimeout(r, 100));
-
-    // Recargar para limpiar estado
-    setTimeout(() => {
-      window.location.reload();
-    }, 300);
-
+    setTimeout(() => { window.location.reload(); }, 300);
   } catch (error) {
     console.error('❌ Error en login:', error);
     if (error.code === 'auth/user-not-found') {
@@ -489,14 +437,12 @@ async function loginUnificado() {
   }
 }
 
-// ================================================================
-//  FUNCIONES DE NAVEGACIÓN, GESTIÓN Y RENDERIZADO (COMPLETAS)
-// ================================================================
-
+// ═══════════════════════════════════════════════════════════════
+//  FUNCIONES DE NAVEGACIÓN Y RENDERIZADO (BÁSICAS)
+// ═══════════════════════════════════════════════════════════════
 async function mostrarCodigoInvitacion() {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { showToast('⚠️ No hay franquicia seleccionada'); return; }
-
   try {
     const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
     if (doc.exists) {
@@ -550,10 +496,8 @@ function goScreen(name) {
   const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇', cliente: '⬇', configuracion: '⚙️' };
   const fabBtn = document.getElementById('fab-btn');
   if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
-
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
-
   if (name === 'ventas') renderVentas('', filtroVentas, 1);
   if (name === 'inventario') renderInv('', filtroInv, 1);
   if (name === 'clientes') renderClients('', filtroCli, 1);
@@ -624,6 +568,9 @@ function loadTheme() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  CRUD DE VENTAS, PRODUCTOS Y CLIENTES
+// ═══════════════════════════════════════════════════════════════
 async function guardarVenta() {
   const cliente = document.getElementById('input-cliente')?.value?.trim() || '';
   const producto = document.getElementById('input-producto')?.value?.trim() || '';
@@ -631,17 +578,14 @@ async function guardarVenta() {
   const precioUnit = parseFloat(document.getElementById('input-precio')?.value?.replace('$', '')) || 0;
   const metodo = document.getElementById('input-metodo')?.value || 'Efectivo';
   const notas = document.getElementById('input-notas')?.value || '';
-
   if (!cliente) { showToast('⚠️ Ingresa el nombre del cliente'); return; }
   if (!producto) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioUnit <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
-
   const total = precioUnit * cantidad;
   const nuevaVenta = {
     cliente, producto, items: cantidad, total: formatCurrency(total),
     status: 'pagado', metodo, notas
   };
-
   try {
     await store.addVenta(nuevaVenta);
     syncGlobals();
@@ -661,10 +605,8 @@ async function guardarProducto() {
   const precioVenta = parseFloat(document.getElementById('input-precio-venta')?.value) || 0;
   const stock = parseInt(document.getElementById('input-stock')?.value) || 0;
   const stockMin = parseInt(document.getElementById('input-stock-min')?.value) || 5;
-
   if (!nombre) { showToast('⚠️ Ingresa el nombre del producto'); return; }
   if (precioVenta <= 0) { showToast('⚠️ Ingresa un precio válido'); return; }
-
   const iconMap = { 
     'Cervezas Polar': '🍺', 
     'Alimentos Polar': '🥫', 
@@ -680,7 +622,6 @@ async function guardarProducto() {
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= stockMin) estado = 'low';
-
   const nuevoProducto = { nombre, cat, precio: formatCurrency(precioVenta), stock, icon, estado };
   try {
     await store.addProducto(nuevoProducto);
@@ -697,14 +638,11 @@ async function guardarCliente() {
   const nombre = document.getElementById('input-cliente-nombre')?.value?.trim() || '';
   const apellido = document.getElementById('input-cliente-apellido')?.value?.trim() || '';
   const telefono = document.getElementById('input-cliente-telefono')?.value?.trim() || '';
-
   const nombreCompleto = (nombre + ' ' + apellido).trim();
   if (!nombreCompleto) { showToast('⚠️ El nombre es obligatorio'); return; }
-
   const init = nombreCompleto.split(' ').map(p => p.charAt(0).toUpperCase()).join('');
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
-
   const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
   try {
     await store.addCliente(nuevoCliente);
@@ -750,7 +688,6 @@ async function updateVentaFromModal(id) {
   const metodo = document.getElementById('edit-metodo').value;
   const notas = document.getElementById('edit-notas').value;
   const total = precioUnit * cantidad;
-
   if (!cliente) { showToast('⚠️ El cliente es obligatorio'); return; }
   const updates = { cliente, producto, items: cantidad, total: formatCurrency(total), metodo, notas };
   try {
@@ -769,7 +706,6 @@ async function updateVentaFromModal(id) {
 function editProducto(nombre) {
   const p = store.inventario.find(item => item.nombre === nombre);
   if (!p) return showToast('Producto no encontrado');
-
   let precioStr = p.precio;
   if (typeof precioStr !== 'string') {
     precioStr = formatCurrency(Number(precioStr));
@@ -778,7 +714,6 @@ function editProducto(nombre) {
     precioStr = '$' + precioStr;
   }
   const precioNum = parseFloat(precioStr.replace('$', '')) || 0;
-
   const body = `
     <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
     <div class="field"><label>Categoría</label>
@@ -867,7 +802,6 @@ async function updateClienteFromModal(nombreOriginal) {
     handleError(error);
   }
 }
-
 
 function confirmDeleteVenta(id) {
   openConfirmModal('¿Seguro que deseas eliminar esta venta?', async () => {
@@ -1075,12 +1009,10 @@ function actualizarAdminUI(nombre) {
   const nombreEl = document.getElementById('admin-nombre');
   const btnCliente = document.getElementById('btn-cliente');
   const btnCodigo = document.getElementById('btn-codigo');
-
   if (nombre) {
     if (adminMenu) adminMenu.style.display = 'block';
     if (btnCliente) btnCliente.style.display = 'none';
     if (btnCodigo) btnCodigo.style.display = 'inline-flex';
-
     const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
     if (avatar) avatar.textContent = iniciales || 'A';
     if (nombreEl) nombreEl.textContent = nombre;
@@ -1091,39 +1023,22 @@ function actualizarAdminUI(nombre) {
   }
 }
 
-
-async function loginCliente() {
-  await loginUnificado();
-}
-
-async function registrarCliente() {
-  await registrarClienteNuevo();
-}
-
-function mostrarRegistro() {
-  mostrarRegistroCliente();
-}
-
-function mostrarLogin() {
-  mostrarLoginUnificado();
-}
+async function loginCliente() { await loginUnificado(); }
+async function registrarCliente() { await registrarClienteNuevo(); }
+function mostrarRegistro() { mostrarRegistroCliente(); }
+function mostrarLogin() { mostrarLoginUnificado(); }
 
 function mostrarPanelCliente() {
   const panelDiv = document.getElementById('cliente-panel');
   const nombreSpan = document.getElementById('cliente-nombre');
-
   if (panelDiv) panelDiv.style.display = 'block';
-
   const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
   if (nombreSpan) nombreSpan.textContent = nombre;
-
   actualizarAvatar(nombre);
-
   const bienvenidaEl = document.getElementById('mensaje-bienvenida');
   if (bienvenidaEl && nombre) {
     bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
   }
-
   const empresaId = sessionStorage.getItem('empresaId');
   if (empresaId) {
     firebase.firestore().collection('empresas').doc(empresaId).get().then(doc => {
@@ -1135,7 +1050,6 @@ function mostrarPanelCliente() {
       }
     });
   }
-
   setTimeout(() => {
     renderCatalogo();
     renderHistorial();
@@ -1151,17 +1065,13 @@ function cerrarSesion() {
   localStorage.removeItem('empresaInventario');
   localStorage.removeItem('empresaClientes');
   localStorage.removeItem('empresaVentas');
-
   document.getElementById('admin-menu').style.display = 'none';
   document.getElementById('btn-codigo').style.display = 'none';
   document.getElementById('btn-cliente').style.display = 'inline-flex';
-
   const logo = document.querySelector('.nav-logo span');
   if (logo) logo.textContent = 'Franquicia Polar';
-
   const panelDiv = document.getElementById('cliente-panel');
   if (panelDiv) panelDiv.style.display = 'none';
-
   showToast('👋 Sesión cerrada');
   mostrarPantallaBienvenida();
 }
@@ -1177,16 +1087,17 @@ function toggleCliente() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  MÓDULO CLIENTE: CATÁLOGO, CARRITO, PEDIDOS, CHAT, ALERTAS
+// ═══════════════════════════════════════════════════════════════
 function renderCatalogo() {
   const container = document.getElementById('catalogo-productos');
   if (!container) return;
-
   const productos = window.inventario || [];
   if (!productos || productos.length === 0) {
     container.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay productos disponibles</div></div>`;
     return;
   }
-
   const chipsHTML = `
     <div class="chips" style="margin-bottom:12px;">
       <div class="chip ${filtroCatalogo === 'todas' ? 'active' : ''}" onclick="filtrarCatalogo('todas')">Todas</div>
@@ -1195,7 +1106,6 @@ function renderCatalogo() {
       <div class="chip ${filtroCatalogo === 'otros' ? 'active' : ''}" onclick="filtrarCatalogo('otros')">📦 Otros</div>
     </div>
   `;
-
   let productosFiltrados = productos;
   if (filtroCatalogo === 'cervezas') {
     productosFiltrados = productos.filter(p => p.cat === 'Cervezas Polar');
@@ -1204,33 +1114,26 @@ function renderCatalogo() {
   } else if (filtroCatalogo === 'otros') {
     productosFiltrados = productos.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
   }
-
   if (productosFiltrados.length === 0) {
     container.innerHTML = chipsHTML + `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No hay productos en esta categoría</div></div>`;
     return;
   }
-
   const cervezas = productosFiltrados.filter(p => p.cat === 'Cervezas Polar');
   const alimentos = productosFiltrados.filter(p => p.cat === 'Alimentos Polar');
   const otros = productosFiltrados.filter(p => p.cat !== 'Cervezas Polar' && p.cat !== 'Alimentos Polar');
-
   let html = chipsHTML;
-
   if (cervezas.length > 0) {
     html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🍺 Cervezas Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${cervezas.length})</span></div>`;
     html += cervezas.map(p => renderProductoCard(p)).join('');
   }
-
   if (alimentos.length > 0) {
     html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--primary-soft); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--primary); display:flex; align-items:center; gap:8px;">🥫 Alimentos Polar <span style="font-size:12px; font-weight:400; color:var(--text2);">(${alimentos.length})</span></div>`;
     html += alimentos.map(p => renderProductoCard(p)).join('');
   }
-
   if (otros.length > 0) {
     html += `<div style="margin:16px 0 8px; padding:8px 12px; background:var(--bg); border-radius:var(--radius); font-weight:700; font-size:15px; color:var(--text2); display:flex; align-items:center; gap:8px;">📦 Otros productos <span style="font-size:12px; font-weight:400;">(${otros.length})</span></div>`;
     html += otros.map(p => renderProductoCard(p)).join('');
   }
-
   container.innerHTML = html;
 }
 
@@ -1246,7 +1149,6 @@ function renderProductoCard(p) {
   const stock = p.stock || 0;
   const precio = p.precio || '$0.00';
   const nombreEscapado = nombre.replace(/'/g, "\'");
-
   return `
     <div class="inv-card" style="cursor:default;">
       <div class="inv-img">${icon}</div>
@@ -1266,14 +1168,12 @@ function agregarAlCarrito(nombre) {
   const producto = inventario.find(p => p.nombre === nombre);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (producto.estado === 'out') { showToast('⚠️ Producto agotado'); return; }
-
   const itemEnCarrito = carrito.find(c => c.nombre === nombre);
   const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
   if (cantidadActual >= producto.stock) {
     showToast('⚠️ Stock insuficiente, solo quedan ' + producto.stock + ' unidades');
     return;
   }
-
   if (itemEnCarrito) {
     itemEnCarrito.cantidad++;
   } else {
@@ -1321,11 +1221,9 @@ function vaciarCarrito() {
   showToast('🗑️ Carrito vacío');
 }
 
-
 async function realizarPedido() {
   if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
-
   for (const item of carrito) {
     const producto = inventario.find(p => p.nombre === item.nombre);
     if (!producto) { showToast(`⚠️ Producto "${item.nombre}" no existe`); return; }
@@ -1334,7 +1232,6 @@ async function realizarPedido() {
       return;
     }
   }
-
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
   const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
   const pedido = {
@@ -1347,7 +1244,6 @@ async function realizarPedido() {
     notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
     producto: 'Pedido desde app cliente'
   };
-
   try {
     await store.addVenta(pedido);
     for (const item of carrito) {
@@ -1368,7 +1264,6 @@ async function realizarPedido() {
     renderActividadReciente();
     updateKPIs();
     showToast('✅ Pedido realizado con éxito');
-
     const empresaIdNotif = sessionStorage.getItem('empresaId');
     const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
     if (empresaIdNotif && typeof notificarAdmins === 'function') {
@@ -1538,7 +1433,6 @@ function actualizarResumenConfiguracion() {
   }
 }
 
-
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
   const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
@@ -1563,46 +1457,32 @@ function exportarDatosJSON() {
 async function importarDatosJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
-
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { 
     showToast('❌ No hay sesión activa'); 
     event.target.value = '';
     return; 
   }
-
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-
     if (!data.inventario || !data.clientes || !data.ventas) {
       showToast('❌ JSON inválido: faltan campos requeridos');
       event.target.value = '';
       return;
     }
-
-    const confirmMsg = `⚠️ ¿Reemplazar TODOS los datos?
-
-Se importarán:
-- ${data.inventario.length} productos
-- ${data.clientes.length} clientes
-- ${data.ventas.length} ventas`;
+    const confirmMsg = `⚠️ ¿Reemplazar TODOS los datos?\n\nSe importarán:\n- ${data.inventario.length} productos\n- ${data.clientes.length} clientes\n- ${data.ventas.length} ventas`;
     if (!confirm(confirmMsg)) {
       event.target.value = '';
       return;
     }
-
     showToast('⏳ Importando datos...');
-
     const collections = ['inventario', 'clientes', 'ventas'];
-
     for (const col of collections) {
       const snapshot = await firebase.firestore()
         .collection('empresas').doc(empresaId).collection(col).get();
-
       let batch = firebase.firestore().batch();
       let count = 0;
-
       for (const doc of snapshot.docs) {
         batch.delete(doc.ref);
         count++;
@@ -1613,18 +1493,15 @@ Se importarán:
         }
       }
       if (count > 0) await batch.commit();
-
       const items = data[col] || [];
       batch = firebase.firestore().batch();
       count = 0;
-
       for (const item of items) {
         const { id, ...cleanItem } = item;
         const docRef = firebase.firestore()
           .collection('empresas').doc(empresaId).collection(col).doc();
         batch.set(docRef, cleanItem);
         count++;
-
         if (count >= 400) {
           await batch.commit();
           batch = firebase.firestore().batch();
@@ -1633,10 +1510,8 @@ Se importarán:
       }
       if (count > 0) await batch.commit();
     }
-
     await store.cargarDatosEmpresa(empresaId);
     syncGlobals();
-
     renderVentas('', filtroVentas, 1);
     renderInv('', filtroInv, 1);
     renderClients('', filtroCli, 1);
@@ -1646,10 +1521,8 @@ Se importarán:
     renderizarTablaProductos();
     renderizarTablaClientes();
     renderizarTablaVentas();
-
     event.target.value = '';
     showToast(`✅ Datos importados correctamente`);
-
   } catch (error) {
     console.error('Error importando:', error);
     handleError(error, 'Error al importar datos');
@@ -1672,13 +1545,10 @@ async function enviarMensajeChat() {
   const input = document.getElementById('chat-input');
   const texto = input.value.trim();
   if (!texto) { showToast('⚠️ Escribe un mensaje'); return; }
-
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { showToast('⚠️ Inicia sesión'); return; }
-
   const user = firebase.auth().currentUser;
   if (!user) { showToast('⚠️ Usuario no autenticado'); return; }
-
   try {
     const mensaje = {
       texto: texto,
@@ -1686,13 +1556,11 @@ async function enviarMensajeChat() {
       uid: user.uid,
       fecha: firebase.firestore.FieldValue.serverTimestamp()
     };
-
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
       .collection('chats')
       .add(mensaje);
-
     input.value = '';
     cargarMensajesChat();
     showToast('✅ Mensaje enviado');
@@ -1708,7 +1576,6 @@ async function cargarMensajesChat() {
     if (container) container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver el chat</div></div>';
     return; 
   }
-
   try {
     const snapshot = await firebase.firestore()
       .collection('empresas')
@@ -1717,19 +1584,15 @@ async function cargarMensajesChat() {
       .orderBy('fecha', 'desc')
       .limit(50)
       .get();
-
     if (snapshot.empty) {
       if (container) container.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Sin mensajes aún. ¡Sé el primero en escribir!</div></div>';
       return;
     }
-
     const mensajes = [];
     snapshot.forEach(doc => {
       mensajes.push({ id: doc.id, ...doc.data() });
     });
-
     mensajes.reverse();
-
     if (container) {
       container.innerHTML = mensajes.map(m => `
         <div style="padding:8px 12px; margin-bottom:6px; background:var(--bg); border-radius:var(--radius); border-left:3px solid ${m.uid === firebase.auth().currentUser?.uid ? 'var(--primary)' : 'var(--border)'}">
@@ -1742,12 +1605,10 @@ async function cargarMensajesChat() {
       `).join('');
       container.scrollTop = container.scrollHeight;
     }
-
   } catch (error) {
     handleError(error, 'Error cargando mensajes');
   }
 }
-
 
 function abrirModalAlerta() {
   const body = `
@@ -1779,15 +1640,11 @@ async function enviarAlerta() {
   const tipo = document.getElementById('alerta-tipo').value;
   const descripcion = document.getElementById('alerta-descripcion').value.trim();
   const ubicacion = document.getElementById('alerta-ubicacion').value.trim();
-
   if (!tipo) { showToast('⚠️ Selecciona un tipo de alerta'); return; }
-
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { showToast('⚠️ Inicia sesión primero'); return; }
-
   const user = firebase.auth().currentUser;
   if (!user) { showToast('⚠️ Usuario no autenticado'); return; }
-
   try {
     const alerta = {
       tipo: tipo,
@@ -1801,13 +1658,11 @@ async function enviarAlerta() {
       votosFalso: 0,
       resuelta: false
     };
-
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
       .collection('alertas')
       .add(alerta);
-
     closeModal();
     showToast('✅ Alerta enviada correctamente');
     cargarAlertas();
@@ -1823,7 +1678,6 @@ async function cargarAlertas() {
     if (container) container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver alertas</div></div>';
     return; 
   }
-
   try {
     const snapshot = await firebase.firestore()
       .collection('empresas')
@@ -1832,17 +1686,14 @@ async function cargarAlertas() {
       .where('resuelta', '==', false)
       .orderBy('fecha', 'desc')
       .get();
-
     if (snapshot.empty) {
       if (container) container.innerHTML = '<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No hay alertas activas</div></div>';
       return;
     }
-
     const alertas = [];
     snapshot.forEach(doc => {
       alertas.push({ id: doc.id, ...doc.data() });
     });
-
     const tipoIcon = {
       'fiscalizacion': '🛂',
       'riña': '🥊',
@@ -1850,7 +1701,6 @@ async function cargarAlertas() {
       'corte_luz': '💡',
       'otro': '⚠️'
     };
-
     if (container) {
       container.innerHTML = alertas.map(a => `
         <div class="card" style="padding:12px; margin-bottom:8px; border-left:4px solid ${a.estado === 'activa' ? 'var(--danger)' : 'var(--green)'}">
@@ -1867,7 +1717,6 @@ async function cargarAlertas() {
         </div>
       `).join('');
     }
-
   } catch (error) {
     handleError(error, 'Error cargando alertas');
   }
@@ -1876,19 +1725,16 @@ async function cargarAlertas() {
 async function votarAlerta(alertaId, voto) {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) { showToast('⚠️ Inicia sesión'); return; }
-
   try {
     const docRef = firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
       .collection('alertas')
       .doc(alertaId);
-
     const incremento = voto === 'confirmar' ? 'votosConfirmacion' : 'votosFalso';
     await docRef.update({
       [incremento]: firebase.firestore.FieldValue.increment(1)
     });
-
     showToast('✅ Voto registrado');
     cargarAlertas();
   } catch (error) {
@@ -1896,9 +1742,11 @@ async function votarAlerta(alertaId, voto) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ASISTENTE DE COMANDOS (AGENT)
+// ═══════════════════════════════════════════════════════════════
 function executeManualCommand(comando) {
   const cmd = comando.toLowerCase().trim();
-
   if (cmd.includes('ventas hoy')) {
     const hoy = new Date().toLocaleDateString();
     const ventasHoy = ventas.filter(v => {
@@ -1922,7 +1770,6 @@ function executeManualCommand(comando) {
     const top = inventario.sort((a,b) => b.stock - a.stock).slice(0,3);
     return `ℹ️ Top productos por stock: ${top.map(p => `${p.nombre} (${p.stock})`).join(', ')}`;
   }
-
   if (cmd.includes('ventas') || cmd.includes('pedidos')) { goScreen('ventas'); return '✅ Navegando a ventas'; }
   if (cmd.includes('inventario') || cmd.includes('productos')) { goScreen('inventario'); return '✅ Navegando a inventario'; }
   if (cmd.includes('clientes')) { goScreen('clientes'); return '✅ Navegando a clientes'; }
@@ -1930,14 +1777,9 @@ function executeManualCommand(comando) {
   if (cmd.includes('inicio') || cmd.includes('dashboard')) { goScreen('dashboard'); return '✅ Navegando a inicio'; }
   if (cmd.includes('nueva venta') || cmd.includes('crear venta')) { openModal(); return '✅ Abriendo formulario de nueva venta'; }
   if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) { toggleTheme(); return '✅ Cambiando tema'; }
-
   if (cmd.includes('ayuda') || cmd.includes('comandos')) {
-    return `ℹ️ **Comandos disponibles:**
-• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"
-• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"
-• "nueva venta", "cambiar tema"`;
+    return `ℹ️ **Comandos disponibles:**\n• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"\n• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"\n• "nueva venta", "cambiar tema"`;
   }
-
   if (cmd.includes('hola') || cmd.includes('buenos días') || cmd.includes('buenas tardes')) {
     const hora = new Date().getHours();
     let saludo = 'Hola';
@@ -1946,7 +1788,6 @@ function executeManualCommand(comando) {
     else saludo = 'Buenas noches';
     return `✅ ${saludo}! ¿En qué puedo ayudarte?`;
   }
-
   return `ℹ️ Comando no reconocido. Escribe "ayuda" para ver opciones.`;
 }
 
@@ -2013,176 +1854,38 @@ function cambiarTabCliente(tabId) {
   document.querySelectorAll('[data-tab-cliente]').forEach(tab => tab.classList.remove('active'));
   const tabBtn = document.querySelector(`[data-tab-cliente="${tabId}"]`);
   if (tabBtn) tabBtn.classList.add('active');
-
   if (tabId === 'chat') cargarMensajesChat();
   if (tabId === 'alertas') cargarAlertas();
   if (tabId === 'pedidos') renderHistorial();
 }
 
-
 // ═══════════════════════════════════════════════════════════════
-//  INICIALIZACIÓN (DOMContentLoaded) con onAuthStateChanged mejorado
+//  FACTURACIÓN (SIMPLE Y CON DESPACHO)
 // ═══════════════════════════════════════════════════════════════
-
-document.addEventListener('DOMContentLoaded', () => {
-  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const hoy = new Date();
-  const fechaEl = document.getElementById('fecha-hoy');
-  if (fechaEl) {
-    fechaEl.textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
-  }
-
-  loadTheme();
-  if (typeof cargarTemaGuardado === 'function') cargarTemaGuardado();
-  if (typeof cargarCarrito === 'function') cargarCarrito();
-  if (typeof initStore === 'function') initStore();
-
-  // Verificar sesión existente
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (_registrando) {
-      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
-      return;
-    }
-    // Si ya hay sesión activa en sessionStorage, no hacer nada (ya manejado por detección temprana)
-    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-      return;
-    }
-    if (user) {
-      try {
-        const perfilDoc = await firebase.firestore()
-          .collection('userProfiles').doc(user.uid)
-          .get();
-
-        if (!perfilDoc.exists) {
-          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-          await firebase.auth().signOut();
-          mostrarPantallaBienvenida();
-          return;
-        }
-
-        const perfil = perfilDoc.data();
-        const empresaId = perfil.empresaId;
-        const rol = perfil.rol;
-        const nombre = perfil.nombre || user.email;
-
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', user.email);
-        sessionStorage.setItem('userName', nombre);
-        sessionStorage.setItem('userRol', rol);
-
-        // Ocultar bienvenida con fuerza
-        ocultarPantallaBienvenida();
-
-        if (rol === 'admin') {
-          actualizarAdminUI(nombre);
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('dashboard');
-          setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-        } else {
-          document.getElementById('admin-menu').style.display = 'none';
-          document.getElementById('btn-codigo').style.display = 'none';
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('cliente');
-          mostrarPanelCliente();
-        }
-
-      } catch (error) {
-        console.error('❌ Error verificando sesión:', error);
-        mostrarPantallaBienvenida();
-      }
-    } else {
-      // No hay usuario, mostrar bienvenida
-      mostrarPantallaBienvenida();
-    }
-  });
-
-  // Eventos para pestañas de configuración
-  document.addEventListener('click', function(e) {
-    const tab = e.target.closest('.config-tab');
-    if (tab && tab.dataset.tab) {
-      cambiarTabConfiguracion(tab.dataset.tab);
-    }
-  });
-
-  // Eventos para pestañas del módulo cliente
-  document.addEventListener('click', function(e) {
-    const tab = e.target.closest('[data-tab-cliente]');
-    if (tab && tab.dataset.tabCliente) {
-      cambiarTabCliente(tab.dataset.tabCliente);
-    }
-  });
-
-  // Inicializar Page Agent (solo en localhost)
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    try {
-      if (window.PageAgent) {
-        agent = new window.PageAgent({
-          model: 'gemma-4-e4b',
-          baseURL: 'http://localhost:1235/v1',
-          language: 'es-ES'
-        });
-        agentReady = true;
-        console.log('🤖 Page Agent inicializado con LM Studio (modo local)');
-      }
-    } catch (e) {
-      console.warn('⚠️ Error inicializando Page Agent:', e.message);
-      agentReady = false;
-    }
-  } else {
-    console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
-    agentReady = false;
-  }
-
-  setTimeout(connectWebSocket, 1000);
-  console.log('🤖 Sistema de comandos listo (modo mixto)');
-});
-
-// ================================================================
-//  FACTURACIÓN EN PDF
-// ================================================================
-
 function generarFactura(id) {
   const venta = store.ventas.find(v => v.id === id);
   if (!venta) {
     showToast('⚠️ Venta no encontrada');
     return;
   }
-
-  // === DATOS DE LA EMPRESA (fijos para cada empresa) ===
-  // TODO: En el futuro, estos datos se pueden guardar en Firestore
-  // y recuperarlos desde la colección 'empresas'.
   const empresaId = sessionStorage.getItem('empresaId') || 'MIEMPRESA';
   const empresaNombre = sessionStorage.getItem('empresaNombre') || 'Mi Negocio';
-  
-  // Datos fijos (puedes cambiarlos o hacerlos editables después)
   const empresaRIF = 'J-12345678-9';
   const empresaTelefono = '+58 412 000 0000';
   const empresaDireccion = 'Av. Principal, Local 1, Caracas';
   const empresaEmail = 'info@tunegocio.com';
-
   const cliente = venta.cliente || 'Cliente general';
   const total = venta.total || formatCurrency(0);
-
-  // Crear el PDF
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
-
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   let y = margin;
-
-  // --- Título ---
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 51, 141); // Azul corporativo
+  doc.setTextColor(0, 51, 141);
   doc.text('FACTURA', pageWidth / 2, y, { align: 'center' });
   y += 8;
-
-  // --- Datos de la empresa ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
@@ -2196,39 +1899,29 @@ function generarFactura(id) {
   y += 5;
   doc.text(`Dirección: ${empresaDireccion}`, margin, y);
   y += 8;
-
-  // --- Línea separadora ---
   doc.setDrawColor(0, 51, 141);
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
-
-  // --- Cliente y fecha ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(`Cliente:`, margin, y);
   doc.setFont('helvetica', 'normal');
   doc.text(`${cliente}`, margin + 25, y);
   y += 6;
-
   doc.setFont('helvetica', 'bold');
   doc.text(`Fecha:`, margin, y);
   doc.setFont('helvetica', 'normal');
   const fecha = venta.fecha || new Date().toLocaleDateString();
   doc.text(`${fecha}`, margin + 25, y);
   y += 6;
-
   doc.setFont('helvetica', 'bold');
   doc.text(`N° Factura:`, margin, y);
   doc.setFont('helvetica', 'normal');
   const numFactura = venta.id ? venta.id.slice(0, 8).toUpperCase() : '00000001';
   doc.text(`${numFactura}`, margin + 30, y);
   y += 10;
-
-  // --- Línea separadora ---
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
-
-  // --- Tabla de productos ---
   const tableData = [];
   if (venta.items && Array.isArray(venta.items) && venta.items.length > 0) {
     venta.items.forEach(item => {
@@ -2240,7 +1933,6 @@ function generarFactura(id) {
       ]);
     });
   } else {
-    // Venta simple (un solo producto)
     const producto = venta.producto || 'Producto';
     const cantidad = venta.items || 1;
     const precioUnit = venta.total ? parseCurrency(venta.total) / cantidad : 0;
@@ -2251,7 +1943,6 @@ function generarFactura(id) {
       venta.total || formatCurrency(precioUnit * cantidad)
     ]);
   }
-
   doc.autoTable({
     startY: y,
     head: [['Producto', 'Cant.', 'Precio Unit.', 'Total']],
@@ -2272,7 +1963,6 @@ function generarFactura(id) {
     },
     margin: { left: margin, right: margin },
     didDrawPage: function (data) {
-      // Número de página
       const pageCount = doc.internal.getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
@@ -2284,41 +1974,612 @@ function generarFactura(id) {
       );
     }
   });
-
-  // Obtener la posición final de la tabla
   const finalY = doc.lastAutoTable.finalY + 8;
-
-  // --- Total general ---
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
   const totalFormateado = venta.total || formatCurrency(0);
   doc.text(`TOTAL: ${totalFormateado}`, pageWidth - margin - 10, finalY, { align: 'right' });
-
-  // --- Notas adicionales ---
   if (venta.notas && venta.notas.trim() !== '') {
     let yNotas = finalY + 12;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Notas: ${venta.notas}`, margin, yNotas);
   }
-
-  // --- Pie de página ---
   const pieY = doc.internal.pageSize.getHeight() - 18;
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text('¡Gracias por su compra!', pageWidth / 2, pieY, { align: 'center' });
   doc.text('Este documento es una factura válida para efectos tributarios.', pageWidth / 2, pieY + 5, { align: 'center' });
-
-  // Guardar el PDF
   doc.save(`factura_${numFactura}.pdf`);
   showToast('✅ Factura generada correctamente');
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  EXPONER FUNCIONES GLOBALES
-// ═══════════════════════════════════════════════════════════════
+// ================================================================
+//  DESPACHO DE PEDIDOS (Facturación + Stock + Envases + Alertas)
+// ================================================================
 
+// --- Función para abrir modal de despacho ---
+function abrirModalDespacho(id) {
+  const venta = store.ventas.find(v => v.id === id);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+  if (venta.status !== 'pendiente') {
+    showToast('⚠️ Esta venta ya fue despachada');
+    return;
+  }
+  const cliente = clientes.find(c => c.nombre === venta.cliente);
+  if (!cliente) {
+    showToast('⚠️ Cliente no encontrado');
+    return;
+  }
+  const productos = venta.productos || [];
+  if (!productos.length) {
+    if (venta.items && venta.producto) {
+      productos.push({ nombre: venta.producto, cantidad: venta.items });
+    } else {
+      showToast('⚠️ No se pueden identificar los productos del pedido');
+      return;
+    }
+  }
+  const erroresStock = verificarStock(productos);
+  if (erroresStock.length > 0) {
+    let mensaje = '❌ No se puede despachar por falta de stock:\n';
+    erroresStock.forEach(err => mensaje += `- ${err}\n`);
+    alert(mensaje);
+    return;
+  }
+  const saldoEnvases = cliente.saldoEnvases || {};
+  const facturasPendientes = store.ventas.filter(v => 
+    v.cliente === cliente.nombre && 
+    v.status === 'pendiente' && 
+    v.id !== id
+  ).length;
+
+  let envasesHTML = '';
+  for (const [tipo, config] of Object.entries(TIPOS_ENVASE)) {
+    const saldoActual = saldoEnvases[tipo] || 0;
+    envasesHTML += `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>${config.nombre}</strong>
+          <span style="font-size:12px; color:var(--text3);">(${config.unidadesPorEnvase} unds/envase)</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:80px;">
+            <label style="font-size:11px; color:var(--text3);">Saldo actual</label>
+            <input type="number" id="saldo-actual-${tipo}" value="${saldoActual}" disabled style="width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:4px; background:var(--surface2);">
+          </div>
+          <div style="flex:1; min-width:80px;">
+            <label style="font-size:11px; color:var(--text3);">Prestados hoy</label>
+            <input type="number" id="prestados-${tipo}" value="0" min="0" style="width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:4px;" oninput="calcularNuevoSaldo('${tipo}')">
+          </div>
+          <div style="flex:1; min-width:80px;">
+            <label style="font-size:11px; color:var(--text3);">Recuperados hoy</label>
+            <input type="number" id="recuperados-${tipo}" value="0" min="0" style="width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:4px;" oninput="calcularNuevoSaldo('${tipo}')">
+          </div>
+          <div style="flex:1; min-width:80px;">
+            <label style="font-size:11px; color:var(--text3);">Nuevo saldo</label>
+            <input type="number" id="nuevo-saldo-${tipo}" value="${saldoActual}" disabled style="width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:4px; background:var(--surface2);">
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let alertasHTML = '';
+  if (facturasPendientes >= 2) {
+    alertasHTML += `<div style="background:var(--red-soft); color:var(--red); padding:10px; border-radius:var(--radius-sm); margin-bottom:10px;">
+      🚨 <strong>Cliente moroso:</strong> Tiene ${facturasPendientes} facturas pendientes.
+    </div>`;
+  } else if (facturasPendientes === 1) {
+    alertasHTML += `<div style="background:var(--amber-soft); color:var(--amber); padding:10px; border-radius:var(--radius-sm); margin-bottom:10px;">
+      ⚠️ <strong>Atención:</strong> Cliente tiene 1 factura pendiente.
+    </div>`;
+  }
+
+  const body = `
+    <div style="margin-bottom:16px;">
+      <h3>🧾 Despachar pedido</h3>
+      <p><strong>Cliente:</strong> ${cliente.nombre}</p>
+      <p><strong>Productos:</strong></p>
+      <ul>
+        ${productos.map(p => `<li>${p.nombre} x ${p.cantidad}</li>`).join('')}
+      </ul>
+      <p><strong>Total:</strong> ${venta.total}</p>
+    </div>
+    ${alertasHTML}
+    <div class="field">
+      <label>Método de pago *</label>
+      <select id="despacho-metodo" required>
+        <option value="">Seleccionar...</option>
+        <option value="Efectivo">Efectivo</option>
+        <option value="Pago Móvil">Pago Móvil</option>
+        <option value="Transferencia">Transferencia</option>
+        <option value="Crédito 8 días">Crédito 8 días</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <div class="field" id="campo-otro-metodo" style="display:none;">
+      <label>Especificar método</label>
+      <input type="text" id="despacho-metodo-otro" placeholder="Ej: Cheque, Depósito...">
+    </div>
+    <div style="margin:16px 0; border-top:2px solid var(--border); padding-top:12px;">
+      <h4>📦 Control de envases (vacíos)</h4>
+      <p style="font-size:12px; color:var(--text3);">Ingresa las cantidades de envases que se prestan o recuperan hoy.</p>
+      ${envasesHTML}
+    </div>
+    <div class="field">
+      <label>Notas adicionales</label>
+      <textarea id="despacho-notas" rows="2" placeholder="Observaciones..."></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="confirmarDespacho('${id}')">✅ Confirmar despacho</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `;
+
+  openModalWithContent('Despachar pedido', body);
+  document.getElementById('despacho-metodo').addEventListener('change', function() {
+    const otroCampo = document.getElementById('campo-otro-metodo');
+    if (this.value === 'Otro') {
+      otroCampo.style.display = 'block';
+    } else {
+      otroCampo.style.display = 'none';
+    }
+  });
+}
+
+function calcularNuevoSaldo(tipo) {
+  const saldoActual = parseInt(document.getElementById(`saldo-actual-${tipo}`).value) || 0;
+  const prestados = parseInt(document.getElementById(`prestados-${tipo}`).value) || 0;
+  const recuperados = parseInt(document.getElementById(`recuperados-${tipo}`).value) || 0;
+  const nuevoSaldo = saldoActual + prestados - recuperados;
+  document.getElementById(`nuevo-saldo-${tipo}`).value = nuevoSaldo;
+}
+
+function verificarStock(productos) {
+  const errores = [];
+  for (const item of productos) {
+    const producto = inventario.find(p => p.nombre === item.nombre);
+    if (!producto) {
+      errores.push(`Producto "${item.nombre}" no encontrado en inventario`);
+    } else if (producto.stock < item.cantidad) {
+      errores.push(`Stock insuficiente para "${item.nombre}" (disponible: ${producto.stock}, solicitado: ${item.cantidad})`);
+    }
+  }
+  return errores;
+}
+
+async function descontarStock(productos) {
+  for (const item of productos) {
+    const producto = inventario.find(p => p.nombre === item.nombre);
+    if (producto) {
+      const nuevoStock = producto.stock - item.cantidad;
+      const estado = nuevoStock === 0 ? 'out' : nuevoStock <= (producto.stockMin || 5) ? 'low' : 'ok';
+      await store.updateProducto(producto.id, {
+        stock: nuevoStock,
+        estado: estado
+      });
+      producto.stock = nuevoStock;
+      producto.estado = estado;
+    }
+  }
+}
+
+async function obtenerSiguienteNumeroFactura(empresaId) {
+  const empresaRef = firebase.firestore().collection('empresas').doc(empresaId);
+  return await firebase.firestore().runTransaction(async (transaction) => {
+    const doc = await transaction.get(empresaRef);
+    if (!doc.exists) {
+      throw new Error('Empresa no encontrada');
+    }
+    const data = doc.data();
+    const ultimo = data.ultimoNumeroFactura || 0;
+    const nuevo = ultimo + 1;
+    transaction.update(empresaRef, { ultimoNumeroFactura: nuevo });
+    return nuevo;
+  });
+}
+
+async function actualizarSaldoEnvases(clienteId, envases) {
+  const clienteRef = firebase.firestore()
+    .collection('empresas').doc(sessionStorage.getItem('empresaId'))
+    .collection('clientes').doc(clienteId);
+  await firebase.firestore().runTransaction(async (transaction) => {
+    const doc = await transaction.get(clienteRef);
+    if (!doc.exists) {
+      throw new Error('Cliente no encontrado');
+    }
+    const data = doc.data();
+    const saldoActual = data.saldoEnvases || {};
+    const nuevoSaldo = { ...saldoActual };
+    for (const [tipo, valores] of Object.entries(envases)) {
+      const prestados = valores.prestados || 0;
+      const recuperados = valores.recuperados || 0;
+      nuevoSaldo[tipo] = (saldoActual[tipo] || 0) + prestados - recuperados;
+    }
+    transaction.update(clienteRef, { saldoEnvases: nuevoSaldo });
+  });
+}
+
+async function confirmarDespacho(id) {
+  const venta = store.ventas.find(v => v.id === id);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+  const metodoSelect = document.getElementById('despacho-metodo');
+  const metodo = metodoSelect.value;
+  if (!metodo) {
+    showToast('⚠️ Selecciona un método de pago');
+    return;
+  }
+  let metodoFinal = metodo;
+  if (metodo === 'Otro') {
+    const otro = document.getElementById('despacho-metodo-otro').value.trim();
+    if (!otro) {
+      showToast('⚠️ Especifica el método de pago');
+      return;
+    }
+    metodoFinal = otro;
+  }
+  const notas = document.getElementById('despacho-notas').value.trim();
+  const envases = {};
+  let hayMovimiento = false;
+  for (const tipo of Object.keys(TIPOS_ENVASE)) {
+    const prestados = parseInt(document.getElementById(`prestados-${tipo}`).value) || 0;
+    const recuperados = parseInt(document.getElementById(`recuperados-${tipo}`).value) || 0;
+    if (prestados > 0 || recuperados > 0) {
+      hayMovimiento = true;
+    }
+    const saldoAnterior = parseInt(document.getElementById(`saldo-actual-${tipo}`).value) || 0;
+    const nuevoSaldo = saldoAnterior + prestados - recuperados;
+    envases[tipo] = {
+      saldoAnterior,
+      prestados,
+      recuperados,
+      saldoNuevo: nuevoSaldo
+    };
+  }
+  for (const [tipo, datos] of Object.entries(envases)) {
+    if (datos.prestados < 0 || datos.recuperados < 0) {
+      showToast(`⚠️ Las cantidades para ${TIPOS_ENVASE[tipo].nombre} no pueden ser negativas`);
+      return;
+    }
+  }
+  const productos = venta.productos || [];
+  if (!productos.length) {
+    if (venta.items && venta.producto) {
+      productos.push({ nombre: venta.producto, cantidad: venta.items });
+    } else {
+      showToast('⚠️ No se pueden identificar los productos del pedido');
+      return;
+    }
+  }
+  const erroresStock = verificarStock(productos);
+  if (erroresStock.length > 0) {
+    let mensaje = '❌ No se puede despachar por falta de stock:\n';
+    erroresStock.forEach(err => mensaje += `- ${err}\n`);
+    alert(mensaje);
+    return;
+  }
+  const empresaId = sessionStorage.getItem('empresaId');
+  let numeroFactura;
+  try {
+    numeroFactura = await obtenerSiguienteNumeroFactura(empresaId);
+  } catch (error) {
+    showToast('❌ Error al generar número de factura');
+    console.error(error);
+    return;
+  }
+  const cliente = clientes.find(c => c.nombre === venta.cliente);
+  if (!cliente) {
+    showToast('⚠️ Cliente no encontrado');
+    return;
+  }
+  try {
+    await descontarStock(productos);
+    if (hayMovimiento) {
+      const envasesParaCliente = {};
+      for (const [tipo, datos] of Object.entries(envases)) {
+        envasesParaCliente[tipo] = {
+          prestados: datos.prestados,
+          recuperados: datos.recuperados
+        };
+      }
+      await actualizarSaldoEnvases(cliente.id, envasesParaCliente);
+    }
+    const ventaUpdates = {
+      status: 'pagado',
+      metodo: metodoFinal,
+      numeroFactura: numeroFactura,
+      fechaDespacho: new Date().toISOString(),
+      notas: notas || venta.notas || '',
+      envases: envases
+    };
+    await store.updateVenta(id, ventaUpdates);
+    syncGlobals();
+    const ventaActualizada = store.ventas.find(v => v.id === id);
+    generarFacturaDespacho(ventaActualizada, numeroFactura, envases);
+    renderVentas('', filtroVentas, 1);
+    renderActividadReciente();
+    updateKPIs();
+    closeModal();
+    showToast(`✅ Pedido despachado. Factura #${numeroFactura} generada.`);
+  } catch (error) {
+    console.error('Error al confirmar despacho:', error);
+    showToast('❌ Error al procesar el despacho: ' + error.message);
+  }
+}
+
+function generarFacturaDespacho(venta, numeroFactura, envases) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const empresaNombre = sessionStorage.getItem('empresaNombre') || 'Mi Negocio';
+  const empresaRIF = 'J-12345678-9';
+  const empresaTelefono = '+58 412 000 0000';
+  const empresaDireccion = 'Av. Principal, Local 1, Caracas';
+  const empresaEmail = 'info@tunegocio.com';
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  let y = margin;
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 51, 141);
+  doc.text('FACTURA', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${empresaNombre}`, margin, y);
+  y += 5;
+  doc.text(`RIF: ${empresaRIF}`, margin, y);
+  y += 5;
+  doc.text(`Teléfono: ${empresaTelefono}`, margin, y);
+  y += 5;
+  doc.text(`Email: ${empresaEmail}`, margin, y);
+  y += 5;
+  doc.text(`Dirección: ${empresaDireccion}`, margin, y);
+  y += 8;
+  doc.setDrawColor(0, 51, 141);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Cliente:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${venta.cliente || 'Cliente general'}`, margin + 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Fecha:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  const fecha = venta.fechaDespacho ? new Date(venta.fechaDespacho).toLocaleDateString() : new Date().toLocaleDateString();
+  doc.text(`${fecha}`, margin + 25, y);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`N° Factura:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${numeroFactura}`, margin + 30, y);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Método de pago:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${venta.metodo || 'No especificado'}`, margin + 40, y);
+  y += 10;
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+  const productos = venta.productos || [];
+  let tableData = [];
+  if (productos.length) {
+    productos.forEach(item => {
+      const precioUnit = venta.total ? parseCurrency(venta.total) / venta.items : 0;
+      tableData.push([
+        item.nombre,
+        item.cantidad,
+        formatCurrency(precioUnit),
+        formatCurrency(item.cantidad * precioUnit)
+      ]);
+    });
+  } else {
+    const producto = venta.producto || 'Producto';
+    const cantidad = venta.items || 1;
+    const precioUnit = venta.total ? parseCurrency(venta.total) / cantidad : 0;
+    tableData.push([
+      producto,
+      cantidad,
+      formatCurrency(precioUnit),
+      venta.total || formatCurrency(precioUnit * cantidad)
+    ]);
+  }
+  doc.autoTable({
+    startY: y,
+    head: [['Producto', 'Cant.', 'Precio Unit.', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: {
+      fillColor: [0, 51, 141],
+      textColor: [255, 255, 255],
+      fontSize: 10,
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 25, halign: 'center' },
+      2: { cellWidth: 35, halign: 'right' },
+      3: { cellWidth: 35, halign: 'right' }
+    },
+    margin: { left: margin, right: margin }
+  });
+  let finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL: ${venta.total || formatCurrency(0)}`, pageWidth - margin - 10, finalY, { align: 'right' });
+  finalY += 8;
+  if (envases && Object.keys(envases).length > 0) {
+    const tieneMovimiento = Object.values(envases).some(e => e.prestados > 0 || e.recuperados > 0);
+    if (tieneMovimiento) {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('--- CONTROL DE ENVASES ---', margin, finalY);
+      finalY += 6;
+      const envasesData = [];
+      for (const [tipo, datos] of Object.entries(envases)) {
+        const nombre = TIPOS_ENVASE[tipo]?.nombre || tipo;
+        envasesData.push([
+          nombre,
+          datos.saldoAnterior || 0,
+          datos.prestados || 0,
+          datos.recuperados || 0,
+          datos.saldoNuevo || 0
+        ]);
+      }
+      doc.autoTable({
+        startY: finalY,
+        head: [['Tipo', 'Saldo ant.', 'Prestados', 'Recuperados', 'Nuevo saldo']],
+        body: envasesData,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: {
+          fillColor: [100, 100, 100],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 25, halign: 'center' },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 30, halign: 'center' }
+        },
+        margin: { left: margin, right: margin }
+      });
+      finalY = doc.lastAutoTable.finalY + 8;
+    }
+  }
+  if (venta.notas) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Notas: ${venta.notas}`, margin, finalY);
+    finalY += 6;
+  }
+  const pieY = doc.internal.pageSize.getHeight() - 18;
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text('¡Gracias por su compra!', pageWidth / 2, pieY, { align: 'center' });
+  doc.text('Este documento es una factura válida para efectos tributarios.', pageWidth / 2, pieY + 5, { align: 'center' });
+  doc.save(`factura_${numeroFactura}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INICIALIZACIÓN (DOMContentLoaded)
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const hoy = new Date();
+  const fechaEl = document.getElementById('fecha-hoy');
+  if (fechaEl) {
+    fechaEl.textContent = `${dias[hoy.getDay()]} ${hoy.getDate()} de ${meses[hoy.getMonth()]}`;
+  }
+  loadTheme();
+  if (typeof cargarTemaGuardado === 'function') cargarTemaGuardado();
+  if (typeof cargarCarrito === 'function') cargarCarrito();
+  if (typeof initStore === 'function') initStore();
+
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (_registrando) {
+      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+      return;
+    }
+    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+      return;
+    }
+    if (user) {
+      try {
+        const perfilDoc = await firebase.firestore()
+          .collection('userProfiles').doc(user.uid)
+          .get();
+        if (!perfilDoc.exists) {
+          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+          await firebase.auth().signOut();
+          mostrarPantallaBienvenida();
+          return;
+        }
+        const perfil = perfilDoc.data();
+        const empresaId = perfil.empresaId;
+        const rol = perfil.rol;
+        const nombre = perfil.nombre || user.email;
+        sessionStorage.setItem('empresaId', empresaId);
+        sessionStorage.setItem('userEmail', user.email);
+        sessionStorage.setItem('userName', nombre);
+        sessionStorage.setItem('userRol', rol);
+        ocultarPantallaBienvenida();
+        if (rol === 'admin') {
+          actualizarAdminUI(nombre);
+          await store.cargarDatosEmpresa(empresaId);
+          syncGlobals();
+          goScreen('dashboard');
+          setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
+        } else {
+          document.getElementById('admin-menu').style.display = 'none';
+          document.getElementById('btn-codigo').style.display = 'none';
+          await store.cargarDatosEmpresa(empresaId);
+          syncGlobals();
+          goScreen('cliente');
+          mostrarPanelCliente();
+        }
+      } catch (error) {
+        console.error('❌ Error verificando sesión:', error);
+        mostrarPantallaBienvenida();
+      }
+    } else {
+      mostrarPantallaBienvenida();
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    const tab = e.target.closest('.config-tab');
+    if (tab && tab.dataset.tab) {
+      cambiarTabConfiguracion(tab.dataset.tab);
+    }
+  });
+  document.addEventListener('click', function(e) {
+    const tab = e.target.closest('[data-tab-cliente]');
+    if (tab && tab.dataset.tabCliente) {
+      cambiarTabCliente(tab.dataset.tabCliente);
+    }
+  });
+
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    try {
+      if (window.PageAgent) {
+        agent = new window.PageAgent({
+          model: 'gemma-4-e4b',
+          baseURL: 'http://localhost:1235/v1',
+          language: 'es-ES'
+        });
+        agentReady = true;
+        console.log('🤖 Page Agent inicializado con LM Studio (modo local)');
+      }
+    } catch (e) {
+      console.warn('⚠️ Error inicializando Page Agent:', e.message);
+      agentReady = false;
+    }
+  } else {
+    console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
+    agentReady = false;
+  }
+  setTimeout(connectWebSocket, 1000);
+  console.log('🤖 Sistema de comandos listo (modo mixto)');
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPOSICIÓN DE FUNCIONES GLOBALES
+// ═══════════════════════════════════════════════════════════════
 const funcionesGlobales = {
   goScreen, filterChip, filterVentas, filterInv, filterClients,
   switchReportTab, toggleTheme, loadTheme,
@@ -2340,18 +2601,22 @@ const funcionesGlobales = {
   toggleAdminMenu, closeAdminMenu, actualizarAdminUI,
   renderizarTablaProductos, renderizarTablaClientes, renderizarTablaVentas,
   filtrarCatalogo,
-  // Nuevo flujo
   mostrarPantallaBienvenida, ocultarPantallaBienvenida,
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
   registrarEmpresa, registrarClienteNuevo, loginUnificado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
-  forzarCierreModal, abrirModalId
+  forzarCierreModal, abrirModalId,
+  // Nuevas funciones de despacho
+  abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,
+  verificarStock, descontarStock, obtenerSiguienteNumeroFactura,
+  actualizarSaldoEnvases, calcularNuevoSaldo,
+  generarFactura  // factura simple ya existente
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {
   window[nombre] = fn;
 });
 
-console.log('✅ app.js cargado correctamente — Versión unificada con mejoras de sesión');
+console.log('✅ app.js cargado correctamente — Versión unificada con despacho de pedidos y control de envases');

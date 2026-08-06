@@ -859,3 +859,114 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
   from { transform: translateY(40px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* ==================== MODAL DE DESPACHO ==================== */
+#modal-despacho .modal-sheet {
+  max-height: 85vh;
+}
+
+.alertas-cliente {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--green);
+}
+
+.alertas-cliente.alerta-roja {
+  border-left-color: var(--red);
+}
+
+.alertas-cliente.alerta-amarilla {
+  border-left-color: var(--amber);
+}
+
+.alertas-cliente .alerta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.alertas-cliente .alerta-item .icono {
+  font-size: 18px;
+}
+
+.alertas-cliente .alerta-item.rojo {
+  color: var(--red);
+}
+
+.alertas-cliente .alerta-item.amarillo {
+  color: var(--amber);
+}
+
+.alertas-cliente .alerta-item.verde {
+  color: var(--green);
+}
+
+.tabla-envases-despacho {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.tabla-envases-despacho th {
+  background: var(--bg-secondary);
+  padding: 8px 6px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabla-envases-despacho td {
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tabla-envases-despacho input[type="number"] {
+  width: 60px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.tabla-envases-despacho .saldo-display {
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tabla-envases-despacho .saldo-positivo {
+  color: var(--green);
+}
+
+.tabla-envases-despacho .saldo-negativo {
+  color: var(--red);
+}
+
+/* Resumen de productos en el modal */
+.resumen-productos-despacho {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.resumen-productos-despacho .producto-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.resumen-productos-despacho .producto-item:last-child {
+  border-bottom: none;
+}

@@ -35,6 +35,7 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
         <div>
           <button class="btn-icon edit" onclick="editVenta('${v.id}')" title="Editar">✏️</button>
           <button class="btn-icon danger" onclick="confirmDeleteVenta('${v.id}')" title="Eliminar">🗑️</button>
+          <button class="btn-icon" onclick="generarFactura('${v.id}')" title="Factura" style="color:var(--primary);">🧾</button>
         </div>
       </div>
       <div class="sale-client">${v.cliente}</div>

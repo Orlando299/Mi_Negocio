@@ -2141,6 +2141,180 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🤖 Sistema de comandos listo (modo mixto)');
 });
 
+// ================================================================
+//  FACTURACIÓN EN PDF
+// ================================================================
+
+function generarFactura(id) {
+  const venta = store.ventas.find(v => v.id === id);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+
+  // === DATOS DE LA EMPRESA (fijos para cada empresa) ===
+  // TODO: En el futuro, estos datos se pueden guardar en Firestore
+  // y recuperarlos desde la colección 'empresas'.
+  const empresaId = sessionStorage.getItem('empresaId') || 'MIEMPRESA';
+  const empresaNombre = sessionStorage.getItem('empresaNombre') || 'Mi Negocio';
+  
+  // Datos fijos (puedes cambiarlos o hacerlos editables después)
+  const empresaRIF = 'J-12345678-9';
+  const empresaTelefono = '+58 412 000 0000';
+  const empresaDireccion = 'Av. Principal, Local 1, Caracas';
+  const empresaEmail = 'info@tunegocio.com';
+
+  const cliente = venta.cliente || 'Cliente general';
+  const total = venta.total || formatCurrency(0);
+
+  // Crear el PDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  let y = margin;
+
+  // --- Título ---
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 51, 141); // Azul corporativo
+  doc.text('FACTURA', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  // --- Datos de la empresa ---
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${empresaNombre}`, margin, y);
+  y += 5;
+  doc.text(`RIF: ${empresaRIF}`, margin, y);
+  y += 5;
+  doc.text(`Teléfono: ${empresaTelefono}`, margin, y);
+  y += 5;
+  doc.text(`Email: ${empresaEmail}`, margin, y);
+  y += 5;
+  doc.text(`Dirección: ${empresaDireccion}`, margin, y);
+  y += 8;
+
+  // --- Línea separadora ---
+  doc.setDrawColor(0, 51, 141);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+
+  // --- Cliente y fecha ---
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Cliente:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${cliente}`, margin + 25, y);
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Fecha:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  const fecha = venta.fecha || new Date().toLocaleDateString();
+  doc.text(`${fecha}`, margin + 25, y);
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`N° Factura:`, margin, y);
+  doc.setFont('helvetica', 'normal');
+  const numFactura = venta.id ? venta.id.slice(0, 8).toUpperCase() : '00000001';
+  doc.text(`${numFactura}`, margin + 30, y);
+  y += 10;
+
+  // --- Línea separadora ---
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+
+  // --- Tabla de productos ---
+  const tableData = [];
+  if (venta.items && Array.isArray(venta.items) && venta.items.length > 0) {
+    venta.items.forEach(item => {
+      tableData.push([
+        item.nombre || 'Producto',
+        item.cantidad || 1,
+        formatCurrency(item.precio || 0),
+        formatCurrency((item.cantidad || 1) * (item.precio || 0))
+      ]);
+    });
+  } else {
+    // Venta simple (un solo producto)
+    const producto = venta.producto || 'Producto';
+    const cantidad = venta.items || 1;
+    const precioUnit = venta.total ? parseCurrency(venta.total) / cantidad : 0;
+    tableData.push([
+      producto,
+      cantidad,
+      formatCurrency(precioUnit),
+      venta.total || formatCurrency(precioUnit * cantidad)
+    ]);
+  }
+
+  doc.autoTable({
+    startY: y,
+    head: [['Producto', 'Cant.', 'Precio Unit.', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { 
+      fillColor: [0, 51, 141], 
+      textColor: [255, 255, 255], 
+      fontSize: 10,
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 25, halign: 'center' },
+      2: { cellWidth: 35, halign: 'right' },
+      3: { cellWidth: 35, halign: 'right' }
+    },
+    margin: { left: margin, right: margin },
+    didDrawPage: function (data) {
+      // Número de página
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Página ${data.pageNumber} de ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
+  });
+
+  // Obtener la posición final de la tabla
+  const finalY = doc.lastAutoTable.finalY + 8;
+
+  // --- Total general ---
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  const totalFormateado = venta.total || formatCurrency(0);
+  doc.text(`TOTAL: ${totalFormateado}`, pageWidth - margin - 10, finalY, { align: 'right' });
+
+  // --- Notas adicionales ---
+  if (venta.notas && venta.notas.trim() !== '') {
+    let yNotas = finalY + 12;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Notas: ${venta.notas}`, margin, yNotas);
+  }
+
+  // --- Pie de página ---
+  const pieY = doc.internal.pageSize.getHeight() - 18;
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text('¡Gracias por su compra!', pageWidth / 2, pieY, { align: 'center' });
+  doc.text('Este documento es una factura válida para efectos tributarios.', pageWidth / 2, pieY + 5, { align: 'center' });
+
+  // Guardar el PDF
+  doc.save(`factura_${numFactura}.pdf`);
+  showToast('✅ Factura generada correctamente');
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPONER FUNCIONES GLOBALES
 // ═══════════════════════════════════════════════════════════════

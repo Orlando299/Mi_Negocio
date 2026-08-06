@@ -328,6 +328,83 @@ class DataStore {
       throw error;
     }
   }
+
+  // ================================================================
+//  ENVASES Y FACTURAS (DATA STORE)
+// ================================================================
+
+async obtenerConfiguracionEnvases(empresaId) {
+  try {
+    const doc = await this.db.collection('empresas').doc(empresaId).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    return {
+      stockEnvases: data.stockEnvases || {},
+      limitesEnvasesCliente: data.limitesEnvasesCliente || {},
+      umbralFacturasPendientes: data.umbralFacturasPendientes || 2
+    };
+  } catch (error) {
+    handleError(error, 'Error al obtener configuración de envases');
+    return null;
+  }
+}
+
+async actualizarStockEnvases(empresaId, envases) {
+  // envases: objeto con { tipo: cantidad } (puede ser positivo o negativo)
+  try {
+    const ref = this.db.collection('empresas').doc(empresaId);
+    await ref.update({
+      stockEnvases: firebase.firestore.FieldValue.increment(envases)
+    });
+  } catch (error) {
+    handleError(error, 'Error al actualizar stock de envases');
+    throw error;
+  }
+}
+
+async actualizarSaldoEnvasesCliente(clienteId, envases) {
+  // envases: objeto con { tipo: cantidad } (incremento)
+  try {
+    const ref = this.db.collection('clientes').doc(clienteId);
+    await ref.update({
+      saldoEnvases: firebase.firestore.FieldValue.increment(envases)
+    });
+  } catch (error) {
+    handleError(error, 'Error al actualizar saldo de envases del cliente');
+    throw error;
+  }
+}
+
+async contarFacturasPendientes(clienteId) {
+  try {
+    const snapshot = await this.db.collection('ventas')
+      .where('clienteId', '==', clienteId)
+      .where('status', '==', 'pendiente')
+      .get();
+    return snapshot.size;
+  } catch (error) {
+    handleError(error, 'Error al contar facturas pendientes');
+    return 0;
+  }
+}
+
+async obtenerSiguienteNumeroFactura(empresaId) {
+  const ref = this.db.collection('empresas').doc(empresaId);
+  let numero = 0;
+  await this.db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(ref);
+    if (!doc.exists) {
+      throw new Error('Documento de empresa no existe');
+    }
+    const data = doc.data();
+    numero = (data.ultimoNumeroFactura || 0) + 1;
+    transaction.update(ref, { ultimoNumeroFactura: numero });
+  });
+  return numero;
+}
+
+
+  
 }
 
 const store = new DataStore();

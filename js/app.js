@@ -1222,39 +1222,53 @@ function vaciarCarrito() {
 }
 
 async function realizarPedido() {
-  if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
-  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  if (!sessionStorage.getItem('empresaId')) {
+    showToast('⚠️ Inicia sesión primero');
+    return;
+  }
+  if (!carrito.length) {
+    showToast('🛒 Carrito vacío');
+    return;
+  }
+
+  // Verificar stock antes de crear el pedido (solo verificación, no se descuenta)
   for (const item of carrito) {
     const producto = inventario.find(p => p.nombre === item.nombre);
-    if (!producto) { showToast(`⚠️ Producto "${item.nombre}" no existe`); return; }
+    if (!producto) {
+      showToast(`⚠️ Producto "${item.nombre}" no existe en inventario`);
+      return;
+    }
     if (item.cantidad > producto.stock) {
       showToast(`⚠️ Stock insuficiente para "${item.nombre}" (disponible: ${producto.stock})`);
       return;
     }
   }
+
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-  const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+
+  // Crear array de productos para el pedido (detalle individual)
+  const productos = carrito.map(item => ({
+    nombre: item.nombre,
+    cantidad: item.cantidad,
+    precio: item.precio
+  }));
+
   const pedido = {
     cliente: sessionStorage.getItem('userName') || 'Cliente',
     fecha: getCurrentTimestamp(),
-    items: items,
+    items: totalItems,
     total: formatCurrency(total),
     status: 'pendiente',
     metodo: 'Cliente app',
     notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
-    producto: 'Pedido desde app cliente'
+    productos: productos   // <-- NUEVO: array con detalle de productos
   };
+
   try {
     await store.addVenta(pedido);
-    for (const item of carrito) {
-      const producto = inventario.find(p => p.nombre === item.nombre);
-      if (producto) {
-        producto.stock -= item.cantidad;
-        if (producto.stock === 0) producto.estado = 'out';
-        else if (producto.stock <= 5) producto.estado = 'low';
-        await store.updateProducto(producto.id, { stock: producto.stock, estado: producto.estado });
-      }
-    }
+    // NO se descuenta stock aquí (se hará al despachar)
+
     syncGlobals();
     carrito = [];
     guardarCarrito();
@@ -1264,6 +1278,8 @@ async function realizarPedido() {
     renderActividadReciente();
     updateKPIs();
     showToast('✅ Pedido realizado con éxito');
+
+    // Notificar a los administradores
     const empresaIdNotif = sessionStorage.getItem('empresaId');
     const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
     if (empresaIdNotif && typeof notificarAdmins === 'function') {
@@ -1275,7 +1291,7 @@ async function realizarPedido() {
       );
     }
   } catch (error) {
-    handleError(error);
+    handleError(error, 'Error al realizar el pedido');
   }
 }
 
@@ -2010,20 +2026,27 @@ function abrirModalDespacho(id) {
     showToast('⚠️ Esta venta ya fue despachada');
     return;
   }
+
   const cliente = clientes.find(c => c.nombre === venta.cliente);
   if (!cliente) {
     showToast('⚠️ Cliente no encontrado');
     return;
   }
-  const productos = venta.productos || [];
+
+  // Obtener productos del pedido (usa el array 'productos' si existe)
+  let productos = venta.productos || [];
+  
+  // Fallback para pedidos antiguos (formato simple)
   if (!productos.length) {
-    if (venta.items && venta.producto) {
+    if (venta.items && venta.producto && venta.producto !== 'Pedido desde app cliente') {
       productos.push({ nombre: venta.producto, cantidad: venta.items });
     } else {
       showToast('⚠️ No se pueden identificar los productos del pedido');
       return;
     }
   }
+
+  // Verificar stock actual
   const erroresStock = verificarStock(productos);
   if (erroresStock.length > 0) {
     let mensaje = '❌ No se puede despachar por falta de stock:\n';
@@ -2031,13 +2054,18 @@ function abrirModalDespacho(id) {
     alert(mensaje);
     return;
   }
+
+  // Obtener saldo de envases del cliente
   const saldoEnvases = cliente.saldoEnvases || {};
+
+  // Contar facturas pendientes del cliente (excluyendo la actual)
   const facturasPendientes = store.ventas.filter(v => 
     v.cliente === cliente.nombre && 
     v.status === 'pendiente' && 
     v.id !== id
   ).length;
 
+  // --- Construir HTML del modal (envases) ---
   let envasesHTML = '';
   for (const [tipo, config] of Object.entries(TIPOS_ENVASE)) {
     const saldoActual = saldoEnvases[tipo] || 0;
@@ -2069,6 +2097,7 @@ function abrirModalDespacho(id) {
     `;
   }
 
+  // --- Alertas del cliente ---
   let alertasHTML = '';
   if (facturasPendientes >= 2) {
     alertasHTML += `<div style="background:var(--red-soft); color:var(--red); padding:10px; border-radius:var(--radius-sm); margin-bottom:10px;">
@@ -2080,6 +2109,7 @@ function abrirModalDespacho(id) {
     </div>`;
   }
 
+  // --- Cuerpo del modal ---
   const body = `
     <div style="margin-bottom:16px;">
       <h3>🧾 Despachar pedido</h3>
@@ -2120,6 +2150,8 @@ function abrirModalDespacho(id) {
   `;
 
   openModalWithContent('Despachar pedido', body);
+
+  // Listener para mostrar campo "Otro" en método de pago
   document.getElementById('despacho-metodo').addEventListener('change', function() {
     const otroCampo = document.getElementById('campo-otro-metodo');
     if (this.value === 'Otro') {

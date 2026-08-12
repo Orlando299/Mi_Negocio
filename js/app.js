@@ -3059,12 +3059,13 @@ const funcionesGlobales = {
   registrarEmpresa, registrarClienteNuevo, loginUnificado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
-  // Nuevas funciones de despacho
+  // --- NUEVAS FUNCIONES DE DESPACHO ---
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,
   verificarStock, descontarStock, obtenerSiguienteNumeroFactura,
   actualizarSaldoEnvases, calcularNuevoSaldo,
-  generarFactura  // factura simple ya existente, cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago
-  
+  generarFactura, // <--- COMA AQUÍ
+  // --- FUNCIONES DE PAGOS INTEGRADOS ---
+  cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

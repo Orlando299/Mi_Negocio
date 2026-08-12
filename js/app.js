@@ -2348,24 +2348,32 @@ async function confirmarDespacho(id) {
 function generarFacturaDespacho(venta, numeroFactura, envases) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
+
+  // Datos de la empresa (puedes hacerlos editables después)
   const empresaNombre = sessionStorage.getItem('empresaNombre') || 'Mi Negocio';
   const empresaRIF = 'J-12345678-9';
   const empresaTelefono = '+58 412 000 0000';
   const empresaDireccion = 'Av. Principal, Local 1, Caracas';
   const empresaEmail = 'info@tunegocio.com';
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   let y = margin;
-  doc.setFontSize(20);
+
+  // --- TÍTULO ---
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 51, 141);
   doc.text('FACTURA', pageWidth / 2, y, { align: 'center' });
-  y += 8;
+  y += 10;
+
+  // --- DATOS DE LA EMPRESA ---
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text(`${empresaNombre}`, margin, y);
+  doc.text(empresaNombre, margin, y);
   y += 5;
+  doc.setFont('helvetica', 'normal');
   doc.text(`RIF: ${empresaRIF}`, margin, y);
   y += 5;
   doc.text(`Teléfono: ${empresaTelefono}`, margin, y);
@@ -2374,46 +2382,68 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   y += 5;
   doc.text(`Dirección: ${empresaDireccion}`, margin, y);
   y += 8;
+
+  // --- LÍNEA SEPARADORA ---
   doc.setDrawColor(0, 51, 141);
+  doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
+
+  // --- CLIENTE, FECHA, NÚMERO DE FACTURA Y MÉTODO DE PAGO ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(`Cliente:`, margin, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${venta.cliente || 'Cliente general'}`, margin + 25, y);
+  doc.text(venta.cliente || 'Cliente general', margin + 30, y);
   y += 6;
+
   doc.setFont('helvetica', 'bold');
   doc.text(`Fecha:`, margin, y);
   doc.setFont('helvetica', 'normal');
-  const fecha = venta.fechaDespacho ? new Date(venta.fechaDespacho).toLocaleDateString() : new Date().toLocaleDateString();
-  doc.text(`${fecha}`, margin + 25, y);
+  const fecha = venta.fechaDespacho ? new Date(venta.fechaDespacho) : new Date();
+  const fechaFormateada = fecha.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  doc.text(fechaFormateada, margin + 30, y);
   y += 6;
+
   doc.setFont('helvetica', 'bold');
   doc.text(`N° Factura:`, margin, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${numeroFactura}`, margin + 30, y);
+  doc.text(String(numeroFactura), margin + 30, y);
   y += 6;
+
   doc.setFont('helvetica', 'bold');
   doc.text(`Método de pago:`, margin, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${venta.metodo || 'No especificado'}`, margin + 40, y);
+  doc.text(venta.metodo || 'No especificado', margin + 40, y);
   y += 10;
+
+  // --- LÍNEA SEPARADORA ---
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
+
+  // --- TABLA DE PRODUCTOS ---
   const productos = venta.productos || [];
   let tableData = [];
-  if (productos.length) {
+  
+  if (productos.length > 0) {
     productos.forEach(item => {
-      const precioUnit = venta.total ? parseCurrency(venta.total) / venta.items : 0;
+      const precioUnit = item.precio || 0;
+      const cantidad = item.cantidad || 1;
       tableData.push([
-        item.nombre,
-        item.cantidad,
+        item.nombre || 'Producto',
+        cantidad,
         formatCurrency(precioUnit),
-        formatCurrency(item.cantidad * precioUnit)
+        formatCurrency(precioUnit * cantidad)
       ]);
     });
   } else {
+    // Fallback para ventas antiguas sin array productos
     const producto = venta.producto || 'Producto';
     const cantidad = venta.items || 1;
     const precioUnit = venta.total ? parseCurrency(venta.total) / cantidad : 0;
@@ -2424,6 +2454,12 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
       venta.total || formatCurrency(precioUnit * cantidad)
     ]);
   }
+
+  // Si no hay datos, agregar una fila por defecto
+  if (tableData.length === 0) {
+    tableData.push(['Sin productos', 0, formatCurrency(0), formatCurrency(0)]);
+  }
+
   doc.autoTable({
     startY: y,
     head: [['Producto', 'Cant.', 'Precio Unit.', 'Total']],
@@ -2437,18 +2473,37 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
       fontStyle: 'bold'
     },
     columnStyles: {
-      0: { cellWidth: 70 },
-      1: { cellWidth: 25, halign: 'center' },
+      0: { cellWidth: 'auto' },
+      1: { cellWidth: 22, halign: 'center' },
       2: { cellWidth: 35, halign: 'right' },
       3: { cellWidth: 35, halign: 'right' }
     },
-    margin: { left: margin, right: margin }
+    margin: { left: margin, right: margin },
+    didDrawPage: function(data) {
+      // Número de página
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Página ${data.pageNumber} de ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
   });
-  let finalY = doc.lastAutoTable.finalY + 8;
+
+  let finalY = doc.lastAutoTable.finalY + 6;
+
+  // --- TOTAL GENERAL ---
+  const totalFormateado = venta.total || formatCurrency(0);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL: ${venta.total || formatCurrency(0)}`, pageWidth - margin - 10, finalY, { align: 'right' });
-  finalY += 8;
+  doc.setTextColor(0, 0, 0);
+  doc.text(`TOTAL: ${totalFormateado}`, pageWidth - margin - 10, finalY, { align: 'right' });
+  finalY += 10;
+
+  // --- CONTROL DE ENVASES ---
   if (envases && Object.keys(envases).length > 0) {
     const tieneMovimiento = Object.values(envases).some(e => e.prestados > 0 || e.recuperados > 0);
     if (tieneMovimiento) {
@@ -2456,6 +2511,7 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
       doc.setFont('helvetica', 'bold');
       doc.text('--- CONTROL DE ENVASES ---', margin, finalY);
       finalY += 6;
+
       const envasesData = [];
       for (const [tipo, datos] of Object.entries(envases)) {
         const nombre = TIPOS_ENVASE[tipo]?.nombre || tipo;
@@ -2467,41 +2523,52 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
           datos.saldoNuevo || 0
         ]);
       }
-      doc.autoTable({
-        startY: finalY,
-        head: [['Tipo', 'Saldo ant.', 'Prestados', 'Recuperados', 'Nuevo saldo']],
-        body: envasesData,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: {
-          fillColor: [100, 100, 100],
-          textColor: [255, 255, 255],
-          fontSize: 9,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 60 },
-          1: { cellWidth: 25, halign: 'center' },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 25, halign: 'center' },
-          4: { cellWidth: 30, halign: 'center' }
-        },
-        margin: { left: margin, right: margin }
-      });
-      finalY = doc.lastAutoTable.finalY + 8;
+
+      if (envasesData.length > 0) {
+        doc.autoTable({
+          startY: finalY,
+          head: [['Tipo', 'Saldo ant.', 'Prestados', 'Recuperados', 'Nuevo saldo']],
+          body: envasesData,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: {
+            fillColor: [100, 100, 100],
+            textColor: [255, 255, 255],
+            fontSize: 9,
+            fontStyle: 'bold'
+          },
+          columnStyles: {
+            0: { cellWidth: 'auto' },
+            1: { cellWidth: 22, halign: 'center' },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 25, halign: 'center' }
+          },
+          margin: { left: margin, right: margin }
+        });
+        finalY = doc.lastAutoTable.finalY + 8;
+      } else {
+        finalY += 6;
+      }
     }
   }
-  if (venta.notas) {
+
+  // --- NOTAS ---
+  if (venta.notas && venta.notas.trim() !== '') {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Notas: ${venta.notas}`, margin, finalY);
-    finalY += 6;
+    finalY += 8;
   }
+
+  // --- PIE DE PÁGINA ---
   const pieY = doc.internal.pageSize.getHeight() - 18;
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text('¡Gracias por su compra!', pageWidth / 2, pieY, { align: 'center' });
   doc.text('Este documento es una factura válida para efectos tributarios.', pageWidth / 2, pieY + 5, { align: 'center' });
+
+  // Guardar PDF
   doc.save(`factura_${numeroFactura}.pdf`);
 }
 

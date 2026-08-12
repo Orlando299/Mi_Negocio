@@ -2857,6 +2857,177 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🤖 Sistema de comandos listo (modo mixto)');
 });
 
+// ================================================================
+//  PAGOS INTEGRADOS (P2P) - CONFIRMACIÓN DE PAGO
+// ================================================================
+
+/**
+ * Confirma el pago de un pedido (lo marca como pagado)
+ * @param {string} id - ID de la venta
+ */
+async function confirmarPago(id) {
+  const venta = store.ventas.find(v => v.id === id);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+  
+  if (venta.status !== 'pendiente') {
+    showToast('⚠️ Esta venta ya fue procesada');
+    return;
+  }
+
+  // Confirmar con el franquiciado (opcional)
+  if (!confirm(`¿Confirmar pago del pedido de ${venta.cliente} por ${venta.total}?`)) {
+    return;
+  }
+
+  try {
+    await store.updateVenta(id, {
+      status: 'pagado',
+      fechaPagoConfirmado: new Date().toISOString()
+    });
+    syncGlobals();
+    renderVentas('', filtroVentas, 1);
+    updateKPIs();
+    showToast('✅ Pago confirmado. Ahora puedes despachar el pedido.');
+  } catch (error) {
+    handleError(error, 'Error al confirmar pago');
+  }
+}
+
+/**
+ * Notifica al franquiciado que el cliente ya pagó
+ * @param {string} ventaId - ID de la venta
+ */
+async function notificarPago(ventaId) {
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
+
+  try {
+    // Actualizar el pedido con la notificación
+    await store.updateVenta(ventaId, {
+      clienteNotificoPago: true,
+      fechaNotificacionPago: new Date().toISOString()
+    });
+    syncGlobals();
+
+    // Enviar notificación al admin (FCM)
+    if (typeof notificarAdmins === 'function') {
+      notificarAdmins(
+        empresaId,
+        '💳 Pago notificado',
+        `${clienteNombre} ha notificado el pago de ${venta.total}`,
+        { tipo: 'pago_notificado', ventaId: ventaId, cliente: clienteNombre }
+      );
+    }
+
+    showToast('✅ Pago notificado al franquiciado');
+    closeModal();
+  } catch (error) {
+    handleError(error, 'Error al notificar pago');
+  }
+}
+
+/**
+ * Muestra la orden de pago al cliente (con los datos del franquiciado)
+ * @param {string} ventaId - ID de la venta
+ */
+async function mostrarOrdenPago(ventaId) {
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  let datosPago = null;
+  
+  try {
+    const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+    if (doc.exists) {
+      datosPago = doc.data().datosPago;
+    }
+  } catch (error) {
+    handleError(error, 'Error cargando datos de pago');
+  }
+
+  if (!datosPago || !datosPago.pagoMovil?.telefono && !datosPago.zelle?.email && !datosPago.transferencia?.cuenta) {
+    showToast('⚠️ El franquiciado no ha configurado sus datos de pago');
+    return;
+  }
+
+  let metodosHTML = '';
+  
+  // Pago Móvil
+  if (datosPago.pagoMovil?.telefono) {
+    metodosHTML += `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>📱 Pago Móvil</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Teléfono: ${datosPago.pagoMovil.telefono}<br>
+          Cédula: ${datosPago.pagoMovil.cedula || 'N/A'}<br>
+          Banco: ${datosPago.pagoMovil.banco || 'N/A'}
+        </div>
+      </div>
+    `;
+  }
+
+  // Zelle
+  if (datosPago.zelle?.email) {
+    metodosHTML += `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>💵 Zelle</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Email: ${datosPago.zelle.email}<br>
+          Titular: ${datosPago.zelle.nombre || 'N/A'}
+        </div>
+      </div>
+    `;
+  }
+
+  // Transferencia
+  if (datosPago.transferencia?.cuenta) {
+    metodosHTML += `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>🏦 Transferencia</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Banco: ${datosPago.transferencia.banco || 'N/A'}<br>
+          Cuenta: ${datosPago.transferencia.cuenta}<br>
+          Titular: ${datosPago.transferencia.titular || 'N/A'}<br>
+          Cédula: ${datosPago.transferencia.cedula || 'N/A'}
+        </div>
+      </div>
+    `;
+  }
+
+  const html = `
+    <div style="text-align:center; margin-bottom:16px;">
+      <h3>🧾 Orden de pago</h3>
+      <p style="font-size:14px; color:var(--text2);">Realiza el pago y notifícanos para procesar tu pedido.</p>
+    </div>
+    <div style="background:var(--primary-soft); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+      <p style="font-size:18px; font-weight:700; text-align:center;">Total: ${venta.total}</p>
+    </div>
+    ${metodosHTML}
+    <div style="margin-top:16px; display:flex; gap:8px; flex-direction:column;">
+      <button class="btn btn-primary" onclick="notificarPago('${ventaId}')">✅ Ya pagué - Notificar al franquiciado</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+    </div>
+    <p style="font-size:12px; color:var(--text3); text-align:center; margin-top:12px;">
+      Al notificar, el franquiciado recibirá tu confirmación y podrá procesar tu pedido.
+    </p>
+  `;
+
+  openModalWithContent('Orden de pago', html);
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES
 // ═══════════════════════════════════════════════════════════════
@@ -2892,7 +3063,8 @@ const funcionesGlobales = {
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,
   verificarStock, descontarStock, obtenerSiguienteNumeroFactura,
   actualizarSaldoEnvases, calcularNuevoSaldo,
-  generarFactura  // factura simple ya existente
+  generarFactura  // factura simple ya existente, cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago
+  
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

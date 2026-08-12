@@ -5,6 +5,10 @@ let paginaInv = 1;
 let paginaCli = 1;
 const ITEMS_POR_PAGINA = 10;
 
+// ================================================================
+//  RENDERIZAR VENTAS (con badge de pago y botón confirmar pago)
+// ================================================================
+
 function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
   const list = document.getElementById('ventas-list');
   const q = textFilter.toLowerCase();
@@ -27,26 +31,38 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
     return;
   }
 
-  list.innerHTML = pageData.map(v => `
-    <div class="sale-card">
-      <div class="sale-header">
-        <span class="sale-id">${v.id}</span>
-        <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
-        <div>
-          <button class="btn-icon edit" onclick="editVenta('${v.id}')" title="Editar">✏️</button>
-          ${v.status === 'pendiente' ? `<button class="btn-icon" onclick="abrirModalDespacho('${v.id}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
-          <button class="btn-icon danger" onclick="confirmDeleteVenta('${v.id}')" title="Eliminar">🗑️</button>
-          <button class="btn-icon" onclick="generarFactura('${v.id}')" title="Factura" style="color:var(--primary);">🧾</button>
+  list.innerHTML = pageData.map(v => {
+    // Verificar si el cliente notificó el pago
+    const pagoNotificado = v.clienteNotificoPago === true;
+    // Verificar si el pedido está pendiente y el pago fue notificado (para mostrar botón confirmar)
+    const mostrarConfirmarPago = v.status === 'pendiente' && pagoNotificado;
+    // Verificar si el pedido está pendiente (para mostrar botón despachar)
+    const mostrarDespachar = v.status === 'pendiente';
+
+    return `
+      <div class="sale-card">
+        <div class="sale-header">
+          <span class="sale-id">${v.id}</span>
+          <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+          ${pagoNotificado ? `<span class="badge" style="background:var(--amber); color:#fff; font-size:10px; padding:2px 8px; border-radius:12px;">💳 Pago notificado</span>` : ''}
+          <div>
+            ${mostrarConfirmarPago ? `<button class="btn-icon" onclick="confirmarPago('${v.id}')" title="Confirmar pago" style="color:var(--green);">✅</button>` : ''}
+            ${mostrarDespachar ? `<button class="btn-icon" onclick="abrirModalDespacho('${v.id}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
+            ${v.status === 'pagado' ? `<button class="btn-icon" onclick="generarFactura('${v.id}')" title="Descargar factura" style="color:var(--primary);">🧾</button>` : ''}
+            ${v.status !== 'pendiente' ? `<button class="btn-icon edit" onclick="editVenta('${v.id}')" title="Editar">✏️</button>` : ''}
+            ${v.status !== 'pendiente' ? `<button class="btn-icon danger" onclick="confirmDeleteVenta('${v.id}')" title="Eliminar">🗑️</button>` : ''}
+          </div>
         </div>
+        <div class="sale-client">${v.cliente}</div>
+        <div class="sale-meta">${v.fecha}</div>
+        <div class="sale-footer">
+          <span class="sale-items">${v.items} producto${v.items > 1 ? 's' : ''}</span>
+          <span class="sale-total">${v.total}</span>
+        </div>
+        ${v.notas ? `<div style="font-size:11px; color:var(--text3); margin-top:4px;">📝 ${v.notas}</div>` : ''}
       </div>
-      <div class="sale-client">${v.cliente}</div>
-      <div class="sale-meta">${v.fecha}</div>
-      <div class="sale-footer">
-        <span class="sale-items">${v.items} producto${v.items > 1 ? 's' : ''}</span>
-        <span class="sale-total">${v.total}</span>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   agregarPaginacion(list, totalPages, page, 'ventas');
   updateKPIs();

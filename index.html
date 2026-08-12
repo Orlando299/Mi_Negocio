@@ -262,7 +262,61 @@
       <button class="config-tab" data-tab="clientes">👥 Clientes</button>
       <button class="config-tab" data-tab="ventas">🛒 Ventas</button>
       <button class="config-tab" data-tab="json">📁 JSON</button>
+      <button class="config-tab" data-tab="pagos">💳 Pagos</button>
     </div>
+
+    <div class="config-panel" id="panel-pagos">
+  <div class="config-json-section">
+    <h3>💳 Datos de pago (Pago Móvil / Zelle / Transferencias)</h3>
+    <p class="config-hint">Configura los datos que se mostrarán al cliente para que realice el pago.</p>
+    
+    <div class="field">
+      <label>Pago Móvil - Teléfono</label>
+      <input type="text" id="pago-pmovil-telefono" placeholder="+58 412 000 0000">
+    </div>
+    <div class="field">
+      <label>Pago Móvil - Cédula</label>
+      <input type="text" id="pago-pmovil-cedula" placeholder="V-12345678">
+    </div>
+    <div class="field">
+      <label>Pago Móvil - Banco</label>
+      <input type="text" id="pago-pmovil-banco" placeholder="Bancaribe">
+    </div>
+    
+    <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
+    
+    <div class="field">
+      <label>Zelle - Email</label>
+      <input type="email" id="pago-zelle-email" placeholder="franquiciado@email.com">
+    </div>
+    <div class="field">
+      <label>Zelle - Nombre del titular</label>
+      <input type="text" id="pago-zelle-nombre" placeholder="Nombre del franquiciado">
+    </div>
+    
+    <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
+    
+    <div class="field">
+      <label>Transferencia - Banco</label>
+      <input type="text" id="pago-transferencia-banco" placeholder="Banesco">
+    </div>
+    <div class="field">
+      <label>Transferencia - Número de cuenta</label>
+      <input type="text" id="pago-transferencia-cuenta" placeholder="0123-4567-89-01234567">
+    </div>
+    <div class="field">
+      <label>Transferencia - Titular</label>
+      <input type="text" id="pago-transferencia-titular" placeholder="Nombre del titular">
+    </div>
+    <div class="field">
+      <label>Transferencia - Cédula</label>
+      <input type="text" id="pago-transferencia-cedula" placeholder="V-12345678">
+    </div>
+
+    <button class="btn btn-primary" onclick="guardarDatosPago()">💾 Guardar datos de pago</button>
+    <div id="mensaje-pago" style="margin-top:12px;"></div>
+  </div>
+</div>
 
     <div class="config-panel active" id="panel-resumen">
       <div class="config-cards">

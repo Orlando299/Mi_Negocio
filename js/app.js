@@ -1087,6 +1087,72 @@ function toggleCliente() {
   }
 }
 
+// ================================================================
+//  CONFIGURACIÓN DE DATOS DE PAGO
+// ================================================================
+
+async function cargarDatosPago() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+  try {
+    const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+    if (doc.exists) {
+      const data = doc.data();
+      const pagos = data.datosPago || {};
+      
+      // Pago Móvil
+      document.getElementById('pago-pmovil-telefono').value = pagos.pagoMovil?.telefono || '';
+      document.getElementById('pago-pmovil-cedula').value = pagos.pagoMovil?.cedula || '';
+      document.getElementById('pago-pmovil-banco').value = pagos.pagoMovil?.banco || '';
+      
+      // Zelle
+      document.getElementById('pago-zelle-email').value = pagos.zelle?.email || '';
+      document.getElementById('pago-zelle-nombre').value = pagos.zelle?.nombre || '';
+      
+      // Transferencia
+      document.getElementById('pago-transferencia-banco').value = pagos.transferencia?.banco || '';
+      document.getElementById('pago-transferencia-cuenta').value = pagos.transferencia?.cuenta || '';
+      document.getElementById('pago-transferencia-titular').value = pagos.transferencia?.titular || '';
+      document.getElementById('pago-transferencia-cedula').value = pagos.transferencia?.cedula || '';
+    }
+  } catch (error) {
+    handleError(error, 'Error cargando datos de pago');
+  }
+}
+
+async function guardarDatosPago() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) { showToast('⚠️ No hay sesión activa'); return; }
+  
+  const datosPago = {
+    pagoMovil: {
+      telefono: document.getElementById('pago-pmovil-telefono').value.trim(),
+      cedula: document.getElementById('pago-pmovil-cedula').value.trim(),
+      banco: document.getElementById('pago-pmovil-banco').value.trim()
+    },
+    zelle: {
+      email: document.getElementById('pago-zelle-email').value.trim(),
+      nombre: document.getElementById('pago-zelle-nombre').value.trim()
+    },
+    transferencia: {
+      banco: document.getElementById('pago-transferencia-banco').value.trim(),
+      cuenta: document.getElementById('pago-transferencia-cuenta').value.trim(),
+      titular: document.getElementById('pago-transferencia-titular').value.trim(),
+      cedula: document.getElementById('pago-transferencia-cedula').value.trim()
+    }
+  };
+  
+  try {
+    await firebase.firestore().collection('empresas').doc(empresaId).update({
+      datosPago: datosPago
+    });
+    showToast('✅ Datos de pago guardados correctamente');
+    document.getElementById('mensaje-pago').innerHTML = '✅ Datos guardados correctamente';
+  } catch (error) {
+    handleError(error, 'Error guardando datos de pago');
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  MÓDULO CLIENTE: CATÁLOGO, CARRITO, PEDIDOS, CHAT, ALERTAS
 // ═══════════════════════════════════════════════════════════════
@@ -1221,23 +1287,116 @@ function vaciarCarrito() {
   showToast('🗑️ Carrito vacío');
 }
 
-async function realizarPedido() {
-  if (!sessionStorage.getItem('empresaId')) {
-    showToast('⚠️ Inicia sesión primero');
-    return;
-  }
-  if (!carrito.length) {
-    showToast('🛒 Carrito vacío');
+// ================================================================
+//  ORDEN DE PAGO (P2P)
+// ================================================================
+
+async function mostrarOrdenPago(ventaId) {
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) { showToast('⚠️ Venta no encontrada'); return; }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+  const datosPago = doc.exists ? doc.data().datosPago : null;
+  if (!datosPago) {
+    showToast('⚠️ El franquiciado no ha configurado sus datos de pago');
     return;
   }
 
-  // Verificar stock antes de crear el pedido (solo verificación, no se descuenta)
+  const html = `
+    <div style="text-align:center; margin-bottom:16px;">
+      <h3>🧾 Orden de pago</h3>
+      <p style="font-size:14px; color:var(--text2);">Realiza el pago y notifícanos para procesar tu pedido.</p>
+    </div>
+    <div style="background:var(--primary-soft); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+      <p style="font-size:18px; font-weight:700; text-align:center;">Total: ${venta.total}</p>
+    </div>
+
+    ${datosPago.pagoMovil?.telefono ? `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>📱 Pago Móvil</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Teléfono: ${datosPago.pagoMovil.telefono}<br>
+          Cédula: ${datosPago.pagoMovil.cedula || 'N/A'}<br>
+          Banco: ${datosPago.pagoMovil.banco || 'N/A'}
+        </div>
+      </div>
+    ` : ''}
+
+    ${datosPago.zelle?.email ? `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>💵 Zelle</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Email: ${datosPago.zelle.email}<br>
+          Titular: ${datosPago.zelle.nombre || 'N/A'}
+        </div>
+      </div>
+    ` : ''}
+
+    ${datosPago.transferencia?.cuenta ? `
+      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+        <strong>🏦 Transferencia</strong>
+        <div style="font-size:13px; margin-top:4px;">
+          Banco: ${datosPago.transferencia.banco || 'N/A'}<br>
+          Cuenta: ${datosPago.transferencia.cuenta}<br>
+          Titular: ${datosPago.transferencia.titular || 'N/A'}<br>
+          Cédula: ${datosPago.transferencia.cedula || 'N/A'}
+        </div>
+      </div>
+    ` : ''}
+
+    <div style="margin-top:16px; display:flex; gap:8px; flex-direction:column;">
+      <button class="btn btn-primary" onclick="notificarPago('${ventaId}')">✅ Ya pagué - Notificar al franquiciado</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+    </div>
+    <p style="font-size:12px; color:var(--text3); text-align:center; margin-top:12px;">
+      Al notificar, el franquiciado recibirá tu confirmación y podrá procesar tu pedido.
+    </p>
+  `;
+
+  openModalWithContent('Orden de pago', html);
+}
+
+async function notificarPago(ventaId) {
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) { showToast('⚠️ Venta no encontrada'); return; }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
+
+  try {
+    // Actualizar el pedido con la notificación
+    await store.updateVenta(ventaId, {
+      clienteNotificoPago: true,
+      fechaNotificacionPago: new Date().toISOString()
+    });
+    syncGlobals();
+
+    // Enviar notificación al admin (FCM)
+    if (typeof notificarAdmins === 'function') {
+      notificarAdmins(
+        empresaId,
+        '💳 Pago notificado',
+        `${clienteNombre} ha notificado el pago de ${venta.total}`,
+        { tipo: 'pago_notificado', ventaId: ventaId, cliente: clienteNombre }
+      );
+    }
+
+    showToast('✅ Pago notificado al franquiciado');
+    closeModal();
+  } catch (error) {
+    handleError(error, 'Error al notificar pago');
+  }
+}
+
+async function realizarPedido() {
+  if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
+  if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+
+  // Verificar stock antes de crear el pedido
   for (const item of carrito) {
     const producto = inventario.find(p => p.nombre === item.nombre);
-    if (!producto) {
-      showToast(`⚠️ Producto "${item.nombre}" no existe en inventario`);
-      return;
-    }
+    if (!producto) { showToast(`⚠️ Producto "${item.nombre}" no existe`); return; }
     if (item.cantidad > producto.stock) {
       showToast(`⚠️ Stock insuficiente para "${item.nombre}" (disponible: ${producto.stock})`);
       return;
@@ -1245,9 +1404,9 @@ async function realizarPedido() {
   }
 
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-  const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-
-  // Crear array de productos para el pedido (detalle individual)
+  const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+  
+  // Crear array de productos para el pedido
   const productos = carrito.map(item => ({
     nombre: item.nombre,
     cantidad: item.cantidad,
@@ -1257,29 +1416,47 @@ async function realizarPedido() {
   const pedido = {
     cliente: sessionStorage.getItem('userName') || 'Cliente',
     fecha: getCurrentTimestamp(),
-    items: totalItems,
+    items: items,
     total: formatCurrency(total),
     status: 'pendiente',
     metodo: 'Cliente app',
     notas: carrito.map(i => `${i.nombre} x${i.cantidad}`).join(', '),
-    productos: productos   // <-- NUEVO: array con detalle de productos
+    productos: productos
   };
 
   try {
+    // 1. Guardar el pedido en Firestore
     await store.addVenta(pedido);
-    // NO se descuenta stock aquí (se hará al despachar)
-
     syncGlobals();
+
+    // 2. Obtener el pedido recién creado (el último de la lista con estado pendiente)
+    const pedidoCreado = store.ventas.find(v => 
+      v.cliente === sessionStorage.getItem('userName') && 
+      v.status === 'pendiente' && 
+      v.total === formatCurrency(total)
+    );
+
+    // 3. Vaciar carrito
     carrito = [];
     guardarCarrito();
     actualizarCarritoCount();
-    closeModal();
+    
+    // 4. Actualizar interfaces
     renderHistorial();
     renderActividadReciente();
     updateKPIs();
-    showToast('✅ Pedido realizado con éxito');
 
-    // Notificar a los administradores
+    // 5. Cerrar modal del carrito
+    closeModal();
+
+    // 6. Mostrar orden de pago si el pedido se creó correctamente
+    if (pedidoCreado) {
+      mostrarOrdenPago(pedidoCreado.id);
+    } else {
+      showToast('⚠️ No se pudo generar la orden de pago, contacta al administrador');
+    }
+
+    // 7. Notificar a admins del nuevo pedido
     const empresaIdNotif = sessionStorage.getItem('empresaId');
     const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
     if (empresaIdNotif && typeof notificarAdmins === 'function') {
@@ -1290,6 +1467,10 @@ async function realizarPedido() {
         { tipo: 'nuevo_pedido', cliente: clienteNombre, total: pedido.total }
       );
     }
+
+    // 8. Mostrar toast de éxito (ya se muestra en el modal)
+    // showToast('✅ Pedido realizado con éxito');  // Ya lo maneja mostrarOrdenPago
+
   } catch (error) {
     handleError(error, 'Error al realizar el pedido');
   }

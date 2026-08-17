@@ -283,8 +283,6 @@ function renderChartVentas() {
     return;
   }
 
-  console.log('[Chart] Renderizando... ventas:', window.ventas?.length || 0);
-
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -298,18 +296,67 @@ function renderChartVentas() {
   const diasLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const totales = [0, 0, 0, 0, 0, 0, 0];
 
-  (window.ventas || []).forEach(v => {
-    if (v.status !== 'pagado' || !v.fecha) return;
+  const ventasData = window.ventas || [];
+
+  ventasData.forEach(v => {
+    if (v.status !== 'pagado') return;
+    if (!v.fecha && !v._fechaObj) return;
+
     try {
-      const f = convertTimestamp(v.fecha);
-      if (f >= inicioSemana && f <= finSemana) {
-        const ds = f.getDay();
-        const idx = ds === 0 ? 6 : ds - 1;
-        totales[idx] += parseCurrency(v.total);
+      let fechaVenta = null;
+      if (v._fechaObj && v._fechaObj instanceof Date) {
+        fechaVenta = v._fechaObj;
+      } else if (v.fecha) {
+        if (typeof v.fecha === 'string') {
+          fechaVenta = new Date(v.fecha);
+          if (isNaN(fechaVenta)) {
+            if (typeof convertTimestamp === 'function') {
+              fechaVenta = convertTimestamp(v.fecha);
+            }
+          }
+        } else if (v.fecha.toDate) {
+          fechaVenta = v.fecha.toDate();
+        } else if (v.fecha instanceof Date) {
+          fechaVenta = v.fecha;
+        }
       }
-    } catch (e) {}
+
+      if (!fechaVenta || isNaN(fechaVenta.getTime())) return;
+      if (fechaVenta >= inicioSemana && fechaVenta <= finSemana) {
+        const ds = fechaVenta.getDay();
+        const idx = ds === 0 ? 6 : ds - 1;
+        const total = parseCurrency(v.total);
+        if (total > 0) totales[idx] += total;
+      }
+    } catch (e) {
+      console.warn('[Chart] Error procesando venta:', v, e);
+    }
   });
 
+  const hayDatos = totales.some(t => t > 0);
+  const parent = ctx.parentNode;
+
+  // Remover mensaje anterior si existe
+  const oldMsg = parent.querySelector('.chart-empty-message');
+  if (oldMsg) oldMsg.remove();
+
+  if (!hayDatos) {
+    console.log('[Chart] No hay ventas en la semana actual, mostrando mensaje');
+    if (window.chartVentasInstance) {
+      window.chartVentasInstance.destroy();
+      window.chartVentasInstance = null;
+    }
+    const msg = document.createElement('div');
+    msg.className = 'chart-empty-message';
+    msg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--text2); font-size:14px; text-align:center; pointer-events:none;';
+    msg.textContent = '📊 Sin ventas esta semana';
+    parent.appendChild(msg);
+    return;
+  }
+
+  // Si hay datos, renderizar gráfico
+  console.log('[Chart] Renderizando con datos:', totales);
+  
   const maxVal = Math.max(...totales, 1);
   const stepSize = maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : maxVal <= 100 ? 20 : Math.ceil(maxVal / 5);
   const diaHoy = diaSemana === 0 ? 6 : diaSemana - 1;
@@ -317,9 +364,13 @@ function renderChartVentas() {
     return i === diaHoy ? '#00338D' : 'rgba(0, 51, 141, 0.25)';
   });
 
-  if (chartVentasInstance) chartVentasInstance.destroy();
+  // --- CRUCIAL: destruir la instancia anterior ANTES de crear una nueva ---
+  if (window.chartVentasInstance) {
+    window.chartVentasInstance.destroy();
+    window.chartVentasInstance = null;
+  }
 
-  chartVentasInstance = new Chart(ctx, {
+  window.chartVentasInstance = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: diasLabels,
@@ -378,7 +429,6 @@ function renderChartVentas() {
       animation: { duration: 700, easing: 'easeOutQuart' }
     }
   });
-
   console.log('[Chart] Gráfico renderizado OK');
 }
 

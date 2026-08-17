@@ -378,7 +378,10 @@ async function registrarClienteNuevo() {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
 
-    // 2. Buscar empresa por código de acceso
+    // ✅ 2. FORZAR OBTENCIÓN DEL TOKEN (asegura que el usuario esté autenticado)
+    await user.getIdToken(true); // true = forzar refresco del token
+
+    // 3. Buscar empresa por código de acceso
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
@@ -396,7 +399,7 @@ async function registrarClienteNuevo() {
     empresaId = empresaDoc.id;
     empresaData = empresaDoc.data();
 
-    // 3. Crear perfil del cliente en userProfiles (ANTES de crear el cliente)
+    // 4. Crear perfil del cliente en userProfiles (ANTES de crear el cliente)
     await firebase.firestore()
       .collection('userProfiles')
       .doc(user.uid)
@@ -409,7 +412,7 @@ async function registrarClienteNuevo() {
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-    // 4. Crear cliente en empresas/{empresaId}/clientes (AHORA el perfil existe)
+    // 5. Crear cliente en empresas/{empresaId}/clientes
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
@@ -426,7 +429,7 @@ async function registrarClienteNuevo() {
         pedidos: 0
       });
 
-    // 5. Guardar sesión en sessionStorage
+    // 6. Guardar sesión en sessionStorage
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
@@ -434,7 +437,7 @@ async function registrarClienteNuevo() {
 
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
 
-    // 6. Recargar para limpiar estado
+    // 7. Recargar para limpiar estado
     setTimeout(() => {
       window.location.reload();
     }, 1500);

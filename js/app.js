@@ -350,6 +350,7 @@ async function registrarClienteNuevo() {
   const email    = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
   const codigo   = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
+
   if (!nombre || !email || !password || !codigo) {
     showToast('❌ Completa todos los campos');
     return;
@@ -362,30 +363,58 @@ async function registrarClienteNuevo() {
     showToast('❌ El código debe tener 6 caracteres');
     return;
   }
+
+  // Deshabilitar botón
   const btn = document.querySelector('#modal-registro-cliente .btn-primary');
   if (btn) btn.disabled = true;
+
   _registrando = true;
   let user = null;
   let empresaId = null;
+  let empresaData = null;
+
   try {
+    // 1. Crear usuario en Firebase Auth
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
+
+    // 2. Buscar empresa por código de acceso
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
       .get();
+
     if (empresasSnapshot.empty) {
       await user.delete();
       showToast('❌ Código de invitación no válido');
       if (btn) btn.disabled = false;
+      _registrando = false;
       return;
     }
+
     const empresaDoc = empresasSnapshot.docs[0];
     empresaId = empresaDoc.id;
-    const empresaData = empresaDoc.data();
+    empresaData = empresaDoc.data();
+
+    // 3. Crear perfil del cliente en userProfiles (ANTES de crear el cliente)
     await firebase.firestore()
-      .collection('empresas').doc(empresaId)
-      .collection('clientes').doc(user.uid)
+      .collection('userProfiles')
+      .doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombre,
+        email: email,
+        rol: 'cliente',
+        empresaId: empresaId,
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    // 4. Crear cliente en empresas/{empresaId}/clientes (AHORA el perfil existe)
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('clientes')
+      .doc(user.uid)
       .set({
         nombre: nombre,
         email: email,
@@ -396,27 +425,28 @@ async function registrarClienteNuevo() {
         compras: '$0.00',
         pedidos: 0
       });
-    await firebase.firestore()
-      .collection('userProfiles').doc(user.uid)
-      .set({
-        uid: user.uid,
-        nombre: nombre,
-        email: email,
-        rol: 'cliente',
-        empresaId: empresaId,
-        creado: firebase.firestore.FieldValue.serverTimestamp()
-      });
+
+    // 5. Guardar sesión en sessionStorage
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
+
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
-    setTimeout(() => { window.location.reload(); }, 1500);
+
+    // 6. Recargar para limpiar estado
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
+    
+    // Limpiar usuario creado si falló algo
     if (user && !empresaId) {
-      try { await user.delete(); } catch(e) {}
+      try { await user.delete(); } catch(e) { /* ignora */ }
     }
+    
     if (error.code === 'auth/email-already-in-use') {
       showToast('❌ Este correo ya está registrado');
     } else if (error.code === 'auth/invalid-email') {
@@ -426,6 +456,7 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
+    
     if (btn) btn.disabled = false;
   } finally {
     _registrando = false;

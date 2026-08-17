@@ -243,6 +243,7 @@ async function registrarEmpresa() {
   const nombreAdmin   = document.getElementById('reg-emp-admin').value.trim();
   const email         = document.getElementById('reg-emp-email').value.trim();
   const password      = document.getElementById('reg-emp-pass').value;
+  
   if (!nombreNegocio || !nombreAdmin || !email || !password) {
     showToast('❌ Completa todos los campos');
     return;
@@ -251,12 +252,38 @@ async function registrarEmpresa() {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
     return;
   }
+
   const btn = document.querySelector('#modal-registro-empresa .btn-primary');
   if (btn) btn.disabled = true;
   _registrando = true;
+
   try {
+    // ============================================================
+    //  PASO 1: Crear usuario en Firebase Auth
+    // ============================================================
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
+
+    // ============================================================
+    //  PASO 2: Crear el perfil del usuario (con empresaId temporal)
+    //  - Esto asegura que el perfil exista antes de crear la empresa
+    // ============================================================
+    await firebase.firestore()
+      .collection('userProfiles')
+      .doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombreAdmin,
+        email: email,
+        rol: 'admin',
+        empresaId: 'temp_' + Date.now(), // Temporal, se actualizará después
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    // ============================================================
+    //  PASO 3: Crear la empresa
+    //  - Ahora el perfil existe, por lo que las reglas no fallan
+    // ============================================================
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
       nombre: nombreNegocio,
@@ -265,9 +292,25 @@ async function registrarEmpresa() {
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
     const empresaId = empresaRef.id;
+
+    // ============================================================
+    //  PASO 4: Actualizar el perfil con el empresaId real
+    // ============================================================
     await firebase.firestore()
-      .collection('empresas').doc(empresaId)
-      .collection('usuarios').doc(user.uid)
+      .collection('userProfiles')
+      .doc(user.uid)
+      .update({
+        empresaId: empresaId
+      });
+
+    // ============================================================
+    //  PASO 5: Crear el usuario en la subcolección de la empresa
+    // ============================================================
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .doc(user.uid)
       .set({
         uid: user.uid,
         nombre: nombreAdmin,
@@ -275,22 +318,18 @@ async function registrarEmpresa() {
         rol: 'admin',
         fcmToken: ''
       });
-    await firebase.firestore()
-      .collection('userProfiles').doc(user.uid)
-      .set({
-        uid: user.uid,
-        nombre: nombreAdmin,
-        email: email,
-        rol: 'admin',
-        empresaId: empresaId,
-        creado: firebase.firestore.FieldValue.serverTimestamp()
-      });
+
+    // ============================================================
+    //  PASO 6: Guardar sesión y redirigir
+    // ============================================================
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
+
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
     setTimeout(() => { window.location.reload(); }, 1500);
+
   } catch (error) {
     console.error('❌ Error registrando franquicia:', error);
     if (error.code === 'auth/email-already-in-use') {

@@ -304,44 +304,76 @@ function renderChartVentas() {
 
     try {
       let fechaVenta = null;
+      
+      // 1. Intentar usar _fechaObj (si existe)
       if (v._fechaObj && v._fechaObj instanceof Date) {
         fechaVenta = v._fechaObj;
-      } else if (v.fecha) {
+      } 
+      // 2. Intentar parsear v.fecha usando convertTimestamp
+      else if (v.fecha) {
         if (typeof v.fecha === 'string') {
-          fechaVenta = new Date(v.fecha);
-          if (isNaN(fechaVenta)) {
-            if (typeof convertTimestamp === 'function') {
-              fechaVenta = convertTimestamp(v.fecha);
+          // Intentar con convertTimestamp (más robusto)
+          if (typeof convertTimestamp === 'function') {
+            fechaVenta = convertTimestamp(v.fecha);
+          }
+          // Si convertTimestamp falla, intentar new Date
+          if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+            // Reemplazar comas y espacios para formato más limpio
+            const fechaLimpia = v.fecha.replace(/,/g, '');
+            fechaVenta = new Date(fechaLimpia);
+          }
+          // Si aún falla, intentar parsear manualmente (DD/MM/YYYY HH:MM)
+          if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+            const partes = v.fecha.split(/[\s,/:]+/);
+            if (partes.length >= 5) {
+              // Formato: DD/MM/YYYY HH:MM
+              const dia = parseInt(partes[0]);
+              const mes = parseInt(partes[1]) - 1;
+              const anio = parseInt(partes[2]);
+              const hora = parseInt(partes[3]);
+              const minuto = parseInt(partes[4]);
+              fechaVenta = new Date(anio, mes, dia, hora, minuto);
             }
           }
         } else if (v.fecha.toDate) {
+          // Timestamp de Firestore
           fechaVenta = v.fecha.toDate();
         } else if (v.fecha instanceof Date) {
           fechaVenta = v.fecha;
         }
       }
 
-      if (!fechaVenta || isNaN(fechaVenta.getTime())) return;
+      // Si no se pudo obtener fecha válida, salir
+      if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+        console.warn('[Chart] Fecha inválida para venta:', v.fecha);
+        return;
+      }
+
+      // Verificar que esté en la semana actual
       if (fechaVenta >= inicioSemana && fechaVenta <= finSemana) {
         const ds = fechaVenta.getDay();
         const idx = ds === 0 ? 6 : ds - 1;
         const total = parseCurrency(v.total);
-        if (total > 0) totales[idx] += total;
+        if (total > 0) {
+          totales[idx] += total;
+          console.log('[Chart] Sumando venta:', v.total, 'en día', diasLabels[idx]);
+        }
       }
     } catch (e) {
       console.warn('[Chart] Error procesando venta:', v, e);
     }
   });
 
+  console.log('[Chart] Totales por día:', totales);
+  
   const hayDatos = totales.some(t => t > 0);
   const parent = ctx.parentNode;
 
-  // Remover mensaje anterior si existe
   const oldMsg = parent.querySelector('.chart-empty-message');
   if (oldMsg) oldMsg.remove();
 
   if (!hayDatos) {
-    console.log('[Chart] No hay ventas en la semana actual, mostrando mensaje');
+    console.log('[Chart] No hay ventas en la semana actual');
     if (window.chartVentasInstance) {
       window.chartVentasInstance.destroy();
       window.chartVentasInstance = null;
@@ -354,9 +386,6 @@ function renderChartVentas() {
     return;
   }
 
-  // Si hay datos, renderizar gráfico
-  console.log('[Chart] Renderizando con datos:', totales);
-  
   const maxVal = Math.max(...totales, 1);
   const stepSize = maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : maxVal <= 100 ? 20 : Math.ceil(maxVal / 5);
   const diaHoy = diaSemana === 0 ? 6 : diaSemana - 1;
@@ -364,7 +393,6 @@ function renderChartVentas() {
     return i === diaHoy ? '#00338D' : 'rgba(0, 51, 141, 0.25)';
   });
 
-  // --- CRUCIAL: destruir la instancia anterior ANTES de crear una nueva ---
   if (window.chartVentasInstance) {
     window.chartVentasInstance.destroy();
     window.chartVentasInstance = null;
@@ -429,7 +457,7 @@ function renderChartVentas() {
       animation: { duration: 700, easing: 'easeOutQuart' }
     }
   });
-  console.log('[Chart] Gráfico renderizado OK');
+  console.log('[Chart] Gráfico renderizado con:', totales);
 }
 
 window.renderVentas = renderVentas;

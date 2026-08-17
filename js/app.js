@@ -364,7 +364,6 @@ async function registrarClienteNuevo() {
     return;
   }
 
-  // Deshabilitar botón
   const btn = document.querySelector('#modal-registro-cliente .btn-primary');
   if (btn) btn.disabled = true;
 
@@ -377,9 +376,11 @@ async function registrarClienteNuevo() {
     // 1. Crear usuario en Firebase Auth
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
+    console.log('✅ Usuario creado:', user.uid);
 
-    // ✅ 2. FORZAR OBTENCIÓN DEL TOKEN (asegura que el usuario esté autenticado)
-    await user.getIdToken(true); // true = forzar refresco del token
+    // 2. Forzar actualización del token (opcional pero recomendado)
+    await user.getIdToken(true);
+    console.log('✅ Token actualizado');
 
     // 3. Buscar empresa por código de acceso
     const empresasSnapshot = await firebase.firestore()
@@ -398,8 +399,9 @@ async function registrarClienteNuevo() {
     const empresaDoc = empresasSnapshot.docs[0];
     empresaId = empresaDoc.id;
     empresaData = empresaDoc.data();
+    console.log('✅ Empresa encontrada:', empresaId); // <--- VERIFICA ESTE LOG
 
-    // 4. Crear perfil del cliente en userProfiles (ANTES de crear el cliente)
+    // 4. Crear perfil en userProfiles (con empresaId)
     await firebase.firestore()
       .collection('userProfiles')
       .doc(user.uid)
@@ -411,11 +413,12 @@ async function registrarClienteNuevo() {
         empresaId: empresaId,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
+    console.log('✅ Perfil creado');
 
     // 5. Crear cliente en empresas/{empresaId}/clientes
     await firebase.firestore()
       .collection('empresas')
-      .doc(empresaId)
+      .doc(empresaId)   // <--- AQUÍ empresaId DEBE TENER UN VALOR
       .collection('clientes')
       .doc(user.uid)
       .set({
@@ -428,6 +431,7 @@ async function registrarClienteNuevo() {
         compras: '$0.00',
         pedidos: 0
       });
+    console.log('✅ Cliente creado');
 
     // 6. Guardar sesión en sessionStorage
     sessionStorage.setItem('empresaId', empresaId);
@@ -438,16 +442,14 @@ async function registrarClienteNuevo() {
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
 
     // 7. Recargar para limpiar estado
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
+    setTimeout(() => window.location.reload(), 1500);
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
     
-    // Limpiar usuario creado si falló algo
+    // Si el usuario se creó pero falló algo, eliminarlo
     if (user && !empresaId) {
-      try { await user.delete(); } catch(e) { /* ignora */ }
+      try { await user.delete(); } catch(e) {}
     }
     
     if (error.code === 'auth/email-already-in-use') {

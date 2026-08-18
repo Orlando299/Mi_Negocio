@@ -39,27 +39,38 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
     // Verificar si el pedido está pendiente (para mostrar botón despachar)
     const mostrarDespachar = v.status === 'pendiente';
 
+    // Sanitizar datos para HTML
+    const idEscapado = escapeHtml(v.id);
+    const clienteEscapado = escapeHtml(v.cliente);
+    const fechaEscapada = escapeHtml(v.fecha);
+    const totalEscapado = escapeHtml(v.total);
+    const notasEscapadas = v.notas ? escapeHtml(v.notas) : '';
+    const statusEscapado = escapeHtml(v.status);
+
+    // Para atributos onclick (usar escapeJsString)
+    const idJs = escapeJsString(v.id);
+
     return `
       <div class="sale-card">
         <div class="sale-header">
-          <span class="sale-id">${v.id}</span>
-          <span class="sale-status ${v.status}">${v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+          <span class="sale-id">${idEscapado}</span>
+          <span class="sale-status ${statusEscapado}">${statusEscapado.charAt(0).toUpperCase() + statusEscapado.slice(1)}</span>
           ${pagoNotificado ? `<span class="badge" style="background:var(--amber); color:#fff; font-size:10px; padding:2px 8px; border-radius:12px;">💳 Pago notificado</span>` : ''}
           <div>
-            ${mostrarConfirmarPago ? `<button class="btn-icon" onclick="confirmarPago('${v.id}')" title="Confirmar pago" style="color:var(--green);">✅</button>` : ''}
-            ${mostrarDespachar ? `<button class="btn-icon" onclick="abrirModalDespacho('${v.id}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
-            ${v.status === 'pagado' ? `<button class="btn-icon" onclick="generarFactura('${v.id}')" title="Descargar factura" style="color:var(--primary);">🧾</button>` : ''}
-            ${v.status !== 'pendiente' ? `<button class="btn-icon edit" onclick="editVenta('${v.id}')" title="Editar">✏️</button>` : ''}
-            ${v.status !== 'pendiente' ? `<button class="btn-icon danger" onclick="confirmDeleteVenta('${v.id}')" title="Eliminar">🗑️</button>` : ''}
+            ${mostrarConfirmarPago ? `<button class="btn-icon" onclick="confirmarPago('${idJs}')" title="Confirmar pago" style="color:var(--green);">✅</button>` : ''}
+            ${mostrarDespachar ? `<button class="btn-icon" onclick="abrirModalDespacho('${idJs}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
+            ${v.status === 'pagado' ? `<button class="btn-icon" onclick="generarFactura('${idJs}')" title="Descargar factura" style="color:var(--primary);">🧾</button>` : ''}
+            ${v.status !== 'pendiente' ? `<button class="btn-icon edit" onclick="editVenta('${idJs}')" title="Editar">✏️</button>` : ''}
+            ${v.status !== 'pendiente' ? `<button class="btn-icon danger" onclick="confirmDeleteVenta('${idJs}')" title="Eliminar">🗑️</button>` : ''}
           </div>
         </div>
-        <div class="sale-client">${v.cliente}</div>
-        <div class="sale-meta">${v.fecha}</div>
+        <div class="sale-client">${clienteEscapado}</div>
+        <div class="sale-meta">${fechaEscapada}</div>
         <div class="sale-footer">
           <span class="sale-items">${v.items} producto${v.items > 1 ? 's' : ''}</span>
-          <span class="sale-total">${v.total}</span>
+          <span class="sale-total">${totalEscapado}</span>
         </div>
-        ${v.notas ? `<div style="font-size:11px; color:var(--text3); margin-top:4px;">📝 ${v.notas}</div>` : ''}
+        ${notasEscapadas ? `<div style="font-size:11px; color:var(--text3); margin-top:4px;">📝 ${notasEscapadas}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -67,6 +78,10 @@ function renderVentas(textFilter = '', statusFilter = 'todas', page = 1) {
   agregarPaginacion(list, totalPages, page, 'ventas');
   updateKPIs();
 }
+
+// ================================================================
+//  RENDERIZAR INVENTARIO
+// ================================================================
 
 function renderInv(textFilter = '', stockFilter = 'todos', page = 1) {
   const list = document.getElementById('inv-list');
@@ -90,27 +105,44 @@ function renderInv(textFilter = '', stockFilter = 'todos', page = 1) {
     return;
   }
 
-  list.innerHTML = pageData.map(p => `
-    <div class="inv-card">
-      <div class="inv-img">${p.icon}</div>
-      <div class="inv-info">
-        <div class="inv-name">${p.nombre}</div>
-        <div class="inv-cat">${p.cat}</div>
+  list.innerHTML = pageData.map(p => {
+    const nombreEscapado = escapeHtml(p.nombre);
+    const catEscapado = escapeHtml(p.cat);
+    const precioEscapado = escapeHtml(p.precio);
+    const estadoEscapado = escapeHtml(p.estado);
+    const icon = p.icon || '📦';
+    const stock = p.stock ?? 0;
+    const stockText = estadoEscapado === 'out' ? 'Agotado' : stock + ' u.';
+
+    // Para onclick
+    const nombreJs = escapeJsString(p.nombre);
+
+    return `
+      <div class="inv-card">
+        <div class="inv-img">${icon}</div>
+        <div class="inv-info">
+          <div class="inv-name">${nombreEscapado}</div>
+          <div class="inv-cat">${catEscapado}</div>
+        </div>
+        <div class="inv-right">
+          <div class="inv-price">${precioEscapado}</div>
+          <div class="inv-stock ${estadoEscapado}">${stockText}</div>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <button class="btn-icon edit" onclick="editProducto('${nombreJs}')" title="Editar">✏️</button>
+          <button class="btn-icon danger" onclick="confirmDeleteProducto('${nombreJs}')" title="Eliminar">🗑️</button>
+        </div>
       </div>
-      <div class="inv-right">
-        <div class="inv-price">${p.precio}</div>
-        <div class="inv-stock ${p.estado}">${p.estado === 'out' ? 'Agotado' : p.stock + ' u.'}</div>
-      </div>
-      <div style="display:flex; gap:4px; align-items:center;">
-        <button class="btn-icon edit" onclick="editProducto('${p.nombre}')" title="Editar">✏️</button>
-        <button class="btn-icon danger" onclick="confirmDeleteProducto('${p.nombre}')" title="Eliminar">🗑️</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   agregarPaginacion(list, totalPages, page, 'inv');
   updateKPIs();
 }
+
+// ================================================================
+//  RENDERIZAR CLIENTES
+// ================================================================
 
 function renderClients(textFilter = '', tagFilter = 'todos', page = 1) {
   const list = document.getElementById('client-list');
@@ -135,24 +167,37 @@ function renderClients(textFilter = '', tagFilter = 'todos', page = 1) {
   }
 
   const tagLabel = { vip: 'VIP', regular: 'Regular', nuevo: 'Nuevo' };
-  list.innerHTML = pageData.map(c => `
-    <div class="client-card">
-      <div class="client-avatar" style="background:${c.color}">${c.init}</div>
-      <div class="client-info">
-        <div class="client-name">${c.nombre}</div>
-        <div class="client-phone">${c.phone}</div>
-        <span class="client-tag ${c.tag}">${tagLabel[c.tag]}</span>
+  list.innerHTML = pageData.map(c => {
+    const nombreEscapado = escapeHtml(c.nombre);
+    const phoneEscapado = escapeHtml(c.phone);
+    const comprasEscapado = escapeHtml(c.compras);
+    const tag = escapeHtml(c.tag);
+    const tagLabelText = tagLabel[tag] || tag;
+    const color = c.color || '#7C3AED';
+    const init = c.init || '??';
+
+    // Para onclick
+    const nombreJs = escapeJsString(c.nombre);
+
+    return `
+      <div class="client-card">
+        <div class="client-avatar" style="background:${color}">${init}</div>
+        <div class="client-info">
+          <div class="client-name">${nombreEscapado}</div>
+          <div class="client-phone">${phoneEscapado}</div>
+          <span class="client-tag ${tag}">${tagLabelText}</span>
+        </div>
+        <div class="client-right">
+          <div class="client-spent">${comprasEscapado}</div>
+          <div class="client-orders">${c.pedidos} pedidos</div>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
+          <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
+        </div>
       </div>
-      <div class="client-right">
-        <div class="client-spent">${c.compras}</div>
-        <div class="client-orders">${c.pedidos} pedidos</div>
-      </div>
-      <div style="display:flex; gap:4px; align-items:center;">
-        <button class="btn-icon edit" onclick="editCliente('${c.nombre}')" title="Editar">✏️</button>
-        <button class="btn-icon danger" onclick="confirmDeleteCliente('${c.nombre}')" title="Eliminar">🗑️</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   agregarPaginacion(list, totalPages, page, 'cli');
   updateKPIs();
@@ -227,10 +272,12 @@ async function renderReportes(periodo = 'semana') {
       const maxVentas = topProductos[0]?.cantidad || 1;
       topProductos.forEach((p, i) => {
         const pct = Math.round((p.cantidad / maxVentas) * 100);
+        // Escapar nombre del producto para HTML
+        const nombreProducto = escapeHtml(p.nombre);
         parent.innerHTML += `
           <div class="top-product">
             <div class="top-rank">#${i+1}</div>
-            <div class="top-name">${p.nombre}</div>
+            <div class="top-name">${nombreProducto}</div>
             <div class="top-bar-wrap"><div class="top-bar" style="width:${pct}%"></div></div>
             <div class="top-val">${formatCurrency(p.total)}</div>
           </div>

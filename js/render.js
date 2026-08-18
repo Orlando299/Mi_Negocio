@@ -361,32 +361,6 @@ async function cargarMasClientes() {
   }
 }
 
-// ================================================================
-//  FILTROS (modificados para resetear la paginación)
-// ================================================================
-
-// Redefinir las funciones de filtro para que reinicien la paginación
-const originalFilterVentas = filterVentas;
-filterVentas = function() {
-  store.lastVentaDoc = null;
-  store.hasMoreVentas = true;
-  renderVentas(document.getElementById('venta-search').value, filtroVentas, false);
-};
-
-const originalFilterInv = filterInv;
-filterInv = function() {
-  store.lastInventarioDoc = null;
-  store.hasMoreInventario = true;
-  renderInv(document.getElementById('inv-search').value, filtroInv, false);
-};
-
-const originalFilterClients = filterClients;
-filterClients = function() {
-  store.lastClienteDoc = null;
-  store.hasMoreClientes = true;
-  renderClients(document.getElementById('client-search').value, filtroCli, false);
-};
-
 // Exponer las nuevas funciones globalmente
 window.cargarMasVentas = cargarMasVentas;
 window.cargarMasInventario = cargarMasInventario;

@@ -93,7 +93,6 @@ async function guardarTokenFCM(token) {
     const userDoc = await userRef.get();
 
     if (userDoc.exists) {
-      // El documento existe, actualizar
       await userRef.update({
         fcmToken: token,
         fcmTokenUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -101,7 +100,6 @@ async function guardarTokenFCM(token) {
       console.log('[FCM] ✅ Token actualizado en Firestore (update)');
       return true;
     } else {
-      // El documento NO existe, crear con set
       console.log('[FCM] Documento de usuario no existe, creando con set...');
       await userRef.set({
         uid: uid,
@@ -184,11 +182,13 @@ async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
     console.log(`[FCM] Notificaciones enviadas a ${enviados} admin(s)`);
     return enviados;
   } catch (e) {
-    console.error('[FCM] Error notificando admins:', e);
+    // Si el usuario no tiene permisos para leer la lista de admins, simplemente no enviamos notificación
+    console.warn('[FCM] No se pudo enviar notificación (permisos insuficientes):', e.message);
     return 0;
   }
 }
 
+// Exponer funciones globalmente
 window.initMessaging = initMessaging;
 window.solicitarPermisoNotificaciones = solicitarPermisoNotificaciones;
 window.escucharMensajesForeground = escucharMensajesForeground;

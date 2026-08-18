@@ -373,20 +373,20 @@ async function registrarClienteNuevo() {
   let empresaData = null;
 
   try {
-    // 1. Crear usuario en Firebase Auth
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     user = userCredential.user;
     console.log('✅ Usuario creado:', user.uid);
 
-    // 2. 🔄 FORZAR ACTUALIZACIÓN DEL TOKEN (clave)
     await user.getIdToken(true);
     console.log('✅ Token actualizado');
 
-    // 3. Buscar empresa por código de acceso
+    // 🔍 Buscar empresa por código
+    console.log('🔍 Buscando empresa con código:', codigo);
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
       .where('codigoAcceso', '==', codigo)
       .get();
+    console.log('📊 Resultados encontrados:', empresasSnapshot.size);
 
     if (empresasSnapshot.empty) {
       await user.delete();
@@ -401,7 +401,7 @@ async function registrarClienteNuevo() {
     empresaData = empresaDoc.data();
     console.log('✅ Empresa encontrada:', empresaId);
 
-    // 4. Crear perfil en userProfiles (con empresaId)
+    // Crear perfil y cliente...
     await firebase.firestore()
       .collection('userProfiles')
       .doc(user.uid)
@@ -415,7 +415,6 @@ async function registrarClienteNuevo() {
       });
     console.log('✅ Perfil creado');
 
-    // 5. Crear cliente en empresas/{empresaId}/clientes
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
@@ -433,25 +432,19 @@ async function registrarClienteNuevo() {
       });
     console.log('✅ Cliente creado');
 
-    // 6. Guardar sesión en sessionStorage
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', 'cliente');
 
     showToast(`✅ ¡Bienvenido a ${empresaData.nombre || 'tu franquicia'}!`);
-
-    // 7. Recargar para limpiar estado
     setTimeout(() => window.location.reload(), 1500);
 
   } catch (error) {
     console.error('❌ Error registrando cliente:', error);
-    
-    // Si el usuario se creó pero falló algo, eliminarlo
     if (user && !empresaId) {
       try { await user.delete(); } catch(e) {}
     }
-    
     if (error.code === 'auth/email-already-in-use') {
       showToast('❌ Este correo ya está registrado');
     } else if (error.code === 'auth/invalid-email') {
@@ -461,7 +454,6 @@ async function registrarClienteNuevo() {
     } else {
       showToast('❌ Error: ' + error.message);
     }
-    
     if (btn) btn.disabled = false;
   } finally {
     _registrando = false;

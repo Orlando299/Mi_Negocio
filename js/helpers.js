@@ -76,9 +76,22 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// ... (resto del código existente) ...
+// ============================================================
+//  ESCAPE PARA USO EN ATRIBUTOS ONCLICK (JavaScript)
+// ============================================================
+function escapeJsString(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')   // escapar barra invertida
+    .replace(/'/g, "\\'")     // escapar comilla simple
+    .replace(/"/g, '\\"')     // escapar comilla doble (por si acaso)
+    .replace(/\n/g, '\\n')    // escapar saltos de línea
+    .replace(/\r/g, '\\r');
+}
 
-// Exponer la función globalmente
+// Exponer globalmente
+window.escapeJsString = escapeJsString;
+
 window.escapeHtml = escapeHtml;
 
 window.showToast = showToast;

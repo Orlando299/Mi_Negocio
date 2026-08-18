@@ -1,5 +1,5 @@
 // ── DATA STORE CON FIRESTORE (MULTI-TENANT) ──
-// Incluye paginación, manejo de errores y funciones para reportes
+// Incluye paginación, manejo de errores, funciones para reportes, envases y facturas
 
 class DataStore {
   constructor() {
@@ -12,11 +12,27 @@ class DataStore {
     this.lastVentaDoc = null;
     this.lastInventarioDoc = null;
     this.lastClienteDoc = null;
+    // Flags para saber si hay más datos para cargar
+    this.hasMoreVentas = true;
+    this.hasMoreInventario = true;
+    this.hasMoreClientes = true;
   }
+
+  // ================================================================
+  // CARGA INICIAL Y PAGINACIÓN
+  // ================================================================
 
   async cargarDatosEmpresa(empresaId, limite = 20) {
     console.log('📦 Cargando datos para empresa:', empresaId);
     try {
+      // Resetear estados de paginación
+      this.lastInventarioDoc = null;
+      this.lastClienteDoc = null;
+      this.lastVentaDoc = null;
+      this.hasMoreInventario = true;
+      this.hasMoreClientes = true;
+      this.hasMoreVentas = true;
+
       const invData = await this.cargarInventarioPaginado(empresaId, limite);
       const cliData = await this.cargarClientesPaginado(empresaId, limite);
       const venData = await this.cargarVentasPaginado(empresaId, limite);
@@ -26,13 +42,12 @@ class DataStore {
       this.ventas = venData.items;
       this.cargado = true;
 
-      window.inventario = this.inventario;
-      window.clientes = this.clientes;
-      window.ventas = this.ventas;
-
       this.lastInventarioDoc = invData.lastDoc;
       this.lastClienteDoc = cliData.lastDoc;
       this.lastVentaDoc = venData.lastDoc;
+
+      // Sincronizar variables globales
+      syncGlobals();
 
       console.log('✅ Datos de empresa cargados correctamente');
       return true;
@@ -42,6 +57,7 @@ class DataStore {
     }
   }
 
+  // --- Inventario ---
   async cargarInventarioPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -58,6 +74,7 @@ class DataStore {
         items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
+      if (items.length < limite) this.hasMoreInventario = false;
       return { items, lastDoc };
     } catch (error) {
       handleError(error, 'Error cargando inventario');
@@ -65,6 +82,21 @@ class DataStore {
     }
   }
 
+  async cargarMasInventario(empresaId, limite = 20) {
+    if (!this.hasMoreInventario || !this.lastInventarioDoc) {
+      console.log('No hay más inventario para cargar');
+      return { items: [], lastDoc: null };
+    }
+    const data = await this.cargarInventarioPaginado(empresaId, limite, this.lastInventarioDoc);
+    if (data.items.length > 0) {
+      this.inventario = this.inventario.concat(data.items);
+      this.lastInventarioDoc = data.lastDoc;
+      syncGlobals();
+    }
+    return data;
+  }
+
+  // --- Clientes ---
   async cargarClientesPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -81,6 +113,7 @@ class DataStore {
         items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
+      if (items.length < limite) this.hasMoreClientes = false;
       return { items, lastDoc };
     } catch (error) {
       handleError(error, 'Error cargando clientes');
@@ -88,6 +121,21 @@ class DataStore {
     }
   }
 
+  async cargarMasClientes(empresaId, limite = 20) {
+    if (!this.hasMoreClientes || !this.lastClienteDoc) {
+      console.log('No hay más clientes para cargar');
+      return { items: [], lastDoc: null };
+    }
+    const data = await this.cargarClientesPaginado(empresaId, limite, this.lastClienteDoc);
+    if (data.items.length > 0) {
+      this.clientes = this.clientes.concat(data.items);
+      this.lastClienteDoc = data.lastDoc;
+      syncGlobals();
+    }
+    return data;
+  }
+
+  // --- Ventas ---
   async cargarVentasPaginado(empresaId, limite = 20, startAfter = null) {
     try {
       let query = this.db.collection('empresas').doc(empresaId)
@@ -104,12 +152,31 @@ class DataStore {
         items.push({ id: doc.id, ...data });
         lastDoc = doc;
       });
+      if (items.length < limite) this.hasMoreVentas = false;
       return { items, lastDoc };
     } catch (error) {
       handleError(error, 'Error cargando ventas');
       return { items: [], lastDoc: null };
     }
   }
+
+  async cargarMasVentas(empresaId, limite = 20) {
+    if (!this.hasMoreVentas || !this.lastVentaDoc) {
+      console.log('No hay más ventas para cargar');
+      return { items: [], lastDoc: null };
+    }
+    const data = await this.cargarVentasPaginado(empresaId, limite, this.lastVentaDoc);
+    if (data.items.length > 0) {
+      this.ventas = this.ventas.concat(data.items);
+      this.lastVentaDoc = data.lastDoc;
+      syncGlobals();
+    }
+    return data;
+  }
+
+  // ================================================================
+  // CRUD: VENTAS
+  // ================================================================
 
   async addVenta(venta) {
     try {
@@ -122,7 +189,7 @@ class DataStore {
         });
       const nuevaVenta = { id: docRef.id, ...venta, fecha: formatDateLocal(new Date()) };
       this.ventas.unshift(nuevaVenta);
-      window.ventas = this.ventas;
+      syncGlobals();
       return nuevaVenta;
     } catch (error) {
       handleError(error, 'Error al agregar venta');
@@ -138,7 +205,7 @@ class DataStore {
         .collection('ventas').doc(id).update(updates);
       const index = this.ventas.findIndex(v => v.id === id);
       if (index !== -1) this.ventas[index] = { ...this.ventas[index], ...updates };
-      window.ventas = this.ventas;
+      syncGlobals();
       return true;
     } catch (error) {
       handleError(error, 'Error al actualizar venta');
@@ -153,12 +220,16 @@ class DataStore {
       await this.db.collection('empresas').doc(empresaId)
         .collection('ventas').doc(id).delete();
       this.ventas = this.ventas.filter(v => v.id !== id);
-      window.ventas = this.ventas;
+      syncGlobals();
     } catch (error) {
       handleError(error, 'Error al eliminar venta');
       throw error;
     }
   }
+
+  // ================================================================
+  // CRUD: INVENTARIO (PRODUCTOS)
+  // ================================================================
 
   async addProducto(producto) {
     try {
@@ -171,7 +242,7 @@ class DataStore {
         });
       const nuevoProducto = { id: docRef.id, ...producto, fecha: formatDateLocal(new Date()) };
       this.inventario.unshift(nuevoProducto);
-      window.inventario = this.inventario;
+      syncGlobals();
       return nuevoProducto;
     } catch (error) {
       handleError(error, 'Error al agregar producto');
@@ -187,7 +258,7 @@ class DataStore {
         .collection('inventario').doc(id).update(updates);
       const index = this.inventario.findIndex(p => p.id === id);
       if (index !== -1) this.inventario[index] = { ...this.inventario[index], ...updates };
-      window.inventario = this.inventario;
+      syncGlobals();
       return true;
     } catch (error) {
       handleError(error, 'Error al actualizar producto');
@@ -202,12 +273,16 @@ class DataStore {
       await this.db.collection('empresas').doc(empresaId)
         .collection('inventario').doc(id).delete();
       this.inventario = this.inventario.filter(p => p.id !== id);
-      window.inventario = this.inventario;
+      syncGlobals();
     } catch (error) {
       handleError(error, 'Error al eliminar producto');
       throw error;
     }
   }
+
+  // ================================================================
+  // CRUD: CLIENTES
+  // ================================================================
 
   async addCliente(cliente) {
     try {
@@ -220,7 +295,7 @@ class DataStore {
         });
       const nuevoCliente = { id: docRef.id, ...cliente, fecha: formatDateLocal(new Date()) };
       this.clientes.unshift(nuevoCliente);
-      window.clientes = this.clientes;
+      syncGlobals();
       return nuevoCliente;
     } catch (error) {
       handleError(error, 'Error al agregar cliente');
@@ -236,7 +311,7 @@ class DataStore {
         .collection('clientes').doc(id).update(updates);
       const index = this.clientes.findIndex(c => c.id === id);
       if (index !== -1) this.clientes[index] = { ...this.clientes[index], ...updates };
-      window.clientes = this.clientes;
+      syncGlobals();
       return true;
     } catch (error) {
       handleError(error, 'Error al actualizar cliente');
@@ -251,12 +326,16 @@ class DataStore {
       await this.db.collection('empresas').doc(empresaId)
         .collection('clientes').doc(id).delete();
       this.clientes = this.clientes.filter(c => c.id !== id);
-      window.clientes = this.clientes;
+      syncGlobals();
     } catch (error) {
       handleError(error, 'Error al eliminar cliente');
       throw error;
     }
   }
+
+  // ================================================================
+  // REPORTES
+  // ================================================================
 
   async obtenerVentasPorPeriodo(empresaId, inicio, fin) {
     try {
@@ -300,6 +379,10 @@ class DataStore {
     }
   }
 
+  // ================================================================
+  // AUTENTICACIÓN
+  // ================================================================
+
   async registrarUsuario(email, password, nombre) {
     try {
       const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
@@ -330,82 +413,85 @@ class DataStore {
   }
 
   // ================================================================
-//  ENVASES Y FACTURAS (DATA STORE)
-// ================================================================
+  // ENVASES Y FACTURAS
+  // ================================================================
 
-async obtenerConfiguracionEnvases(empresaId) {
-  try {
-    const doc = await this.db.collection('empresas').doc(empresaId).get();
-    if (!doc.exists) return null;
-    const data = doc.data();
-    return {
-      stockEnvases: data.stockEnvases || {},
-      limitesEnvasesCliente: data.limitesEnvasesCliente || {},
-      umbralFacturasPendientes: data.umbralFacturasPendientes || 2
-    };
-  } catch (error) {
-    handleError(error, 'Error al obtener configuración de envases');
-    return null;
-  }
-}
-
-async actualizarStockEnvases(empresaId, envases) {
-  // envases: objeto con { tipo: cantidad } (puede ser positivo o negativo)
-  try {
-    const ref = this.db.collection('empresas').doc(empresaId);
-    await ref.update({
-      stockEnvases: firebase.firestore.FieldValue.increment(envases)
-    });
-  } catch (error) {
-    handleError(error, 'Error al actualizar stock de envases');
-    throw error;
-  }
-}
-
-async actualizarSaldoEnvasesCliente(clienteId, envases) {
-  // envases: objeto con { tipo: cantidad } (incremento)
-  try {
-    const ref = this.db.collection('clientes').doc(clienteId);
-    await ref.update({
-      saldoEnvases: firebase.firestore.FieldValue.increment(envases)
-    });
-  } catch (error) {
-    handleError(error, 'Error al actualizar saldo de envases del cliente');
-    throw error;
-  }
-}
-
-async contarFacturasPendientes(clienteId) {
-  try {
-    const snapshot = await this.db.collection('ventas')
-      .where('clienteId', '==', clienteId)
-      .where('status', '==', 'pendiente')
-      .get();
-    return snapshot.size;
-  } catch (error) {
-    handleError(error, 'Error al contar facturas pendientes');
-    return 0;
-  }
-}
-
-async obtenerSiguienteNumeroFactura(empresaId) {
-  const ref = this.db.collection('empresas').doc(empresaId);
-  let numero = 0;
-  await this.db.runTransaction(async (transaction) => {
-    const doc = await transaction.get(ref);
-    if (!doc.exists) {
-      throw new Error('Documento de empresa no existe');
+  async obtenerConfiguracionEnvases(empresaId) {
+    try {
+      const doc = await this.db.collection('empresas').doc(empresaId).get();
+      if (!doc.exists) return null;
+      const data = doc.data();
+      return {
+        stockEnvases: data.stockEnvases || {},
+        limitesEnvasesCliente: data.limitesEnvasesCliente || {},
+        umbralFacturasPendientes: data.umbralFacturasPendientes || 2
+      };
+    } catch (error) {
+      handleError(error, 'Error al obtener configuración de envases');
+      return null;
     }
-    const data = doc.data();
-    numero = (data.ultimoNumeroFactura || 0) + 1;
-    transaction.update(ref, { ultimoNumeroFactura: numero });
-  });
-  return numero;
+  }
+
+  async actualizarStockEnvases(empresaId, envases) {
+    // envases: objeto con { tipo: cantidad } (puede ser positivo o negativo)
+    try {
+      const ref = this.db.collection('empresas').doc(empresaId);
+      await ref.update({
+        stockEnvases: firebase.firestore.FieldValue.increment(envases)
+      });
+    } catch (error) {
+      handleError(error, 'Error al actualizar stock de envases');
+      throw error;
+    }
+  }
+
+  async actualizarSaldoEnvasesCliente(empresaId, clienteId, envases) {
+    // envases: objeto con { tipo: cantidad } (incremento)
+    try {
+      const ref = this.db.collection('empresas').doc(empresaId)
+        .collection('clientes').doc(clienteId);
+      await ref.update({
+        saldoEnvases: firebase.firestore.FieldValue.increment(envases)
+      });
+    } catch (error) {
+      handleError(error, 'Error al actualizar saldo de envases del cliente');
+      throw error;
+    }
+  }
+
+  async contarFacturasPendientes(empresaId, clienteId) {
+    try {
+      const snapshot = await this.db.collection('empresas').doc(empresaId)
+        .collection('ventas')
+        .where('clienteId', '==', clienteId)
+        .where('status', '==', 'pendiente')
+        .get();
+      return snapshot.size;
+    } catch (error) {
+      handleError(error, 'Error al contar facturas pendientes');
+      return 0;
+    }
+  }
+
+  async obtenerSiguienteNumeroFactura(empresaId) {
+    const ref = this.db.collection('empresas').doc(empresaId);
+    let numero = 0;
+    await this.db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(ref);
+      if (!doc.exists) {
+        throw new Error('Documento de empresa no existe');
+      }
+      const data = doc.data();
+      numero = (data.ultimoNumeroFactura || 0) + 1;
+      transaction.update(ref, { ultimoNumeroFactura: numero });
+    });
+    return numero;
+  }
 }
 
-
-  
-}
+// ================================================================
+// INSTANCIA Y VARIABLES GLOBALES
+// ================================================================
 
 const store = new DataStore();
 
@@ -422,13 +508,11 @@ function syncGlobals() {
   window.clientes = clientes;
 }
 
-// initStore simplificado: solo inicializa el store.
-// El manejo completo de auth (detección admin/cliente y redirección) 
-// se hace en app.js dentro de firebase.auth().onAuthStateChanged
 function initStore() {
   console.log('🚀 Store inicializado con Firestore');
 }
 
+// Exponer al ámbito global
 window.store = store;
 window.syncGlobals = syncGlobals;
 window.initStore = initStore;

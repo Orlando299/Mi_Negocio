@@ -346,10 +346,10 @@ async function registrarEmpresa() {
 }
 
 async function registrarClienteNuevo() {
-  const nombre   = document.getElementById('reg-cli-nombre').value.trim();
-  const email    = document.getElementById('reg-cli-email').value.trim();
+  const nombre = document.getElementById('reg-cli-nombre').value.trim();
+  const email = document.getElementById('reg-cli-email').value.trim();
   const password = document.getElementById('reg-cli-pass').value;
-  const codigo   = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
+  const codigo = document.getElementById('reg-cli-codigo').value.trim().toUpperCase();
 
   if (!nombre || !email || !password || !codigo) {
     showToast('❌ Completa todos los campos');
@@ -378,7 +378,7 @@ async function registrarClienteNuevo() {
     user = userCredential.user;
     console.log('✅ Usuario creado:', user.uid);
 
-    // 2. Forzar actualización del token (opcional pero recomendado)
+    // 2. 🔄 FORZAR ACTUALIZACIÓN DEL TOKEN (clave)
     await user.getIdToken(true);
     console.log('✅ Token actualizado');
 
@@ -399,7 +399,7 @@ async function registrarClienteNuevo() {
     const empresaDoc = empresasSnapshot.docs[0];
     empresaId = empresaDoc.id;
     empresaData = empresaDoc.data();
-    console.log('✅ Empresa encontrada:', empresaId); // <--- VERIFICA ESTE LOG
+    console.log('✅ Empresa encontrada:', empresaId);
 
     // 4. Crear perfil en userProfiles (con empresaId)
     await firebase.firestore()
@@ -418,7 +418,7 @@ async function registrarClienteNuevo() {
     // 5. Crear cliente en empresas/{empresaId}/clientes
     await firebase.firestore()
       .collection('empresas')
-      .doc(empresaId)   // <--- AQUÍ empresaId DEBE TENER UN VALOR
+      .doc(empresaId)
       .collection('clientes')
       .doc(user.uid)
       .set({

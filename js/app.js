@@ -560,15 +560,48 @@ function goScreen(name) {
     if (navEl) navEl.classList.toggle('active', s === name);
   });
   currentScreen = name;
-  const fabLabels = { dashboard: '＋', ventas: '＋', inventario: '＋', clientes: '＋', reportes: '⬇', cliente: '⬇', configuracion: '⚙️' };
+  
+  const fabLabels = { 
+    dashboard: '＋', 
+    ventas: '＋', 
+    inventario: '＋', 
+    clientes: '＋', 
+    reportes: '⬇', 
+    cliente: '⬇', 
+    configuracion: '⚙️' 
+  };
   const fabBtn = document.getElementById('fab-btn');
   if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
+  
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
-  if (name === 'ventas') renderVentas('', filtroVentas, 1);
-  if (name === 'inventario') renderInv('', filtroInv, 1);
-  if (name === 'clientes') renderClients('', filtroCli, 1);
-  if (name === 'reportes') renderReportes('semana');
+  
+  // --- Navegación con reinicio de paginación ---
+  if (name === 'ventas') {
+    // Reiniciar paginación para ventas
+    store.lastVentaDoc = null;
+    store.hasMoreVentas = true;
+    renderVentas('', filtroVentas, false); // append = false
+  }
+  
+  if (name === 'inventario') {
+    // Reiniciar paginación para inventario
+    store.lastInventarioDoc = null;
+    store.hasMoreInventario = true;
+    renderInv('', filtroInv, false);
+  }
+  
+  if (name === 'clientes') {
+    // Reiniciar paginación para clientes
+    store.lastClienteDoc = null;
+    store.hasMoreClientes = true;
+    renderClients('', filtroCli, false);
+  }
+  
+  if (name === 'reportes') {
+    renderReportes('semana');
+  }
+  
   if (name === 'configuracion') {
     actualizarResumenConfiguracion();
     setTimeout(() => {
@@ -577,6 +610,7 @@ function goScreen(name) {
       renderizarTablaVentas();
     }, 300);
   }
+  
   if (name === 'cliente') {
     if (sessionStorage.getItem('empresaId')) {
       mostrarPanelCliente();
@@ -585,8 +619,11 @@ function goScreen(name) {
       mostrarPantallaBienvenida();
     }
   }
+  
   if (name === 'dashboard') {
-    setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 100);
+    setTimeout(() => { 
+      if (typeof renderChartVentas === 'function') renderChartVentas(); 
+    }, 100);
   }
 }
 

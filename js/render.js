@@ -203,6 +203,10 @@ function renderClients(textFilter = '', tagFilter = 'todos', page = 1) {
   updateKPIs();
 }
 
+// ================================================================
+//  PAGINACIÓN (BÁSICA)
+// ================================================================
+
 function agregarPaginacion(container, totalPages, currentPage, module) {
   if (totalPages <= 1) return;
   const pagWrap = document.createElement('div');
@@ -222,6 +226,10 @@ function agregarPaginacion(container, totalPages, currentPage, module) {
   }
   container.appendChild(pagWrap);
 }
+
+// ================================================================
+//  REPORTES
+// ================================================================
 
 async function renderReportes(periodo = 'semana') {
   const empresaId = sessionStorage.getItem('empresaId');
@@ -272,7 +280,6 @@ async function renderReportes(periodo = 'semana') {
       const maxVentas = topProductos[0]?.cantidad || 1;
       topProductos.forEach((p, i) => {
         const pct = Math.round((p.cantidad / maxVentas) * 100);
-        // Escapar nombre del producto para HTML
         const nombreProducto = escapeHtml(p.nombre);
         parent.innerHTML += `
           <div class="top-product">
@@ -286,6 +293,10 @@ async function renderReportes(periodo = 'semana') {
     }
   }
 }
+
+// ================================================================
+//  KPIS
+// ================================================================
 
 function updateKPIs() {
   const hoy = new Date().toLocaleDateString();
@@ -321,6 +332,10 @@ function updateKPIs() {
   if (subClientes) subClientes.textContent = nuevosHoy + ' nuevos hoy';
 }
 
+// ================================================================
+//  GRÁFICO DE VENTAS
+// ================================================================
+
 let chartVentasInstance = null;
 
 function renderChartVentas() {
@@ -352,28 +367,20 @@ function renderChartVentas() {
     try {
       let fechaVenta = null;
       
-      // 1. Intentar usar _fechaObj (si existe)
       if (v._fechaObj && v._fechaObj instanceof Date) {
         fechaVenta = v._fechaObj;
-      } 
-      // 2. Intentar parsear v.fecha usando convertTimestamp
-      else if (v.fecha) {
+      } else if (v.fecha) {
         if (typeof v.fecha === 'string') {
-          // Intentar con convertTimestamp (más robusto)
           if (typeof convertTimestamp === 'function') {
             fechaVenta = convertTimestamp(v.fecha);
           }
-          // Si convertTimestamp falla, intentar new Date
           if (!fechaVenta || isNaN(fechaVenta.getTime())) {
-            // Reemplazar comas y espacios para formato más limpio
             const fechaLimpia = v.fecha.replace(/,/g, '');
             fechaVenta = new Date(fechaLimpia);
           }
-          // Si aún falla, intentar parsear manualmente (DD/MM/YYYY HH:MM)
           if (!fechaVenta || isNaN(fechaVenta.getTime())) {
             const partes = v.fecha.split(/[\s,/:]+/);
             if (partes.length >= 5) {
-              // Formato: DD/MM/YYYY HH:MM
               const dia = parseInt(partes[0]);
               const mes = parseInt(partes[1]) - 1;
               const anio = parseInt(partes[2]);
@@ -383,20 +390,17 @@ function renderChartVentas() {
             }
           }
         } else if (v.fecha.toDate) {
-          // Timestamp de Firestore
           fechaVenta = v.fecha.toDate();
         } else if (v.fecha instanceof Date) {
           fechaVenta = v.fecha;
         }
       }
 
-      // Si no se pudo obtener fecha válida, salir
       if (!fechaVenta || isNaN(fechaVenta.getTime())) {
         console.warn('[Chart] Fecha inválida para venta:', v.fecha);
         return;
       }
 
-      // Verificar que esté en la semana actual
       if (fechaVenta >= inicioSemana && fechaVenta <= finSemana) {
         const ds = fechaVenta.getDay();
         const idx = ds === 0 ? 6 : ds - 1;
@@ -506,6 +510,10 @@ function renderChartVentas() {
   });
   console.log('[Chart] Gráfico renderizado con:', totales);
 }
+
+// ================================================================
+//  EXPOSICIÓN GLOBAL
+// ================================================================
 
 window.renderVentas = renderVentas;
 window.renderInv = renderInv;

@@ -55,6 +55,32 @@ function getDayName(index) {
   return days[index] || '';
 }
 
+// ── HELPERS ──
+
+// ... (código existente) ...
+
+/**
+ * Escapa caracteres HTML para prevenir XSS
+ * @param {string} str - Cadena a escapar
+ * @returns {string} Cadena escapada
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(str).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// ... (resto del código existente) ...
+
+// Exponer la función globalmente
+window.escapeHtml = escapeHtml;
+
 window.showToast = showToast;
 window.handleError = handleError;
 window.formatCurrency = formatCurrency;

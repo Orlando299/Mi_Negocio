@@ -632,22 +632,47 @@ function filterChip(el, ctx) {
   chips.forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   const valor = el.textContent.toLowerCase();
+  
   if (ctx === 'ventas') {
     filtroVentas = valor === 'todas' ? 'todas' : valor;
-    renderVentas(document.getElementById('venta-search').value, filtroVentas, 1);
+    store.lastVentaDoc = null;
+    store.hasMoreVentas = true;
+    renderVentas(document.getElementById('venta-search').value, filtroVentas, false);
   } else if (ctx === 'inv') {
     filtroInv = valor === 'todos' ? 'todos' : valor;
-    renderInv(document.getElementById('inv-search').value, filtroInv, 1);
+    store.lastInventarioDoc = null;
+    store.hasMoreInventario = true;
+    renderInv(document.getElementById('inv-search').value, filtroInv, false);
   } else if (ctx === 'cli') {
     filtroCli = valor === 'todos' ? 'todos' : valor;
-    renderClients(document.getElementById('client-search').value, filtroCli, 1);
+    store.lastClienteDoc = null;
+    store.hasMoreClientes = true;
+    renderClients(document.getElementById('client-search').value, filtroCli, false);
   }
   showToast('Filtro: ' + el.textContent);
 }
 
-function filterVentas() { renderVentas(document.getElementById('venta-search').value, filtroVentas, 1); }
-function filterInv()     { renderInv(document.getElementById('inv-search').value, filtroInv, 1); }
-function filterClients() { renderClients(document.getElementById('client-search').value, filtroCli, 1); }
+function filterVentas() {
+  // Reiniciar paginación
+  store.lastVentaDoc = null;
+  store.hasMoreVentas = true;
+  const searchValue = document.getElementById('venta-search')?.value || '';
+  renderVentas(searchValue, filtroVentas, false);
+}
+
+function filterInv() {
+  store.lastInventarioDoc = null;
+  store.hasMoreInventario = true;
+  const searchValue = document.getElementById('inv-search')?.value || '';
+  renderInv(searchValue, filtroInv, false);
+}
+
+function filterClients() {
+  store.lastClienteDoc = null;
+  store.hasMoreClientes = true;
+  const searchValue = document.getElementById('client-search')?.value || '';
+  renderClients(searchValue, filtroCli, false);
+}
 
 function switchReportTab(el, period) {
   document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));

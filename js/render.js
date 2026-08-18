@@ -1,6 +1,6 @@
 // ── FUNCIONES DE RENDERIZADO CON FILTROS Y PAGINACIÓN (Carga bajo demanda) ──
 
-let paginaVentas = 1; // Ya no se usa para la paginación numérica, pero lo mantenemos para posibles filtros
+let paginaVentas = 1;
 let paginaInv = 1;
 let paginaCli = 1;
 const ITEMS_POR_PAGINA = 10;
@@ -18,47 +18,25 @@ function renderVentas(textFilter = '', statusFilter = 'todas', append = false) {
   const list = document.getElementById('ventas-list');
   const q = textFilter.toLowerCase();
 
-  // Si no es append, reiniciamos la lista y la paginación
   if (!append) {
-    // Resetear el store para que la próxima carga empiece desde el principio
     store.lastVentaDoc = null;
     store.hasMoreVentas = true;
-    // Limpiar la lista actual
     list.innerHTML = '';
-    // Reiniciar datos locales (solo si no es append)
-    // Nota: store.ventas ya contiene todos los datos cargados hasta ahora.
-    // Si aplicamos un filtro, debemos recargar desde el principio.
-    // Para simplificar, cuando se aplica un filtro, vaciamos store.ventas y recargamos.
-    // Esto lo manejaremos en los eventos de filtro (filterChip, filterVentas)
   }
 
-  // Obtener los datos actuales del store (ya filtrados)
   let data = store.ventas.filter(v => {
     const matchText = !q || (v.cliente && v.cliente.toLowerCase().includes(q)) || (v.id && v.id.includes(q));
     const matchStatus = statusFilter === 'todas' || v.status === statusFilter;
     return matchText && matchStatus;
   });
 
-  // Si es append, tomamos solo los nuevos elementos (los últimos agregados)
-  // Pero como store.ventas ya contiene todo, y append es true, debemos mostrar todo lo que hay.
-  // En append, simplemente volvemos a renderizar toda la lista actualizada.
-  // Para evitar duplicados, usamos un enfoque: si es append, añadimos los nuevos elementos al final.
-  // Pero es más sencillo: siempre renderizamos todo el contenido de store.ventas filtrado,
-  // y cuando se carga más, store.ventas se ha actualizado con los nuevos datos.
-  // Por lo tanto, no necesitamos un modo append estricto; simplemente renderizamos siempre todo el array filtrado.
-
-  // Si no hay datos, mostrar mensaje de vacío
   if (!data.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No se encontraron ventas</div></div>`;
     updateKPIs();
     return;
   }
 
-  // Renderizar todas las ventas (ya que store.ventas contiene todas las cargadas)
   let html = data.map(v => {
-    // ... (mismo código de renderizado de tarjeta que ya tienes, con escapeHtml y escapeJsString)
-    // Aquí copias el bloque de renderizado de ventas que ya tienes en el Enfoque A.
-    // Para no repetir, lo resumiré pero debes mantener el código completo.
     const pagoNotificado = v.clienteNotificoPago === true;
     const mostrarConfirmarPago = v.status === 'pendiente' && pagoNotificado;
     const mostrarDespachar = v.status === 'pendiente';
@@ -95,7 +73,6 @@ function renderVentas(textFilter = '', statusFilter = 'todas', append = false) {
     `;
   }).join('');
 
-  // Agregar el botón "Cargar más" si hay más datos
   let botonCargar = '';
   if (store.hasMoreVentas) {
     botonCargar = `
@@ -254,7 +231,7 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
 }
 
 // ================================================================
-//  FUNCIONES PARA CARGAR MÁS DATOS (llamadas desde los botones)
+//  FUNCIONES PARA CARGAR MÁS DATOS
 // ================================================================
 
 async function cargarMasVentas() {
@@ -267,11 +244,10 @@ async function cargarMasVentas() {
     const empresaId = sessionStorage.getItem('empresaId');
     const data = await store.cargarMasVentas(empresaId, ITEMS_POR_PAGINA);
     if (data.items.length > 0) {
-      // Actualizar la lista (append = true)
       renderVentas(
         document.getElementById('venta-search')?.value || '',
         filtroVentas || 'todas',
-        true // append
+        true
       );
       showToast(`✅ Cargadas ${data.items.length} ventas más`);
     } else {
@@ -284,7 +260,6 @@ async function cargarMasVentas() {
     cargandoVentas = false;
     const btn = document.getElementById('btn-cargar-ventas');
     if (btn) btn.disabled = false;
-    // Si no hay más, ocultar el botón (se ocultará en el próximo render)
     renderVentas(
       document.getElementById('venta-search')?.value || '',
       filtroVentas || 'todas',
@@ -361,16 +336,289 @@ async function cargarMasClientes() {
   }
 }
 
-// Exponer las nuevas funciones globalmente
-window.cargarMasVentas = cargarMasVentas;
-window.cargarMasInventario = cargarMasInventario;
-window.cargarMasClientes = cargarMasClientes;
-
 // ================================================================
-//  REPORTES, KPIS Y GRÁFICO (sin cambios)
+//  REPORTES
 // ================================================================
 
-// (Aquí mantienes las funciones renderReportes, updateKPIs, renderChartVentas exactamente como las tienes)
+async function renderReportes(periodo = 'semana') {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ Inicia sesión para ver reportes');
+    return;
+  }
+
+  const ahora = new Date();
+  let inicio, fin;
+  if (periodo === 'semana') {
+    const dia = ahora.getDay();
+    inicio = new Date(ahora);
+    inicio.setDate(ahora.getDate() - dia);
+    inicio.setHours(0,0,0,0);
+    fin = new Date(ahora);
+    fin.setHours(23,59,59,999);
+  } else if (periodo === 'mes') {
+    inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23,59,59,999);
+  } else {
+    inicio = new Date(ahora.getFullYear(), 0, 1);
+    fin = new Date(ahora.getFullYear(), 11, 31, 23,59,59,999);
+  }
+
+  const ventasPeriodo = await store.obtenerVentasPorPeriodo(empresaId, inicio, fin);
+  const totalIngresos = ventasPeriodo.reduce((sum, v) => sum + parseCurrency(v.total), 0);
+  const totalPedidos = ventasPeriodo.length;
+  const cancelados = ventasPeriodo.filter(v => v.status === 'cancelado').length;
+  const ticketPromedio = totalPedidos > 0 ? totalIngresos / totalPedidos : 0;
+
+  const rows = document.querySelectorAll('.stat-row');
+  if (rows.length >= 4) {
+    rows[0].querySelector('.stat-value').textContent = formatCurrency(totalIngresos);
+    rows[1].querySelector('.stat-value').textContent = totalPedidos;
+    rows[2].querySelector('.stat-value').textContent = formatCurrency(ticketPromedio);
+    rows[3].querySelector('.stat-value').textContent = cancelados;
+  }
+
+  const topProductos = await store.obtenerProductosMasVendidos(empresaId, 5);
+  const topContainer = document.querySelector('.card .top-product');
+  if (topContainer) {
+    const parent = topContainer.parentElement;
+    parent.innerHTML = `<div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>`;
+    if (topProductos.length === 0) {
+      parent.innerHTML += '<div class="empty"><div class="empty-text">Sin datos</div></div>';
+    } else {
+      const maxVentas = topProductos[0]?.cantidad || 1;
+      topProductos.forEach((p, i) => {
+        const pct = Math.round((p.cantidad / maxVentas) * 100);
+        const nombreProducto = escapeHtml(p.nombre);
+        parent.innerHTML += `
+          <div class="top-product">
+            <div class="top-rank">#${i+1}</div>
+            <div class="top-name">${nombreProducto}</div>
+            <div class="top-bar-wrap"><div class="top-bar" style="width:${pct}%"></div></div>
+            <div class="top-val">${formatCurrency(p.total)}</div>
+          </div>
+        `;
+      });
+    }
+  }
+}
+
+// ================================================================
+//  KPIS
+// ================================================================
+
+function updateKPIs() {
+  const hoy = new Date().toLocaleDateString();
+  const ventasHoy = ventas.filter(v => {
+    if (!v.fecha) return false;
+    try {
+      const fechaVenta = convertTimestamp(v.fecha);
+      return fechaVenta.toLocaleDateString() === hoy && v.status === 'pagado';
+    } catch { return false; }
+  });
+  const totalHoy = ventasHoy.reduce((sum, v) => sum + parseCurrency(v.total), 0);
+  const kpiVentas = document.querySelector('.kpi-card.blue .kpi-value');
+  if (kpiVentas) kpiVentas.textContent = formatCurrency(totalHoy);
+
+  const totalPedidos = ventas.length;
+  const kpiPedidos = document.querySelector('.kpi-card.green .kpi-value');
+  if (kpiPedidos) kpiPedidos.textContent = totalPedidos;
+
+  const stockBajo = inventario.filter(p => p.estado === 'low').length;
+  const kpiStock = document.querySelector('.kpi-card.amber .kpi-value');
+  if (kpiStock) kpiStock.textContent = stockBajo;
+
+  const totalClientes = clientes.length;
+  const kpiClientes = document.querySelector('.kpi-card.purple .kpi-value');
+  if (kpiClientes) kpiClientes.textContent = totalClientes;
+
+  const pendientes = ventas.filter(v => v.status === 'pendiente').length;
+  const subPedidos = document.getElementById('kpi-sub-pedidos');
+  if (subPedidos) subPedidos.textContent = pendientes + ' pendientes';
+
+  const nuevosHoy = clientes.filter(c => c.tag === 'nuevo').length;
+  const subClientes = document.querySelector('.kpi-card.purple .kpi-sub');
+  if (subClientes) subClientes.textContent = nuevosHoy + ' nuevos hoy';
+}
+
+// ================================================================
+//  GRÁFICO DE VENTAS
+// ================================================================
+
+let chartVentasInstance = null;
+
+function renderChartVentas() {
+  const ctx = document.getElementById('chart-ventas');
+  if (!ctx) {
+    console.log('[Chart] Canvas no encontrado');
+    return;
+  }
+
+  const hoy = new Date();
+  const diaSemana = hoy.getDay();
+  const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  const inicioSemana = new Date(hoy);
+  inicioSemana.setDate(hoy.getDate() + diffLunes);
+  inicioSemana.setHours(0, 0, 0, 0);
+  const finSemana = new Date(inicioSemana);
+  finSemana.setDate(inicioSemana.getDate() + 6);
+  finSemana.setHours(23, 59, 59, 999);
+
+  const diasLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const totales = [0, 0, 0, 0, 0, 0, 0];
+
+  const ventasData = window.ventas || [];
+
+  ventasData.forEach(v => {
+    if (v.status !== 'pagado') return;
+    if (!v.fecha && !v._fechaObj) return;
+
+    try {
+      let fechaVenta = null;
+      
+      if (v._fechaObj && v._fechaObj instanceof Date) {
+        fechaVenta = v._fechaObj;
+      } else if (v.fecha) {
+        if (typeof v.fecha === 'string') {
+          if (typeof convertTimestamp === 'function') {
+            fechaVenta = convertTimestamp(v.fecha);
+          }
+          if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+            const fechaLimpia = v.fecha.replace(/,/g, '');
+            fechaVenta = new Date(fechaLimpia);
+          }
+          if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+            const partes = v.fecha.split(/[\s,/:]+/);
+            if (partes.length >= 5) {
+              const dia = parseInt(partes[0]);
+              const mes = parseInt(partes[1]) - 1;
+              const anio = parseInt(partes[2]);
+              const hora = parseInt(partes[3]);
+              const minuto = parseInt(partes[4]);
+              fechaVenta = new Date(anio, mes, dia, hora, minuto);
+            }
+          }
+        } else if (v.fecha.toDate) {
+          fechaVenta = v.fecha.toDate();
+        } else if (v.fecha instanceof Date) {
+          fechaVenta = v.fecha;
+        }
+      }
+
+      if (!fechaVenta || isNaN(fechaVenta.getTime())) {
+        console.warn('[Chart] Fecha inválida para venta:', v.fecha);
+        return;
+      }
+
+      if (fechaVenta >= inicioSemana && fechaVenta <= finSemana) {
+        const ds = fechaVenta.getDay();
+        const idx = ds === 0 ? 6 : ds - 1;
+        const total = parseCurrency(v.total);
+        if (total > 0) {
+          totales[idx] += total;
+          console.log('[Chart] Sumando venta:', v.total, 'en día', diasLabels[idx]);
+        }
+      }
+    } catch (e) {
+      console.warn('[Chart] Error procesando venta:', v, e);
+    }
+  });
+
+  console.log('[Chart] Totales por día:', totales);
+  
+  const hayDatos = totales.some(t => t > 0);
+  const parent = ctx.parentNode;
+
+  const oldMsg = parent.querySelector('.chart-empty-message');
+  if (oldMsg) oldMsg.remove();
+
+  if (!hayDatos) {
+    console.log('[Chart] No hay ventas en la semana actual');
+    if (window.chartVentasInstance) {
+      window.chartVentasInstance.destroy();
+      window.chartVentasInstance = null;
+    }
+    const msg = document.createElement('div');
+    msg.className = 'chart-empty-message';
+    msg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--text2); font-size:14px; text-align:center; pointer-events:none;';
+    msg.textContent = '📊 Sin ventas esta semana';
+    parent.appendChild(msg);
+    return;
+  }
+
+  const maxVal = Math.max(...totales, 1);
+  const stepSize = maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : maxVal <= 100 ? 20 : Math.ceil(maxVal / 5);
+  const diaHoy = diaSemana === 0 ? 6 : diaSemana - 1;
+  const bgColors = totales.map((_, i) => {
+    return i === diaHoy ? '#00338D' : 'rgba(0, 51, 141, 0.25)';
+  });
+
+  if (window.chartVentasInstance) {
+    window.chartVentasInstance.destroy();
+    window.chartVentasInstance = null;
+  }
+
+  window.chartVentasInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: diasLabels,
+      datasets: [{
+        label: 'Ventas',
+        data: totales,
+        backgroundColor: bgColors,
+        borderRadius: 8,
+        borderSkipped: false,
+        barThickness: 24,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 10, bottom: 0, left: 0, right: 10 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111827',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          cornerRadius: 10,
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => 'Ventas: $' + ctx.raw.toFixed(2)
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          suggestedMax: maxVal * 1.2,
+          ticks: {
+            stepSize: stepSize,
+            callback: (v) => {
+              if (v >= 1000) return '$' + (v/1000).toFixed(1) + 'k';
+              return '$' + v.toFixed(0);
+            },
+            font: { size: 11, family: 'Inter' },
+            color: '#6B7280',
+            padding: 8
+          },
+          grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+          border: { display: false }
+        },
+        x: {
+          grid: { display: false, drawBorder: false },
+          ticks: { font: { size: 12, weight: '600', family: 'Inter' }, color: '#374151', padding: 8 },
+          border: { display: false }
+        }
+      },
+      animation: { duration: 700, easing: 'easeOutQuart' }
+    }
+  });
+  console.log('[Chart] Gráfico renderizado con:', totales);
+}
 
 // ================================================================
 //  EXPOSICIÓN GLOBAL
@@ -382,3 +630,6 @@ window.renderClients = renderClients;
 window.renderReportes = renderReportes;
 window.updateKPIs = updateKPIs;
 window.renderChartVentas = renderChartVentas;
+window.cargarMasVentas = cargarMasVentas;
+window.cargarMasInventario = cargarMasInventario;
+window.cargarMasClientes = cargarMasClientes;

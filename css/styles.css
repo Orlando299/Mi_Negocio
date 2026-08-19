@@ -118,6 +118,11 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 }
 .fab:active { transform: scale(0.93); box-shadow: 0 2px 8px rgba(0,51,141,0.3); }
 
+/* Ocultar elementos para cliente (se aplica con JavaScript) */
+.hidden-cliente {
+  display: none !important;
+}
+
 /* SCREENS */
 .screen { display: none; padding: calc(var(--nav-h) + 16px) 16px calc(var(--bottom-h) + 20px); min-height: 100vh; }
 .screen.active { display: block; }

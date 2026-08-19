@@ -1239,13 +1239,30 @@ function mostrarPanelCliente() {
       }
     });
   }
-  setTimeout(() => {
+  
+  // ✅ ESPERAR a que los datos estén cargados antes de renderizar el catálogo
+  // Si store.cargado es true, renderizar inmediatamente; si no, esperar el evento
+  if (store.cargado) {
     renderCatalogo();
     renderHistorial();
     actualizarCarritoCount();
     cargarMensajesChat();
     cargarAlertas();
-  }, 500);
+  } else {
+    // Esperar a que los datos se carguen (máximo 5 segundos)
+    let intentos = 0;
+    const esperarDatos = setInterval(() => {
+      if (store.cargado || intentos > 20) {
+        clearInterval(esperarDatos);
+        renderCatalogo();
+        renderHistorial();
+        actualizarCarritoCount();
+        cargarMensajesChat();
+        cargarAlertas();
+      }
+      intentos++;
+    }, 250);
+  }
 }
 
 function cerrarSesion() {

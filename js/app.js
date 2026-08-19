@@ -552,7 +552,20 @@ async function regenerarCodigo() {
   }
 }
 
+// ================================================================
+//  FUNCIÓN goScreen MODIFICADA (con control de rol)
+// ================================================================
 function goScreen(name) {
+  // Obtener rol actual
+  const userRol = sessionStorage.getItem('userRol');
+
+  // Si es cliente y la pantalla no es 'cliente', forzar a 'cliente'
+  if (userRol === 'cliente' && name !== 'cliente') {
+    console.warn('⚠️ Cliente intentó acceder a pantalla admin:', name);
+    name = 'cliente';
+  }
+
+  // Actualizar pantallas
   screens.forEach(s => {
     const screenEl = document.getElementById('screen-' + s);
     if (screenEl) screenEl.classList.toggle('active', s === name);
@@ -560,22 +573,54 @@ function goScreen(name) {
     if (navEl) navEl.classList.toggle('active', s === name);
   });
   currentScreen = name;
-  
-  const fabLabels = { 
-    dashboard: '＋', 
-    ventas: '＋', 
-    inventario: '＋', 
-    clientes: '＋', 
-    reportes: '⬇', 
-    cliente: '⬇', 
-    configuracion: '⚙️' 
-  };
+
+  // Mostrar/ocultar navegación inferior y FAB según rol y pantalla
+  const bottomNav = document.getElementById('bottom-nav');
   const fabBtn = document.getElementById('fab-btn');
-  if (fabBtn) fabBtn.textContent = fabLabels[name] || '＋';
-  
+  if (userRol === 'cliente') {
+    // Ocultar bottom-nav y FAB para cliente
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (fabBtn) fabBtn.style.display = 'none';
+  } else {
+    // Admin: mostrar solo si no es pantalla 'cliente'
+    if (name === 'cliente') {
+      if (bottomNav) bottomNav.style.display = 'none';
+      if (fabBtn) fabBtn.style.display = 'none';
+    } else {
+      if (bottomNav) bottomNav.style.display = 'flex';
+      if (fabBtn) fabBtn.style.display = 'flex';
+    }
+  }
+
+  // Cambiar etiqueta del FAB según pantalla (solo para admin)
+  const fabLabels = {
+    dashboard: '＋',
+    ventas: '＋',
+    inventario: '＋',
+    clientes: '＋',
+    reportes: '⬇',
+    configuracion: '⚙️'
+  };
+  if (fabBtn && userRol !== 'cliente') {
+    fabBtn.textContent = fabLabels[name] || '＋';
+  }
+
+  // Ocultar pantalla de bienvenida
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
-  
+
+  // --- Pantalla cliente ---
+  if (name === 'cliente') {
+    if (sessionStorage.getItem('empresaId')) {
+      mostrarPanelCliente();
+    } else {
+      showToast('⚠️ Inicia sesión primero');
+      mostrarPantallaBienvenida();
+    }
+    return; // Salir para no ejecutar más lógica de admin
+  }
+
+  // ===== Lógica para admin (ventas, inventario, clientes, reportes, configuracion, dashboard) =====
   // --- VENTAS: recargar desde Firestore ---
   if (name === 'ventas') {
     const empresaId = sessionStorage.getItem('empresaId');
@@ -598,14 +643,14 @@ function goScreen(name) {
     }
     renderVentas('', filtroVentas, false);
   }
-  
+
   // --- INVENTARIO: reiniciar paginación ---
   if (name === 'inventario') {
     store.lastInventarioDoc = null;
     store.hasMoreInventario = true;
     renderInv('', filtroInv, false);
   }
-  
+
   // --- CLIENTES: recargar desde Firestore ---
   if (name === 'clientes') {
     const empresaId = sessionStorage.getItem('empresaId');
@@ -628,12 +673,12 @@ function goScreen(name) {
     }
     renderClients('', filtroCli, false);
   }
-  
+
   // --- REPORTES ---
   if (name === 'reportes') {
     renderReportes('semana');
   }
-  
+
   // --- CONFIGURACIÓN ---
   if (name === 'configuracion') {
     actualizarResumenConfiguracion();
@@ -643,22 +688,11 @@ function goScreen(name) {
       renderizarTablaVentas();
     }, 300);
   }
-  
-  // --- CLIENTE (módulo cliente) ---
-  if (name === 'cliente') {
-    if (sessionStorage.getItem('empresaId')) {
-      mostrarPanelCliente();
-    } else {
-      showToast('⚠️ Inicia sesión primero');
-      mostrarPantallaBienvenida();
-    }
-  }
-  
+
   // --- DASHBOARD: actualizar KPIs y gráfico ---
   if (name === 'dashboard') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
-      // Si no hay clientes en el store, recargarlos
       if (store.clientes.length === 0) {
         setTimeout(async () => {
           try {
@@ -713,7 +747,6 @@ function filterChip(el, ctx) {
 }
 
 function filterVentas() {
-  // Reiniciar paginación
   store.lastVentaDoc = null;
   store.hasMoreVentas = true;
   const searchValue = document.getElementById('venta-search')?.value || '';
@@ -1167,6 +1200,94 @@ function openConfirmModal(mensaje, callback) {
   openModalWithContent('Confirmar acción', body);
 }
 
+// ================================================================
+//  FUNCIÓN toggleCliente MODIFICADA
+// ================================================================
+function toggleCliente() {
+  const userRol = sessionStorage.getItem('userRol');
+  if (userRol === 'cliente') {
+    showToast('🔒 Ya estás en el modo cliente');
+    return;
+  }
+  // Solo admin puede alternar
+  const current = document.querySelector('.screen.active');
+  if (current && current.id === 'screen-cliente') {
+    goScreen('dashboard');
+  } else {
+    goScreen('cliente');
+    cargarCarrito();
+    actualizarCarritoCount();
+  }
+}
+
+// ================================================================
+//  FUNCIÓN cerrarSesion MODIFICADA
+// ================================================================
+function cerrarSesion() {
+  firebase.auth().signOut();
+  sessionStorage.clear();
+  localStorage.removeItem('empresaInventario');
+  localStorage.removeItem('empresaClientes');
+  localStorage.removeItem('empresaVentas');
+
+  // Ocultar elementos de admin
+  const adminMenu = document.getElementById('admin-menu');
+  const btnCodigo = document.getElementById('btn-codigo');
+  if (adminMenu) adminMenu.style.display = 'none';
+  if (btnCodigo) btnCodigo.style.display = 'none';
+
+  // Ocultar botón de logout de cliente
+  const btnLogout = document.getElementById('btn-logout-cliente');
+  if (btnLogout) btnLogout.style.display = 'none';
+
+  // Mostrar botón de alternar cliente (para admin)
+  const btnCliente = document.getElementById('btn-cliente');
+  if (btnCliente) btnCliente.style.display = 'inline-flex';
+
+  const logo = document.querySelector('.nav-logo span');
+  if (logo) logo.textContent = 'Franquicia Polar';
+
+  const panelDiv = document.getElementById('cliente-panel');
+  if (panelDiv) panelDiv.style.display = 'none';
+
+  showToast('👋 Sesión cerrada');
+  mostrarPantallaBienvenida();
+}
+
+// ================================================================
+//  FUNCIÓN actualizarAdminUI MODIFICADA
+// ================================================================
+function actualizarAdminUI(nombre) {
+  const adminMenu = document.getElementById('admin-menu');
+  const avatar = document.getElementById('avatar-admin');
+  const nombreEl = document.getElementById('admin-nombre');
+  const btnCliente = document.getElementById('btn-cliente');
+  const btnCodigo = document.getElementById('btn-codigo');
+  const userRol = sessionStorage.getItem('userRol');
+
+  if (userRol === 'cliente') {
+    // Ocultar todo lo de admin
+    if (adminMenu) adminMenu.style.display = 'none';
+    if (btnCliente) btnCliente.style.display = 'none';
+    if (btnCodigo) btnCodigo.style.display = 'none';
+    return;
+  }
+
+  // Si es admin
+  if (nombre) {
+    if (adminMenu) adminMenu.style.display = 'block';
+    if (btnCliente) btnCliente.style.display = 'inline-flex';
+    if (btnCodigo) btnCodigo.style.display = 'inline-flex';
+    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
+    if (avatar) avatar.textContent = iniciales || 'A';
+    if (nombreEl) nombreEl.textContent = nombre;
+  } else {
+    if (adminMenu) adminMenu.style.display = 'none';
+    if (btnCliente) btnCliente.style.display = 'inline-flex';
+    if (btnCodigo) btnCodigo.style.display = 'none';
+  }
+}
+
 function toggleAdminMenu(event) {
   if (event) event.stopPropagation();
   const dropdown = document.getElementById('admin-dropdown');
@@ -1192,51 +1313,65 @@ document.addEventListener('click', function(e) {
   }
 });
 
-function actualizarAdminUI(nombre) {
-  const adminMenu = document.getElementById('admin-menu');
-  const avatar = document.getElementById('avatar-admin');
-  const nombreEl = document.getElementById('admin-nombre');
-  const btnCliente = document.getElementById('btn-cliente');
-  const btnCodigo = document.getElementById('btn-codigo');
-  if (nombre) {
-    if (adminMenu) adminMenu.style.display = 'block';
-    if (btnCliente) btnCliente.style.display = 'none';
-    if (btnCodigo) btnCodigo.style.display = 'inline-flex';
-    const iniciales = nombre.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0,2);
-    if (avatar) avatar.textContent = iniciales || 'A';
-    if (nombreEl) nombreEl.textContent = nombre;
-  } else {
-    if (adminMenu) adminMenu.style.display = 'none';
-    if (btnCliente) btnCliente.style.display = 'inline-flex';
-    if (btnCodigo) btnCodigo.style.display = 'none';
-  }
-}
-
-async function loginCliente() { await loginUnificado(); }
-async function registrarCliente() { await registrarClienteNuevo(); }
+function loginCliente() { return loginUnificado(); }
+function registrarCliente() { return registrarClienteNuevo(); }
 function mostrarRegistro() { mostrarRegistroCliente(); }
 function mostrarLogin() { mostrarLoginUnificado(); }
 
+// ================================================================
+//  FUNCIÓN mostrarPanelCliente MODIFICADA
+// ================================================================
 async function mostrarPanelCliente() {
   const panelDiv = document.getElementById('cliente-panel');
   const nombreSpan = document.getElementById('cliente-nombre');
   if (panelDiv) panelDiv.style.display = 'block';
-  
+
+  // Ocultar navegación inferior y FAB para cliente
+  const bottomNav = document.getElementById('bottom-nav');
+  const fabBtn = document.getElementById('fab-btn');
+  if (bottomNav) bottomNav.style.display = 'none';
+  if (fabBtn) fabBtn.style.display = 'none';
+
+  // Ocultar menú admin y botón de código de invitación
+  const adminMenu = document.getElementById('admin-menu');
+  const btnCodigo = document.getElementById('btn-codigo');
+  if (adminMenu) adminMenu.style.display = 'none';
+  if (btnCodigo) btnCodigo.style.display = 'none';
+
+  // Mostrar botón de cerrar sesión en el top-nav (si no existe, lo creamos)
+  let btnLogout = document.getElementById('btn-logout-cliente');
+  if (!btnLogout) {
+    btnLogout = document.createElement('button');
+    btnLogout.id = 'btn-logout-cliente';
+    btnLogout.className = 'nav-icon-btn';
+    btnLogout.innerHTML = '🚪';
+    btnLogout.title = 'Cerrar sesión';
+    btnLogout.onclick = cerrarSesion;
+    const navRight = document.querySelector('.nav-right');
+    if (navRight) navRight.appendChild(btnLogout);
+  }
+  btnLogout.style.display = 'inline-flex';
+
+  // Ocultar botón de alternar cliente (ya que cliente no debe cambiar)
+  const btnCliente = document.getElementById('btn-cliente');
+  if (btnCliente) btnCliente.style.display = 'none';
+
+  // Configurar nombre de cliente
   const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
   if (nombreSpan) nombreSpan.textContent = nombre;
   actualizarAvatar(nombre);
-  
+
   const bienvenidaEl = document.getElementById('mensaje-bienvenida');
   if (bienvenidaEl && nombre) {
     bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
   }
-  
+
   // Cargar inventario si es necesario
   await cargarInventarioCliente();
-  
+
   // Renderizar catálogo, historial y actualizar carrito
   renderCatalogo();
-  await cargarHistorialCliente(); // Nueva función (ver abajo)
+  await cargarHistorialCliente();
   actualizarCarritoCount();
   cargarMensajesChat();
   cargarAlertas();
@@ -1246,13 +1381,12 @@ async function cargarInventarioCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) return false;
   
-  // Si ya hay inventario en memoria, no recargar
   if (store.inventario && store.inventario.length > 0) {
     return true;
   }
   
   try {
-    const data = await store.cargarInventarioPaginado(empresaId, 100); // Cargar todos (o un límite grande)
+    const data = await store.cargarInventarioPaginado(empresaId, 100);
     store.inventario = data.items;
     store.lastInventarioDoc = data.lastDoc;
     syncGlobals();
@@ -1263,29 +1397,11 @@ async function cargarInventarioCliente() {
   }
 }
 
-function cerrarSesion() {
-  firebase.auth().signOut();
-  sessionStorage.clear();
-  localStorage.removeItem('empresaInventario');
-  localStorage.removeItem('empresaClientes');
-  localStorage.removeItem('empresaVentas');
-  document.getElementById('admin-menu').style.display = 'none';
-  document.getElementById('btn-codigo').style.display = 'none';
-  document.getElementById('btn-cliente').style.display = 'inline-flex';
-  const logo = document.querySelector('.nav-logo span');
-  if (logo) logo.textContent = 'Franquicia Polar';
-  const panelDiv = document.getElementById('cliente-panel');
-  if (panelDiv) panelDiv.style.display = 'none';
-  showToast('👋 Sesión cerrada');
-  mostrarPantallaBienvenida();
-}
-
 async function cargarHistorialCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
   const user = firebase.auth().currentUser;
   if (!empresaId || !user) return;
   
-  // Obtener nombre del perfil en Firestore
   const perfilDoc = await firebase.firestore().collection('userProfiles').doc(user.uid).get();
   const nombreCliente = perfilDoc.exists ? perfilDoc.data().nombre : sessionStorage.getItem('userName');
   
@@ -1306,14 +1422,11 @@ async function cargarHistorialCliente() {
       pedidos.push({ id: doc.id, ...data });
     });
     
-    // Guardar en variable global
     window.pedidosCliente = pedidos;
     
-    // Forzar renderizado asegurando que el contenedor existe y es visible
     const container = document.getElementById('historial-pedidos');
     if (!container) {
       console.warn('⚠️ Contenedor #historial-pedidos no encontrado, esperando...');
-      // Esperar un poco y reintentar
       setTimeout(() => {
         renderHistorialCliente(pedidos);
       }, 300);
@@ -1354,21 +1467,9 @@ function renderHistorialCliente(pedidos = []) {
   `).join('');
 }
 
-function toggleCliente() {
-  const current = document.querySelector('.screen.active');
-  if (current && current.id === 'screen-cliente') {
-    goScreen('dashboard');
-  } else {
-    goScreen('cliente');
-    cargarCarrito();
-    actualizarCarritoCount();
-  }
-}
-
 // ================================================================
 //  CONFIGURACIÓN DE DATOS DE PAGO
 // ================================================================
-
 async function cargarDatosPago() {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) return;
@@ -1378,16 +1479,13 @@ async function cargarDatosPago() {
       const data = doc.data();
       const pagos = data.datosPago || {};
       
-      // Pago Móvil
       document.getElementById('pago-pmovil-telefono').value = pagos.pagoMovil?.telefono || '';
       document.getElementById('pago-pmovil-cedula').value = pagos.pagoMovil?.cedula || '';
       document.getElementById('pago-pmovil-banco').value = pagos.pagoMovil?.banco || '';
       
-      // Zelle
       document.getElementById('pago-zelle-email').value = pagos.zelle?.email || '';
       document.getElementById('pago-zelle-nombre').value = pagos.zelle?.nombre || '';
       
-      // Transferencia
       document.getElementById('pago-transferencia-banco').value = pagos.transferencia?.banco || '';
       document.getElementById('pago-transferencia-cuenta').value = pagos.transferencia?.cuenta || '';
       document.getElementById('pago-transferencia-titular').value = pagos.transferencia?.titular || '';
@@ -1496,7 +1594,6 @@ function renderProductoCard(p) {
   const nombreJs = escapeJsString(nombre);
   const maxStock = estado === 'out' ? 0 : stock;
 
-  // Crear un ID único para el input de cantidad
   const inputId = 'cantidad-' + nombreJs.replace(/\s/g, '_');
 
   return `
@@ -1639,19 +1736,16 @@ function cambiarCantidadCarrito(index, delta) {
   
   const nuevaCantidad = carrito[index].cantidad + delta;
   
-  // Validar que no sea menor a 1
   if (nuevaCantidad < 1) {
-    // Preguntar si quiere eliminar el producto
     if (confirm(`¿Eliminar "${carrito[index].nombre}" del carrito?`)) {
       carrito.splice(index, 1);
       guardarCarrito();
       actualizarCarritoCount();
-      verCarrito(); // Refrescar el modal
+      verCarrito();
     }
     return;
   }
   
-  // Verificar stock disponible
   const producto = inventario.find(p => p.nombre === carrito[index].nombre);
   if (producto && nuevaCantidad > producto.stock) {
     showToast(`⚠️ Stock insuficiente. Solo quedan ${producto.stock} unidades.`);
@@ -1661,7 +1755,7 @@ function cambiarCantidadCarrito(index, delta) {
   carrito[index].cantidad = nuevaCantidad;
   guardarCarrito();
   actualizarCarritoCount();
-  verCarrito(); // Refrescar el modal
+  verCarrito();
 }
 
 function vaciarCarrito() {
@@ -1683,7 +1777,6 @@ function cambiarCantidadInput(inputId, delta, maxStock) {
 // ================================================================
 //  ORDEN DE PAGO (P2P)
 // ================================================================
-
 async function mostrarOrdenPago(ventaId) {
   const venta = store.ventas.find(v => v.id === ventaId);
   if (!venta) { showToast('⚠️ Venta no encontrada'); return; }
@@ -1758,14 +1851,12 @@ async function notificarPago(ventaId) {
   const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
 
   try {
-    // Actualizar el pedido con la notificación
     await store.updateVenta(ventaId, {
       clienteNotificoPago: true,
       fechaNotificacionPago: new Date().toISOString()
     });
     syncGlobals();
 
-    // Enviar notificación al admin (FCM)
     if (typeof notificarAdmins === 'function') {
       notificarAdmins(
         empresaId,
@@ -1786,7 +1877,6 @@ async function realizarPedido() {
   if (!sessionStorage.getItem('empresaId')) { showToast('⚠️ Inicia sesión primero'); return; }
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
 
-  // Verificar stock antes de crear el pedido
   for (const item of carrito) {
     const producto = inventario.find(p => p.nombre === item.nombre);
     if (!producto) { showToast(`⚠️ Producto "${item.nombre}" no existe`); return; }
@@ -1799,7 +1889,6 @@ async function realizarPedido() {
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
   const items = carrito.reduce((sum, item) => sum + item.cantidad, 0);
   
-  // Crear array de productos para el pedido
   const productos = carrito.map(item => ({
     nombre: item.nombre,
     cantidad: item.cantidad,
@@ -1818,38 +1907,31 @@ async function realizarPedido() {
   };
 
   try {
-    // 1. Guardar el pedido en Firestore
     await store.addVenta(pedido);
     syncGlobals();
 
-    // 2. Obtener el pedido recién creado (el último de la lista con estado pendiente)
     const pedidoCreado = store.ventas.find(v => 
       v.cliente === sessionStorage.getItem('userName') && 
       v.status === 'pendiente' && 
       v.total === formatCurrency(total)
     );
 
-    // 3. Vaciar carrito
     carrito = [];
     guardarCarrito();
     actualizarCarritoCount();
     
-    // 4. Actualizar interfaces
     renderHistorial();
     renderActividadReciente();
     updateKPIs();
 
-    // 5. Cerrar modal del carrito
     closeModal();
 
-    // 6. Mostrar orden de pago si el pedido se creó correctamente
     if (pedidoCreado) {
       mostrarOrdenPago(pedidoCreado.id);
     } else {
       showToast('⚠️ No se pudo generar la orden de pago, contacta al administrador');
     }
 
-    // 7. Notificar a admins del nuevo pedido
     const empresaIdNotif = sessionStorage.getItem('empresaId');
     const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
     if (empresaIdNotif && typeof notificarAdmins === 'function') {
@@ -1860,9 +1942,6 @@ async function realizarPedido() {
         { tipo: 'nuevo_pedido', cliente: clienteNombre, total: pedido.total }
       );
     }
-
-    // 8. Mostrar toast de éxito (ya se muestra en el modal)
-    // showToast('✅ Pedido realizado con éxito');  // Ya lo maneja mostrarOrdenPago
 
   } catch (error) {
     handleError(error, 'Error al realizar el pedido');
@@ -1946,8 +2025,8 @@ function renderizarTablaProductos() {
       <td>${p.stock ?? 0}</td>
       <td>
         <div class="config-actions-cell">
-          <button class="btn-sm btn-sm-edit" onclick="editProducto('${(p.nombre || '').replace(/'/g, "\'")}')">Editar</button>
-          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteProducto('${(p.nombre || '').replace(/'/g, "\'")}')">Eliminar</button>
+          <button class="btn-sm btn-sm-edit" onclick="editProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
         </div>
       </td>
     </tr>
@@ -1969,8 +2048,8 @@ function renderizarTablaClientes() {
       <td>${c.phone || '-'}</td>
       <td>
         <div class="config-actions-cell">
-          <button class="btn-sm btn-sm-edit" onclick="editCliente('${(c.nombre || '').replace(/'/g, "\'")}')">Editar</button>
-          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteCliente('${(c.nombre || '').replace(/'/g, "\'")}')">Eliminar</button>
+          <button class="btn-sm btn-sm-edit" onclick="editCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
         </div>
       </td>
     </tr>
@@ -2438,25 +2517,18 @@ function connectWebSocket() {
 }
 
 function cambiarTabCliente(tabId) {
-  // Ocultar todos los paneles de contenido del cliente
   document.querySelectorAll('.cliente-panel-content').forEach(p => p.style.display = 'none');
-  
-  // Mostrar el panel seleccionado
   const panel = document.getElementById('cliente-panel-' + tabId);
   if (panel) panel.style.display = 'block';
-  
-  // Actualizar clases de pestañas activas
   document.querySelectorAll('[data-tab-cliente]').forEach(tab => tab.classList.remove('active'));
   const tabBtn = document.querySelector(`[data-tab-cliente="${tabId}"]`);
   if (tabBtn) tabBtn.classList.add('active');
   
-  // === Cargar contenido según la pestaña seleccionada ===
   if (tabId === 'chat') {
     cargarMensajesChat();
   } else if (tabId === 'alertas') {
     cargarAlertas();
   } else if (tabId === 'pedidos') {
-    // 🔥 CAMBIO IMPORTANTE: Usar cargarHistorialCliente en lugar de renderHistorial
     cargarHistorialCliente();
   }
 }
@@ -2601,7 +2673,6 @@ function generarFactura(id) {
 //  DESPACHO DE PEDIDOS (Facturación + Stock + Envases + Alertas)
 // ================================================================
 
-// --- Función para abrir modal de despacho ---
 function abrirModalDespacho(id) {
   const venta = store.ventas.find(v => v.id === id);
   if (!venta) {
@@ -2619,10 +2690,7 @@ function abrirModalDespacho(id) {
     return;
   }
 
-  // Obtener productos del pedido (usa el array 'productos' si existe)
   let productos = venta.productos || [];
-  
-  // Fallback para pedidos antiguos (formato simple)
   if (!productos.length) {
     if (venta.items && venta.producto && venta.producto !== 'Pedido desde app cliente') {
       productos.push({ nombre: venta.producto, cantidad: venta.items });
@@ -2632,7 +2700,6 @@ function abrirModalDespacho(id) {
     }
   }
 
-  // Verificar stock actual
   const erroresStock = verificarStock(productos);
   if (erroresStock.length > 0) {
     let mensaje = '❌ No se puede despachar por falta de stock:\n';
@@ -2641,17 +2708,13 @@ function abrirModalDespacho(id) {
     return;
   }
 
-  // Obtener saldo de envases del cliente
   const saldoEnvases = cliente.saldoEnvases || {};
-
-  // Contar facturas pendientes del cliente (excluyendo la actual)
   const facturasPendientes = store.ventas.filter(v => 
     v.cliente === cliente.nombre && 
     v.status === 'pendiente' && 
     v.id !== id
   ).length;
 
-  // --- Construir HTML del modal (envases) ---
   let envasesHTML = '';
   for (const [tipo, config] of Object.entries(TIPOS_ENVASE)) {
     const saldoActual = saldoEnvases[tipo] || 0;
@@ -2683,7 +2746,6 @@ function abrirModalDespacho(id) {
     `;
   }
 
-  // --- Alertas del cliente ---
   let alertasHTML = '';
   if (facturasPendientes >= 2) {
     alertasHTML += `<div style="background:var(--red-soft); color:var(--red); padding:10px; border-radius:var(--radius-sm); margin-bottom:10px;">
@@ -2695,7 +2757,6 @@ function abrirModalDespacho(id) {
     </div>`;
   }
 
-  // --- Cuerpo del modal ---
   const body = `
     <div style="margin-bottom:16px;">
       <h3>🧾 Despachar pedido</h3>
@@ -2737,7 +2798,6 @@ function abrirModalDespacho(id) {
 
   openModalWithContent('Despachar pedido', body);
 
-  // Listener para mostrar campo "Otro" en método de pago
   document.getElementById('despacho-metodo').addEventListener('change', function() {
     const otroCampo = document.getElementById('campo-otro-metodo');
     if (this.value === 'Otro') {
@@ -2935,7 +2995,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
 
-  // Datos de la empresa (puedes hacerlos editables después)
   const empresaNombre = sessionStorage.getItem('empresaNombre') || 'Mi Negocio';
   const empresaRIF = 'J-12345678-9';
   const empresaTelefono = '+58 412 000 0000';
@@ -2946,14 +3005,12 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   const margin = 15;
   let y = margin;
 
-  // --- TÍTULO ---
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 51, 141);
   doc.text('FACTURA', pageWidth / 2, y, { align: 'center' });
   y += 10;
 
-  // --- DATOS DE LA EMPRESA ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
@@ -2969,13 +3026,11 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   doc.text(`Dirección: ${empresaDireccion}`, margin, y);
   y += 8;
 
-  // --- LÍNEA SEPARADORA ---
   doc.setDrawColor(0, 51, 141);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
 
-  // --- CLIENTE, FECHA, NÚMERO DE FACTURA Y MÉTODO DE PAGO ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(`Cliente:`, margin, y);
@@ -3009,11 +3064,9 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   doc.text(venta.metodo || 'No especificado', margin + 40, y);
   y += 10;
 
-  // --- LÍNEA SEPARADORA ---
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
 
-  // --- TABLA DE PRODUCTOS ---
   const productos = venta.productos || [];
   let tableData = [];
   
@@ -3029,7 +3082,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
       ]);
     });
   } else {
-    // Fallback para ventas antiguas sin array productos
     const producto = venta.producto || 'Producto';
     const cantidad = venta.items || 1;
     const precioUnit = venta.total ? parseCurrency(venta.total) / cantidad : 0;
@@ -3041,7 +3093,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
     ]);
   }
 
-  // Si no hay datos, agregar una fila por defecto
   if (tableData.length === 0) {
     tableData.push(['Sin productos', 0, formatCurrency(0), formatCurrency(0)]);
   }
@@ -3066,7 +3117,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
     },
     margin: { left: margin, right: margin },
     didDrawPage: function(data) {
-      // Número de página
       const pageCount = doc.internal.getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
@@ -3081,7 +3131,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
 
   let finalY = doc.lastAutoTable.finalY + 6;
 
-  // --- TOTAL GENERAL ---
   const totalFormateado = venta.total || formatCurrency(0);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
@@ -3089,7 +3138,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
   doc.text(`TOTAL: ${totalFormateado}`, pageWidth - margin - 10, finalY, { align: 'right' });
   finalY += 10;
 
-  // --- CONTROL DE ENVASES ---
   if (envases && Object.keys(envases).length > 0) {
     const tieneMovimiento = Object.values(envases).some(e => e.prestados > 0 || e.recuperados > 0);
     if (tieneMovimiento) {
@@ -3139,7 +3187,6 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
     }
   }
 
-  // --- NOTAS ---
   if (venta.notas && venta.notas.trim() !== '') {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -3147,14 +3194,12 @@ function generarFacturaDespacho(venta, numeroFactura, envases) {
     finalY += 8;
   }
 
-  // --- PIE DE PÁGINA ---
   const pieY = doc.internal.pageSize.getHeight() - 18;
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text('¡Gracias por su compra!', pageWidth / 2, pieY, { align: 'center' });
   doc.text('Este documento es una factura válida para efectos tributarios.', pageWidth / 2, pieY + 5, { align: 'center' });
 
-  // Guardar PDF
   doc.save(`factura_${numeroFactura}.pdf`);
 }
 
@@ -3210,8 +3255,14 @@ document.addEventListener('DOMContentLoaded', () => {
           goScreen('dashboard');
           setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
         } else {
+          // ===== CLIENTE =====
           document.getElementById('admin-menu').style.display = 'none';
           document.getElementById('btn-codigo').style.display = 'none';
+          // Ocultar bottom-nav y FAB para cliente
+          const bottomNav = document.getElementById('bottom-nav');
+          const fabBtn = document.getElementById('fab-btn');
+          if (bottomNav) bottomNav.style.display = 'none';
+          if (fabBtn) fabBtn.style.display = 'none';
           await store.cargarDatosEmpresa(empresaId);
           syncGlobals();
           goScreen('cliente');
@@ -3266,10 +3317,6 @@ document.addEventListener('DOMContentLoaded', () => {
 //  PAGOS INTEGRADOS (P2P) - CONFIRMACIÓN DE PAGO
 // ================================================================
 
-/**
- * Confirma el pago de un pedido (lo marca como pagado)
- * @param {string} id - ID de la venta
- */
 async function confirmarPago(id) {
   const venta = store.ventas.find(v => v.id === id);
   if (!venta) {
@@ -3282,7 +3329,6 @@ async function confirmarPago(id) {
     return;
   }
 
-  // Confirmar con el franquiciado (opcional)
   if (!confirm(`¿Confirmar pago del pedido de ${venta.cliente} por ${venta.total}?`)) {
     return;
   }
@@ -3299,138 +3345,6 @@ async function confirmarPago(id) {
   } catch (error) {
     handleError(error, 'Error al confirmar pago');
   }
-}
-
-/**
- * Notifica al franquiciado que el cliente ya pagó
- * @param {string} ventaId - ID de la venta
- */
-async function notificarPago(ventaId) {
-  const venta = store.ventas.find(v => v.id === ventaId);
-  if (!venta) {
-    showToast('⚠️ Venta no encontrada');
-    return;
-  }
-
-  const empresaId = sessionStorage.getItem('empresaId');
-  const clienteNombre = sessionStorage.getItem('userName') || 'Un cliente';
-
-  try {
-    // Actualizar el pedido con la notificación
-    await store.updateVenta(ventaId, {
-      clienteNotificoPago: true,
-      fechaNotificacionPago: new Date().toISOString()
-    });
-    syncGlobals();
-
-    // Enviar notificación al admin (FCM)
-    if (typeof notificarAdmins === 'function') {
-      notificarAdmins(
-        empresaId,
-        '💳 Pago notificado',
-        `${clienteNombre} ha notificado el pago de ${venta.total}`,
-        { tipo: 'pago_notificado', ventaId: ventaId, cliente: clienteNombre }
-      );
-    }
-
-    showToast('✅ Pago notificado al franquiciado');
-    closeModal();
-  } catch (error) {
-    handleError(error, 'Error al notificar pago');
-  }
-}
-
-/**
- * Muestra la orden de pago al cliente (con los datos del franquiciado)
- * @param {string} ventaId - ID de la venta
- */
-async function mostrarOrdenPago(ventaId) {
-  const venta = store.ventas.find(v => v.id === ventaId);
-  if (!venta) {
-    showToast('⚠️ Venta no encontrada');
-    return;
-  }
-
-  const empresaId = sessionStorage.getItem('empresaId');
-  let datosPago = null;
-  
-  try {
-    const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
-    if (doc.exists) {
-      datosPago = doc.data().datosPago;
-    }
-  } catch (error) {
-    handleError(error, 'Error cargando datos de pago');
-  }
-
-  if (!datosPago || !datosPago.pagoMovil?.telefono && !datosPago.zelle?.email && !datosPago.transferencia?.cuenta) {
-    showToast('⚠️ El franquiciado no ha configurado sus datos de pago');
-    return;
-  }
-
-  let metodosHTML = '';
-  
-  // Pago Móvil
-  if (datosPago.pagoMovil?.telefono) {
-    metodosHTML += `
-      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
-        <strong>📱 Pago Móvil</strong>
-        <div style="font-size:13px; margin-top:4px;">
-          Teléfono: ${datosPago.pagoMovil.telefono}<br>
-          Cédula: ${datosPago.pagoMovil.cedula || 'N/A'}<br>
-          Banco: ${datosPago.pagoMovil.banco || 'N/A'}
-        </div>
-      </div>
-    `;
-  }
-
-  // Zelle
-  if (datosPago.zelle?.email) {
-    metodosHTML += `
-      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
-        <strong>💵 Zelle</strong>
-        <div style="font-size:13px; margin-top:4px;">
-          Email: ${datosPago.zelle.email}<br>
-          Titular: ${datosPago.zelle.nombre || 'N/A'}
-        </div>
-      </div>
-    `;
-  }
-
-  // Transferencia
-  if (datosPago.transferencia?.cuenta) {
-    metodosHTML += `
-      <div style="border-bottom:1px solid var(--border); padding:8px 0;">
-        <strong>🏦 Transferencia</strong>
-        <div style="font-size:13px; margin-top:4px;">
-          Banco: ${datosPago.transferencia.banco || 'N/A'}<br>
-          Cuenta: ${datosPago.transferencia.cuenta}<br>
-          Titular: ${datosPago.transferencia.titular || 'N/A'}<br>
-          Cédula: ${datosPago.transferencia.cedula || 'N/A'}
-        </div>
-      </div>
-    `;
-  }
-
-  const html = `
-    <div style="text-align:center; margin-bottom:16px;">
-      <h3>🧾 Orden de pago</h3>
-      <p style="font-size:14px; color:var(--text2);">Realiza el pago y notifícanos para procesar tu pedido.</p>
-    </div>
-    <div style="background:var(--primary-soft); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
-      <p style="font-size:18px; font-weight:700; text-align:center;">Total: ${venta.total}</p>
-    </div>
-    ${metodosHTML}
-    <div style="margin-top:16px; display:flex; gap:8px; flex-direction:column;">
-      <button class="btn btn-primary" onclick="notificarPago('${ventaId}')">✅ Ya pagué - Notificar al franquiciado</button>
-      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
-    </div>
-    <p style="font-size:12px; color:var(--text3); text-align:center; margin-top:12px;">
-      Al notificar, el franquiciado recibirá tu confirmación y podrá procesar tu pedido.
-    </p>
-  `;
-
-  openModalWithContent('Orden de pago', html);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3464,12 +3378,10 @@ const funcionesGlobales = {
   registrarEmpresa, registrarClienteNuevo, loginUnificado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
-  // --- NUEVAS FUNCIONES DE DESPACHO ---
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,
   verificarStock, descontarStock, obtenerSiguienteNumeroFactura,
   actualizarSaldoEnvases, calcularNuevoSaldo,
-  generarFactura, // <--- COMA AQUÍ
-  // --- FUNCIONES DE PAGOS INTEGRADOS ---
+  generarFactura,
   cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago
 };
 

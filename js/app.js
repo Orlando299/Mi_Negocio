@@ -1285,43 +1285,42 @@ async function cargarHistorialCliente() {
   const user = firebase.auth().currentUser;
   if (!empresaId || !user) return;
   
-  // Obtener nombre del perfil en Firestore (para mayor consistencia)
+  // Obtener nombre del perfil en Firestore
   const perfilDoc = await firebase.firestore().collection('userProfiles').doc(user.uid).get();
   const nombreCliente = perfilDoc.exists ? perfilDoc.data().nombre : sessionStorage.getItem('userName');
   
   if (!nombreCliente) return;
   
   try {
-    // Consulta SIN orderBy para evitar problemas de índice
     const snapshot = await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('ventas')
       .where('cliente', '==', nombreCliente)
+      .orderBy('fecha', 'desc')
       .get();
     
     const pedidos = [];
     snapshot.forEach(doc => {
       const data = doc.data();
-      // Convertir fecha si es Timestamp
-      if (data.fecha && data.fecha.toDate) {
-        data.fecha = formatDateLocal(data.fecha.toDate());
-      } else if (data.fecha && typeof data.fecha === 'string') {
-        // Ya es string, dejarla
-      }
+      if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
       pedidos.push({ id: doc.id, ...data });
     });
     
-    // Ordenar manualmente por fecha descendente (más reciente primero)
-    pedidos.sort((a, b) => {
-      const dateA = a.fecha ? new Date(a.fecha) : new Date(0);
-      const dateB = b.fecha ? new Date(b.fecha) : new Date(0);
-      return dateB - dateA;
-    });
-    
-    // Guardar en variable global y renderizar
+    // Guardar en variable global
     window.pedidosCliente = pedidos;
-    renderHistorialCliente(pedidos);
     
+    // Forzar renderizado asegurando que el contenedor existe y es visible
+    const container = document.getElementById('historial-pedidos');
+    if (!container) {
+      console.warn('⚠️ Contenedor #historial-pedidos no encontrado, esperando...');
+      // Esperar un poco y reintentar
+      setTimeout(() => {
+        renderHistorialCliente(pedidos);
+      }, 300);
+      return;
+    }
+    
+    renderHistorialCliente(pedidos);
   } catch (error) {
     console.error('Error cargando historial del cliente:', error);
     renderHistorialCliente([]);
@@ -1330,7 +1329,10 @@ async function cargarHistorialCliente() {
 
 function renderHistorialCliente(pedidos = []) {
   const container = document.getElementById('historial-pedidos');
-  if (!container) return;
+  if (!container) {
+    console.warn('⚠️ Contenedor #historial-pedidos no encontrado');
+    return;
+  }
   
   if (!pedidos || pedidos.length === 0) {
     container.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>`;
@@ -2436,15 +2438,27 @@ function connectWebSocket() {
 }
 
 function cambiarTabCliente(tabId) {
+  // Ocultar todos los paneles de contenido del cliente
   document.querySelectorAll('.cliente-panel-content').forEach(p => p.style.display = 'none');
+  
+  // Mostrar el panel seleccionado
   const panel = document.getElementById('cliente-panel-' + tabId);
   if (panel) panel.style.display = 'block';
+  
+  // Actualizar clases de pestañas activas
   document.querySelectorAll('[data-tab-cliente]').forEach(tab => tab.classList.remove('active'));
   const tabBtn = document.querySelector(`[data-tab-cliente="${tabId}"]`);
   if (tabBtn) tabBtn.classList.add('active');
-  if (tabId === 'chat') cargarMensajesChat();
-  if (tabId === 'alertas') cargarAlertas();
-  if (tabId === 'pedidos') renderHistorial();
+  
+  // === Cargar contenido según la pestaña seleccionada ===
+  if (tabId === 'chat') {
+    cargarMensajesChat();
+  } else if (tabId === 'alertas') {
+    cargarAlertas();
+  } else if (tabId === 'pedidos') {
+    // 🔥 CAMBIO IMPORTANTE: Usar cargarHistorialCliente en lugar de renderHistorial
+    cargarHistorialCliente();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

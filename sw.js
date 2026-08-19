@@ -25,7 +25,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activación: limpiar TODAS las caches viejas (incluyendo v1)
+// Activación: limpiar caches viejas
 self.addEventListener('activate', (event) => {
   console.log('[SW v2] Activado - limpiando caches viejas');
   event.waitUntil(
@@ -42,16 +42,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: estrategia por tipo de recurso
+// Fetch: SOLO interceptar solicitudes a la misma aplicación
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // 🔥 CRÍTICO: Solo interceptar solicitudes al mismo origen
+  if (url.origin !== self.location.origin) {
+    // Para solicitudes externas (FCM, Google, etc.), NO hacer nada (el navegador las maneja)
+    return;
+  }
 
   // === HTML: Network-First (siempre fresco) ===
   if (request.destination === 'document' || url.pathname.endsWith('.html')) {
     event.respondWith(
       fetch(request).then((response) => {
-        // Actualizar cache en segundo plano
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         return response;
@@ -79,19 +84,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // === Firebase y APIs externas: siempre red ===
-  if (url.hostname.includes('firebase') || 
-      url.hostname.includes('googleapis') || 
-      url.hostname.includes('gstatic') ||
-      url.hostname.includes('cdn.jsdelivr')) {
-    event.respondWith(fetch(request).catch(() => caches.match(request)));
-    return;
-  }
-
-  // === Recursos estáticos restantes: cache primero ===
+  // === Otros recursos estáticos: cache primero ===
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {
+        // Actualizar cache en segundo plano
         fetch(request).then((response) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
         }).catch(() => {});

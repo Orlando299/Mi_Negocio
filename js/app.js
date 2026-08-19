@@ -1217,51 +1217,49 @@ async function registrarCliente() { await registrarClienteNuevo(); }
 function mostrarRegistro() { mostrarRegistroCliente(); }
 function mostrarLogin() { mostrarLoginUnificado(); }
 
-function mostrarPanelCliente() {
+async function mostrarPanelCliente() {
   const panelDiv = document.getElementById('cliente-panel');
   const nombreSpan = document.getElementById('cliente-nombre');
   if (panelDiv) panelDiv.style.display = 'block';
+  
   const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
   if (nombreSpan) nombreSpan.textContent = nombre;
   actualizarAvatar(nombre);
+  
   const bienvenidaEl = document.getElementById('mensaje-bienvenida');
   if (bienvenidaEl && nombre) {
     bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
   }
+  
+  // Cargar inventario si es necesario
+  await cargarInventarioCliente();
+  
+  // Renderizar catálogo, historial y actualizar carrito
+  renderCatalogo();
+  await cargarHistorialCliente(); // Nueva función (ver abajo)
+  actualizarCarritoCount();
+  cargarMensajesChat();
+  cargarAlertas();
+}
+
+async function cargarInventarioCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
-  if (empresaId) {
-    firebase.firestore().collection('empresas').doc(empresaId).get().then(doc => {
-      if (doc.exists) {
-        const data = doc.data();
-        const nombreEmpresa = data.nombre || empresaId;
-        const logo = document.querySelector('.nav-logo span');
-        if (logo) logo.textContent = ' ' + nombreEmpresa;
-      }
-    });
+  if (!empresaId) return false;
+  
+  // Si ya hay inventario en memoria, no recargar
+  if (store.inventario && store.inventario.length > 0) {
+    return true;
   }
   
-  // ✅ ESPERAR a que los datos estén cargados antes de renderizar el catálogo
-  // Si store.cargado es true, renderizar inmediatamente; si no, esperar el evento
-  if (store.cargado) {
-    renderCatalogo();
-    renderHistorial();
-    actualizarCarritoCount();
-    cargarMensajesChat();
-    cargarAlertas();
-  } else {
-    // Esperar a que los datos se carguen (máximo 5 segundos)
-    let intentos = 0;
-    const esperarDatos = setInterval(() => {
-      if (store.cargado || intentos > 20) {
-        clearInterval(esperarDatos);
-        renderCatalogo();
-        renderHistorial();
-        actualizarCarritoCount();
-        cargarMensajesChat();
-        cargarAlertas();
-      }
-      intentos++;
-    }, 250);
+  try {
+    const data = await store.cargarInventarioPaginado(empresaId, 100); // Cargar todos (o un límite grande)
+    store.inventario = data.items;
+    store.lastInventarioDoc = data.lastDoc;
+    syncGlobals();
+    return true;
+  } catch (error) {
+    console.error('Error cargando inventario para cliente:', error);
+    return false;
   }
 }
 
@@ -1280,6 +1278,59 @@ function cerrarSesion() {
   if (panelDiv) panelDiv.style.display = 'none';
   showToast('👋 Sesión cerrada');
   mostrarPantallaBienvenida();
+}
+
+async function cargarHistorialCliente() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  const nombreCliente = sessionStorage.getItem('userName');
+  if (!empresaId || !nombreCliente) return;
+  
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('ventas')
+      .where('cliente', '==', nombreCliente)
+      .orderBy('fecha', 'desc')
+      .get();
+    
+    const pedidos = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+      pedidos.push({ id: doc.id, ...data });
+    });
+    
+    // Guardar en una variable global para que renderHistorial la use
+    window.pedidosCliente = pedidos;
+    renderHistorialCliente(pedidos);
+  } catch (error) {
+    console.error('Error cargando historial del cliente:', error);
+    renderHistorialCliente([]);
+  }
+}
+
+function renderHistorialCliente(pedidos = []) {
+  const container = document.getElementById('historial-pedidos');
+  if (!container) return;
+  
+  if (!pedidos || pedidos.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no has realizado pedidos</div></div>`;
+    return;
+  }
+  
+  container.innerHTML = pedidos.map(v => `
+    <div class="sale-card" style="cursor:default;">
+      <div class="sale-header">
+        <span class="sale-id">${escapeHtml(v.id)}</span>
+        <span class="sale-status ${escapeHtml(v.status)}">${escapeHtml(v.status?.charAt(0).toUpperCase() + v.status?.slice(1) || 'Pendiente')}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <span>${escapeHtml(v.fecha || '')}</span>
+        <span class="sale-total">${escapeHtml(v.total || '$0.00')}</span>
+      </div>
+      <div style="font-size:12px; color:var(--text3);">${escapeHtml(v.notas || 'Sin detalles')}</div>
+    </div>
+  `).join('');
 }
 
 function toggleCliente() {

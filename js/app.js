@@ -6,8 +6,6 @@ let filtroInv = 'todos';
 let filtroCli = 'todos';
 let filtroCatalogo = 'todas';
 
-const ITEMS_POR_PAGINA = 20; // o 10, como en render.js
-
 // Bandera para evitar que onAuthStateChanged interfiera durante registro
 let _registrando = false;
 

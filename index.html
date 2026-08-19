@@ -127,6 +127,8 @@
 <nav class="top-nav" id="top-nav" style="display:none;">
   <div class="nav-logo">Mi<span>Negocio</span></div>
   <div class="nav-right">
+    <!-- Botón de cerrar sesión (visible solo para cliente) -->
+<button class="nav-icon-btn" id="btn-logout-cliente" style="display:none;" onclick="cerrarSesion()" title="Cerrar sesión">🚪</button>
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
     <button class="nav-icon-btn" onclick="mostrarCodigoInvitacion()" id="btn-codigo" title="Código de invitación" style="display:none;">🎟️</button>

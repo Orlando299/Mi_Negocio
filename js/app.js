@@ -622,6 +622,7 @@ function goScreen(name) {
           updateKPIs();
         } catch (error) {
           console.warn('Error recargando clientes:', error);
+          showToast('⚠️ Error al cargar clientes. Recarga la página.');
         }
       }, 100);
     }
@@ -655,10 +656,34 @@ function goScreen(name) {
   
   // --- DASHBOARD: actualizar KPIs y gráfico ---
   if (name === 'dashboard') {
-    setTimeout(() => {
-      updateKPIs();
-      if (typeof renderChartVentas === 'function') renderChartVentas();
-    }, 100);
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
+      // Si no hay clientes en el store, recargarlos
+      if (store.clientes.length === 0) {
+        setTimeout(async () => {
+          try {
+            const data = await store.cargarClientesPaginado(empresaId, ITEMS_POR_PAGINA);
+            store.clientes = data.items;
+            store.lastClienteDoc = data.lastDoc;
+            syncGlobals();
+            updateKPIs();
+            if (typeof renderChartVentas === 'function') renderChartVentas();
+          } catch (error) {
+            console.warn('Error recargando clientes desde dashboard:', error);
+          }
+        }, 100);
+      } else {
+        setTimeout(() => {
+          updateKPIs();
+          if (typeof renderChartVentas === 'function') renderChartVentas();
+        }, 100);
+      }
+    } else {
+      setTimeout(() => {
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      }, 100);
+    }
   }
 }
 

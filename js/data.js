@@ -23,39 +23,56 @@ class DataStore {
   // ================================================================
 
   async cargarDatosEmpresa(empresaId, limite = 20) {
-    console.log('📦 Cargando datos para empresa:', empresaId);
-    try {
-      // Resetear estados de paginación
-      this.lastInventarioDoc = null;
-      this.lastClienteDoc = null;
-      this.lastVentaDoc = null;
-      this.hasMoreInventario = true;
-      this.hasMoreClientes = true;
-      this.hasMoreVentas = true;
+  console.log('📦 Cargando datos para empresa:', empresaId);
+  try {
+    // Resetear estados de paginación
+    this.lastInventarioDoc = null;
+    this.lastClienteDoc = null;
+    this.lastVentaDoc = null;
+    this.hasMoreInventario = true;
+    this.hasMoreClientes = true;
+    this.hasMoreVentas = true;
 
-      const invData = await this.cargarInventarioPaginado(empresaId, limite);
+    // Determinar el rol del usuario
+    const user = this.auth.currentUser;
+    let rol = 'cliente';
+    if (user) {
+      const perfilDoc = await this.db.collection('userProfiles').doc(user.uid).get();
+      if (perfilDoc.exists) {
+        rol = perfilDoc.data().rol || 'cliente';
+      }
+    }
+
+    // Siempre cargar inventario (todos pueden verlo)
+    const invData = await this.cargarInventarioPaginado(empresaId, limite);
+    this.inventario = invData.items;
+    this.lastInventarioDoc = invData.lastDoc;
+
+    // Si es admin, cargar clientes y ventas
+    if (rol === 'admin') {
       const cliData = await this.cargarClientesPaginado(empresaId, limite);
       const venData = await this.cargarVentasPaginado(empresaId, limite);
-
-      this.inventario = invData.items;
       this.clientes = cliData.items;
       this.ventas = venData.items;
-      this.cargado = true;
-
-      this.lastInventarioDoc = invData.lastDoc;
       this.lastClienteDoc = cliData.lastDoc;
       this.lastVentaDoc = venData.lastDoc;
-
-      // Sincronizar variables globales
-      syncGlobals();
-
-      console.log('✅ Datos de empresa cargados correctamente');
-      return true;
-    } catch (error) {
-      handleError(error, 'Error cargando datos de la empresa');
-      throw error;
+    } else {
+      // Cliente: no cargar clientes ni ventas (solo sus propias ventas se cargan después)
+      this.clientes = [];
+      this.ventas = [];
+      // Opcional: cargar las ventas del cliente específico aquí si se necesita
+      // Pero podemos cargarlas bajo demanda en el módulo cliente
     }
+
+    this.cargado = true;
+    syncGlobals();
+    console.log('✅ Datos de empresa cargados correctamente');
+    return true;
+  } catch (error) {
+    handleError(error, 'Error cargando datos de la empresa');
+    throw error;
   }
+}
 
   // --- Inventario ---
   async cargarInventarioPaginado(empresaId, limite = 20, startAfter = null) {

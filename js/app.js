@@ -1282,27 +1282,46 @@ function cerrarSesion() {
 
 async function cargarHistorialCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
-  const nombreCliente = sessionStorage.getItem('userName');
-  if (!empresaId || !nombreCliente) return;
+  const user = firebase.auth().currentUser;
+  if (!empresaId || !user) return;
+  
+  // Obtener nombre del perfil en Firestore (para mayor consistencia)
+  const perfilDoc = await firebase.firestore().collection('userProfiles').doc(user.uid).get();
+  const nombreCliente = perfilDoc.exists ? perfilDoc.data().nombre : sessionStorage.getItem('userName');
+  
+  if (!nombreCliente) return;
   
   try {
+    // Consulta SIN orderBy para evitar problemas de índice
     const snapshot = await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('ventas')
       .where('cliente', '==', nombreCliente)
-      .orderBy('fecha', 'desc')
       .get();
     
     const pedidos = [];
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+      // Convertir fecha si es Timestamp
+      if (data.fecha && data.fecha.toDate) {
+        data.fecha = formatDateLocal(data.fecha.toDate());
+      } else if (data.fecha && typeof data.fecha === 'string') {
+        // Ya es string, dejarla
+      }
       pedidos.push({ id: doc.id, ...data });
     });
     
-    // Guardar en una variable global para que renderHistorial la use
+    // Ordenar manualmente por fecha descendente (más reciente primero)
+    pedidos.sort((a, b) => {
+      const dateA = a.fecha ? new Date(a.fecha) : new Date(0);
+      const dateB = b.fecha ? new Date(b.fecha) : new Date(0);
+      return dateB - dateA;
+    });
+    
+    // Guardar en variable global y renderizar
     window.pedidosCliente = pedidos;
     renderHistorialCliente(pedidos);
+    
   } catch (error) {
     console.error('Error cargando historial del cliente:', error);
     renderHistorialCliente([]);

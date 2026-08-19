@@ -576,51 +576,64 @@ function goScreen(name) {
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
   
-  // --- Navegación con reinicio de paginación ---
+  // --- VENTAS: recargar desde Firestore ---
   if (name === 'ventas') {
-  const empresaId = sessionStorage.getItem('empresaId');
-  if (empresaId) {
-    // Reiniciar paginación y recargar ventas desde Firestore
-    store.lastVentaDoc = null;
-    store.hasMoreVentas = true;
-    // Recargar ventas en segundo plano sin bloquear la UI
-    setTimeout(async () => {
-      try {
-        const data = await store.cargarVentasPaginado(empresaId, ITEMS_POR_PAGINA);
-        store.ventas = data.items;
-        store.lastVentaDoc = data.lastDoc;
-        syncGlobals();
-        renderVentas('', filtroVentas, false);
-        // Actualizar KPIs y gráfico si es necesario
-        updateKPIs();
-        if (typeof renderChartVentas === 'function') renderChartVentas();
-      } catch (error) {
-        console.warn('Error recargando ventas:', error);
-      }
-    }, 100);
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      store.lastVentaDoc = null;
+      store.hasMoreVentas = true;
+      setTimeout(async () => {
+        try {
+          const data = await store.cargarVentasPaginado(empresaId, ITEMS_POR_PAGINA);
+          store.ventas = data.items;
+          store.lastVentaDoc = data.lastDoc;
+          syncGlobals();
+          renderVentas('', filtroVentas, false);
+          updateKPIs();
+          if (typeof renderChartVentas === 'function') renderChartVentas();
+        } catch (error) {
+          console.warn('Error recargando ventas:', error);
+        }
+      }, 100);
+    }
+    renderVentas('', filtroVentas, false);
   }
-  // Si no hay empresaId, igual mostrar lo que haya
-  renderVentas('', filtroVentas, false);
-}
   
+  // --- INVENTARIO: reiniciar paginación ---
   if (name === 'inventario') {
-    // Reiniciar paginación para inventario
     store.lastInventarioDoc = null;
     store.hasMoreInventario = true;
     renderInv('', filtroInv, false);
   }
   
+  // --- CLIENTES: recargar desde Firestore ---
   if (name === 'clientes') {
-    // Reiniciar paginación para clientes
-    store.lastClienteDoc = null;
-    store.hasMoreClientes = true;
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      store.lastClienteDoc = null;
+      store.hasMoreClientes = true;
+      setTimeout(async () => {
+        try {
+          const data = await store.cargarClientesPaginado(empresaId, ITEMS_POR_PAGINA);
+          store.clientes = data.items;
+          store.lastClienteDoc = data.lastDoc;
+          syncGlobals();
+          renderClients('', filtroCli, false);
+          updateKPIs();
+        } catch (error) {
+          console.warn('Error recargando clientes:', error);
+        }
+      }, 100);
+    }
     renderClients('', filtroCli, false);
   }
   
+  // --- REPORTES ---
   if (name === 'reportes') {
     renderReportes('semana');
   }
   
+  // --- CONFIGURACIÓN ---
   if (name === 'configuracion') {
     actualizarResumenConfiguracion();
     setTimeout(() => {
@@ -630,6 +643,7 @@ function goScreen(name) {
     }, 300);
   }
   
+  // --- CLIENTE (módulo cliente) ---
   if (name === 'cliente') {
     if (sessionStorage.getItem('empresaId')) {
       mostrarPanelCliente();
@@ -639,9 +653,11 @@ function goScreen(name) {
     }
   }
   
+  // --- DASHBOARD: actualizar KPIs y gráfico ---
   if (name === 'dashboard') {
-    setTimeout(() => { 
-      if (typeof renderChartVentas === 'function') renderChartVentas(); 
+    setTimeout(() => {
+      updateKPIs();
+      if (typeof renderChartVentas === 'function') renderChartVentas();
     }, 100);
   }
 }

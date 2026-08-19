@@ -578,11 +578,30 @@ function goScreen(name) {
   
   // --- Navegación con reinicio de paginación ---
   if (name === 'ventas') {
-    // Reiniciar paginación para ventas
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (empresaId) {
+    // Reiniciar paginación y recargar ventas desde Firestore
     store.lastVentaDoc = null;
     store.hasMoreVentas = true;
-    renderVentas('', filtroVentas, false); // append = false
+    // Recargar ventas en segundo plano sin bloquear la UI
+    setTimeout(async () => {
+      try {
+        const data = await store.cargarVentasPaginado(empresaId, ITEMS_POR_PAGINA);
+        store.ventas = data.items;
+        store.lastVentaDoc = data.lastDoc;
+        syncGlobals();
+        renderVentas('', filtroVentas, false);
+        // Actualizar KPIs y gráfico si es necesario
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      } catch (error) {
+        console.warn('Error recargando ventas:', error);
+      }
+    }, 100);
   }
+  // Si no hay empresaId, igual mostrar lo que haya
+  renderVentas('', filtroVentas, false);
+}
   
   if (name === 'inventario') {
     // Reiniciar paginación para inventario

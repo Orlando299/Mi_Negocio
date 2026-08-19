@@ -166,26 +166,12 @@ async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) 
 }
 
 async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {
-  try {
-    const adminsSnap = await db.collection('empresas').doc(empresaId).collection('usuarios')
-      .where('rol', '==', 'admin').get();
-
-    let enviados = 0;
-    for (const doc of adminsSnap.docs) {
-      const token = doc.data().fcmToken;
-      if (token) {
-        const ok = await enviarNotificacionPush(token, titulo, cuerpo, datos);
-        if (ok) enviados++;
-      }
-    }
-
-    console.log(`[FCM] Notificaciones enviadas a ${enviados} admin(s)`);
-    return enviados;
-  } catch (e) {
-    // Si el usuario no tiene permisos para leer la lista de admins, simplemente no enviamos notificación
-    console.warn('[FCM] No se pudo enviar notificación (permisos insuficientes):', e.message);
-    return 0;
-  }
+  // En el cliente, no podemos enviar notificaciones directamente por CORS.
+  // Esta función solo debe ser llamada desde un backend (Cloud Functions).
+  // Por ahora, simplemente registramos en consola y no hacemos nada.
+  console.log('[FCM] Notificación (simulada):', titulo, cuerpo);
+  console.log('[FCM] Datos:', datos);
+  return 0; // 0 admins notificados
 }
 
 // Exponer funciones globalmente

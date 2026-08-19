@@ -1423,17 +1423,21 @@ function agregarAlCarrito(nombre) {
   const producto = inventario.find(p => p.nombre === nombre);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
   if (producto.estado === 'out') { showToast('⚠️ Producto agotado'); return; }
+  
   const itemEnCarrito = carrito.find(c => c.nombre === nombre);
   const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+  
   if (cantidadActual >= producto.stock) {
-    showToast('⚠️ Stock insuficiente, solo quedan ' + producto.stock + ' unidades');
+    showToast(`⚠️ Stock insuficiente, solo quedan ${producto.stock} unidades`);
     return;
   }
+  
   if (itemEnCarrito) {
     itemEnCarrito.cantidad++;
   } else {
     carrito.push({ nombre: nombre, cantidad: 1, precio: parseCurrency(producto.precio) });
   }
+  
   guardarCarrito();
   actualizarCarritoCount();
   showToast(`➕ ${nombre} agregado al carrito`);
@@ -1447,25 +1451,77 @@ function actualizarCarritoCount() {
 
 function verCarrito() {
   if (!carrito.length) { showToast('🛒 Carrito vacío'); return; }
+  
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+  
   let html = `
     <div style="margin-bottom:12px;">
       <h3>🛒 Tu pedido</h3>
-      ${carrito.map(item => `
-        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
-          <span>${item.nombre} x ${item.cantidad}</span>
-          <span>${formatCurrency(item.cantidad * item.precio)}</span>
+      <div style="max-height:300px; overflow-y:auto; margin-bottom:12px;">
+  `;
+  
+  carrito.forEach((item, index) => {
+    const subtotal = item.cantidad * item.precio;
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);">
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px;">${escapeHtml(item.nombre)}</div>
+          <div style="font-size:12px; color:var(--text3);">${formatCurrency(item.precio)} c/u</div>
         </div>
-      `).join('')}
-      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-icon" onclick="cambiarCantidadCarrito(${index}, -1)" style="font-size:18px; padding:4px 8px;">−</button>
+          <span style="font-weight:700; min-width:30px; text-align:center;">${item.cantidad}</span>
+          <button class="btn-icon" onclick="cambiarCantidadCarrito(${index}, 1)" style="font-size:18px; padding:4px 8px;">+</button>
+        </div>
+        <div style="font-weight:700; min-width:70px; text-align:right;">${formatCurrency(subtotal)}</div>
+      </div>
+    `;
+  });
+  
+  html += `
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:12px 0; font-weight:700; font-size:18px; border-top:2px solid var(--border);">
         <span>Total</span>
         <span>${formatCurrency(total)}</span>
       </div>
-      <button class="btn btn-primary" onclick="realizarPedido()">Confirmar pedido</button>
-      <button class="btn btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn btn-primary" onclick="realizarPedido()">✅ Confirmar pedido</button>
+        <button class="btn btn-outline" onclick="vaciarCarrito()">🗑️ Vaciar carrito</button>
+      </div>
     </div>
   `;
+  
   openModalWithContent('Carrito', html);
+}
+
+function cambiarCantidadCarrito(index, delta) {
+  if (!carrito[index]) return;
+  
+  const nuevaCantidad = carrito[index].cantidad + delta;
+  
+  // Validar que no sea menor a 1
+  if (nuevaCantidad < 1) {
+    // Preguntar si quiere eliminar el producto
+    if (confirm(`¿Eliminar "${carrito[index].nombre}" del carrito?`)) {
+      carrito.splice(index, 1);
+      guardarCarrito();
+      actualizarCarritoCount();
+      verCarrito(); // Refrescar el modal
+    }
+    return;
+  }
+  
+  // Verificar stock disponible
+  const producto = inventario.find(p => p.nombre === carrito[index].nombre);
+  if (producto && nuevaCantidad > producto.stock) {
+    showToast(`⚠️ Stock insuficiente. Solo quedan ${producto.stock} unidades.`);
+    return;
+  }
+  
+  carrito[index].cantidad = nuevaCantidad;
+  guardarCarrito();
+  actualizarCarritoCount();
+  verCarrito(); // Refrescar el modal
 }
 
 function vaciarCarrito() {

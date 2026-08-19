@@ -1403,17 +1403,32 @@ function renderProductoCard(p) {
   const estado = p.estado || 'ok';
   const stock = p.stock || 0;
   const precio = p.precio || '$0.00';
-  const nombreEscapado = nombre.replace(/'/g, "\'");
+  const nombreEscapado = escapeHtml(nombre);
+  const nombreJs = escapeJsString(nombre);
+  const maxStock = estado === 'out' ? 0 : stock;
+
+  // Crear un ID único para el input de cantidad
+  const inputId = 'cantidad-' + nombreJs.replace(/\s/g, '_');
+
   return `
     <div class="inv-card" style="cursor:default;">
       <div class="inv-img">${icon}</div>
       <div class="inv-info">
-        <div class="inv-name">${nombre}</div>
+        <div class="inv-name">${nombreEscapado}</div>
         <div class="inv-stock ${estado}">${estado === 'out' ? 'Agotado' : stock + ' unidades'}</div>
       </div>
       <div class="inv-right">
         <div class="inv-price">${precio}</div>
-        ${estado !== 'out' ? `<button class="btn btn-primary" style="height:36px;font-size:12px;padding:0 12px;" onclick="agregarAlCarrito('${nombreEscapado}')">+ Agregar</button>` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
+        ${estado !== 'out' ? `
+          <div style="display:flex; align-items:center; gap:4px; margin-top:4px; flex-wrap:wrap; justify-content:flex-end;">
+            <div style="display:flex; align-items:center; gap:2px;">
+              <button class="btn-icon" onclick="cambiarCantidadInput('${inputId}', -1, ${maxStock})" style="font-size:14px; padding:2px 6px;">➖</button>
+              <input type="number" id="${inputId}" value="1" min="1" max="${maxStock}" style="width:40px; padding:2px 4px; border:1px solid var(--border); border-radius:4px; text-align:center; font-size:13px; background:var(--bg); color:var(--text);">
+              <button class="btn-icon" onclick="cambiarCantidadInput('${inputId}', 1, ${maxStock})" style="font-size:14px; padding:2px 6px;">➕</button>
+            </div>
+            <button class="btn btn-primary" style="height:32px; font-size:12px; padding:0 10px;" onclick="agregarAlCarritoConCantidad('${nombreJs}', document.getElementById('${inputId}').value)">Agregar</button>
+          </div>
+        ` : '<span style="color:var(--red);font-size:12px;">Agotado</span>'}
       </div>
     </div>
   `;
@@ -1441,6 +1456,42 @@ function agregarAlCarrito(nombre) {
   guardarCarrito();
   actualizarCarritoCount();
   showToast(`➕ ${nombre} agregado al carrito`);
+}
+
+function agregarAlCarritoConCantidad(nombre, cantidadInput) {
+  const cantidad = parseInt(cantidadInput) || 1;
+  if (cantidad < 1) {
+    showToast('⚠️ La cantidad debe ser al menos 1');
+    return;
+  }
+  
+  const producto = inventario.find(p => p.nombre === nombre);
+  if (!producto) {
+    showToast('⚠️ Producto no encontrado');
+    return;
+  }
+  if (producto.estado === 'out') {
+    showToast('⚠️ Producto agotado');
+    return;
+  }
+  
+  const itemEnCarrito = carrito.find(c => c.nombre === nombre);
+  const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+  
+  if (cantidadActual + cantidad > producto.stock) {
+    showToast(`⚠️ Stock insuficiente. Disponible: ${producto.stock} unidades`);
+    return;
+  }
+  
+  if (itemEnCarrito) {
+    itemEnCarrito.cantidad += cantidad;
+  } else {
+    carrito.push({ nombre: nombre, cantidad: cantidad, precio: parseCurrency(producto.precio) });
+  }
+  
+  guardarCarrito();
+  actualizarCarritoCount();
+  showToast(`➕ ${cantidad} x ${nombre} agregado al carrito`);
 }
 
 function actualizarCarritoCount() {
@@ -1530,6 +1581,14 @@ function vaciarCarrito() {
   actualizarCarritoCount();
   closeModal();
   showToast('🗑️ Carrito vacío');
+}
+
+function cambiarCantidadInput(inputId, delta, maxStock) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  let value = parseInt(input.value) || 1;
+  value = Math.min(Math.max(value + delta, 1), maxStock);
+  input.value = value;
 }
 
 // ================================================================

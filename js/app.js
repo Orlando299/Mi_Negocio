@@ -266,7 +266,6 @@ async function registrarEmpresa() {
 
     // ============================================================
     //  PASO 2: Crear el perfil del usuario (con empresaId temporal)
-    //  - Esto asegura que el perfil exista antes de crear la empresa
     // ============================================================
     await firebase.firestore()
       .collection('userProfiles')
@@ -276,13 +275,12 @@ async function registrarEmpresa() {
         nombre: nombreAdmin,
         email: email,
         rol: 'admin',
-        empresaId: 'temp_' + Date.now(), // Temporal, se actualizará después
+        empresaId: 'temp_' + Date.now(),
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
     // ============================================================
     //  PASO 3: Crear la empresa
-    //  - Ahora el perfil existe, por lo que las reglas no fallan
     // ============================================================
     const codigoAcceso = generarCodigoAcceso();
     const empresaRef = await firebase.firestore().collection('empresas').add({
@@ -292,6 +290,38 @@ async function registrarEmpresa() {
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
     });
     const empresaId = empresaRef.id;
+
+    // ============================================================
+    //  PASO 3.5: Crear categoría por defecto "Cliente Regular" (mejora1)
+    // ============================================================
+    console.log('📌 Creando categoría por defecto...');
+    const categoriaDefault = {
+      nombre: 'Cliente Regular',
+      descripcion: 'Cliente sin convenio especial',
+      codigoInvitacion: '', // Sin código, no se puede asignar manualmente
+      activa: true,
+      aporteEspecial: {
+        tipo: 'porcentaje_liquido',
+        valor: 0,
+        aplicaA: ['Cervezas Polar']
+      },
+      creado: firebase.firestore.FieldValue.serverTimestamp(),
+      modificado: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    const categoriaRef = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('categoriasClientes')
+      .add(categoriaDefault);
+    const categoriaDefaultId = categoriaRef.id;
+
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .update({
+        categoriaPorDefectoId: categoriaDefaultId
+      });
+    console.log('✅ Categoría por defecto creada:', categoriaDefaultId);
 
     // ============================================================
     //  PASO 4: Actualizar el perfil con el empresaId real
@@ -401,7 +431,81 @@ async function registrarClienteNuevo() {
     empresaData = empresaDoc.data();
     console.log('✅ Empresa encontrada:', empresaId);
 
-    // Crear perfil y cliente...
+    // ============================================================
+    //  PASO: Buscar categoría por código de invitación (mejora2)
+    // ============================================================
+    let categoriaId = null;
+    let aporteEspecial = null;
+
+    // Buscar en la subcolección categoriasClientes de la empresa
+    const categoriasSnapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('categoriasClientes')
+      .where('codigoInvitacion', '==', codigo)
+      .limit(1)
+      .get();
+
+    if (!categoriasSnapshot.empty) {
+      // Código coincide con una categoría
+      const categoriaDoc = categoriasSnapshot.docs[0];
+      const categoriaData = categoriaDoc.data();
+      categoriaId = categoriaDoc.id;
+      aporteEspecial = {
+        tipo: categoriaData.aporteEspecial.tipo,
+        valor: categoriaData.aporteEspecial.valor,
+        aplicaA: categoriaData.aporteEspecial.aplicaA || ['Cervezas Polar']
+      };
+      console.log('✅ Categoría encontrada por código:', categoriaData.nombre);
+    } else {
+      // No coincide con categoría, usar la categoría por defecto de la empresa
+      const empresaDataTemp = empresaDoc.data();
+      categoriaId = empresaDataTemp.categoriaPorDefectoId || null;
+      if (categoriaId) {
+        const categoriaDefaultDoc = await firebase.firestore()
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('categoriasClientes')
+          .doc(categoriaId)
+          .get();
+        if (categoriaDefaultDoc.exists) {
+          const defaultData = categoriaDefaultDoc.data();
+          aporteEspecial = {
+            tipo: defaultData.aporteEspecial.tipo,
+            valor: defaultData.aporteEspecial.valor || 0,
+            aplicaA: defaultData.aporteEspecial.aplicaA || ['Cervezas Polar']
+          };
+          console.log('✅ Usando categoría por defecto:', defaultData.nombre);
+        }
+      }
+    }
+
+    // Si no hay categoría por defecto, crear una genérica
+    if (!categoriaId) {
+      console.warn('⚠️ No hay categoría por defecto, creando una...');
+      const newDefault = {
+        nombre: 'Cliente Regular',
+        descripcion: 'Categoría automática (sin convenio)',
+        codigoInvitacion: '',
+        activa: true,
+        aporteEspecial: {
+          tipo: 'porcentaje_liquido',
+          valor: 0,
+          aplicaA: ['Cervezas Polar']
+        },
+        creado: firebase.firestore.FieldValue.serverTimestamp(),
+        modificado: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      const newRef = await firebase.firestore()
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('categoriasClientes')
+        .add(newDefault);
+      categoriaId = newRef.id;
+      aporteEspecial = { tipo: 'porcentaje_liquido', valor: 0, aplicaA: ['Cervezas Polar'] };
+    }
+
+    // Crear perfil con nuevos campos
     await firebase.firestore()
       .collection('userProfiles')
       .doc(user.uid)
@@ -411,10 +515,14 @@ async function registrarClienteNuevo() {
         email: email,
         rol: 'cliente',
         empresaId: empresaId,
+        categoriaClienteId: categoriaId,
+        aportePersonalizado: null,
+        fechaAsignacionCategoria: firebase.firestore.FieldValue.serverTimestamp(),
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
     console.log('✅ Perfil creado');
 
+    // Crear cliente en subcolección con nuevos campos
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
@@ -428,9 +536,23 @@ async function registrarClienteNuevo() {
         tag: 'nuevo',
         phone: '',
         compras: '$0.00',
-        pedidos: 0
+        pedidos: 0,
+        categoriaId: categoriaId,
+        aporteEspecial: aporteEspecial,
+        liquidoPendiente: {
+          total: 0,
+          ultimaLiquidacion: null
+        },
+        historialCambios: [
+          {
+            fecha: firebase.firestore.FieldValue.serverTimestamp(),
+            categoriaId: categoriaId,
+            aporteValor: aporteEspecial.valor,
+            motivo: 'Registro inicial'
+          }
+        ]
       });
-    console.log('✅ Cliente creado');
+    console.log('✅ Cliente creado con categoría y aporte');
 
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
@@ -556,16 +678,13 @@ async function regenerarCodigo() {
 //  FUNCIÓN goScreen MODIFICADA (con control de rol)
 // ================================================================
 function goScreen(name) {
-  // Obtener rol actual
   const userRol = sessionStorage.getItem('userRol');
 
-  // Si es cliente y la pantalla no es 'cliente', forzar a 'cliente'
   if (userRol === 'cliente' && name !== 'cliente') {
     console.warn('⚠️ Cliente intentó acceder a pantalla admin:', name);
     name = 'cliente';
   }
 
-  // Actualizar pantallas
   screens.forEach(s => {
     const screenEl = document.getElementById('screen-' + s);
     if (screenEl) screenEl.classList.toggle('active', s === name);
@@ -574,15 +693,12 @@ function goScreen(name) {
   });
   currentScreen = name;
 
-  // Mostrar/ocultar navegación inferior y FAB según rol y pantalla
   const bottomNav = document.getElementById('bottom-nav');
   const fabBtn = document.getElementById('fab-btn');
   if (userRol === 'cliente') {
-    // Ocultar bottom-nav y FAB para cliente
     if (bottomNav) bottomNav.style.display = 'none';
     if (fabBtn) fabBtn.style.display = 'none';
   } else {
-    // Admin: mostrar solo si no es pantalla 'cliente'
     if (name === 'cliente') {
       if (bottomNav) bottomNav.style.display = 'none';
       if (fabBtn) fabBtn.style.display = 'none';
@@ -592,7 +708,6 @@ function goScreen(name) {
     }
   }
 
-  // Cambiar etiqueta del FAB según pantalla (solo para admin)
   const fabLabels = {
     dashboard: '＋',
     ventas: '＋',
@@ -605,11 +720,9 @@ function goScreen(name) {
     fabBtn.textContent = fabLabels[name] || '＋';
   }
 
-  // Ocultar pantalla de bienvenida
   const bienvenida = document.getElementById('screen-bienvenida');
   if (bienvenida) bienvenida.classList.remove('active');
 
-  // --- Pantalla cliente ---
   if (name === 'cliente') {
     if (sessionStorage.getItem('empresaId')) {
       mostrarPanelCliente();
@@ -617,11 +730,10 @@ function goScreen(name) {
       showToast('⚠️ Inicia sesión primero');
       mostrarPantallaBienvenida();
     }
-    return; // Salir para no ejecutar más lógica de admin
+    return;
   }
 
-  // ===== Lógica para admin (ventas, inventario, clientes, reportes, configuracion, dashboard) =====
-  // --- VENTAS: recargar desde Firestore ---
+  // Lógica admin
   if (name === 'ventas') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
@@ -644,14 +756,12 @@ function goScreen(name) {
     renderVentas('', filtroVentas, false);
   }
 
-  // --- INVENTARIO: reiniciar paginación ---
   if (name === 'inventario') {
     store.lastInventarioDoc = null;
     store.hasMoreInventario = true;
     renderInv('', filtroInv, false);
   }
 
-  // --- CLIENTES: recargar desde Firestore ---
   if (name === 'clientes') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
@@ -674,12 +784,10 @@ function goScreen(name) {
     renderClients('', filtroCli, false);
   }
 
-  // --- REPORTES ---
   if (name === 'reportes') {
     renderReportes('semana');
   }
 
-  // --- CONFIGURACIÓN ---
   if (name === 'configuracion') {
     actualizarResumenConfiguracion();
     setTimeout(() => {
@@ -689,7 +797,6 @@ function goScreen(name) {
     }, 300);
   }
 
-  // --- DASHBOARD: actualizar KPIs y gráfico ---
   if (name === 'dashboard') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
@@ -1200,16 +1307,12 @@ function openConfirmModal(mensaje, callback) {
   openModalWithContent('Confirmar acción', body);
 }
 
-// ================================================================
-//  FUNCIÓN toggleCliente MODIFICADA
-// ================================================================
 function toggleCliente() {
   const userRol = sessionStorage.getItem('userRol');
   if (userRol === 'cliente') {
     showToast('🔒 Ya estás en el modo cliente');
     return;
   }
-  // Solo admin puede alternar
   const current = document.querySelector('.screen.active');
   if (current && current.id === 'screen-cliente') {
     goScreen('dashboard');
@@ -1220,9 +1323,6 @@ function toggleCliente() {
   }
 }
 
-// ================================================================
-//  FUNCIÓN cerrarSesion MODIFICADA
-// ================================================================
 function cerrarSesion() {
   firebase.auth().signOut();
   sessionStorage.clear();
@@ -1230,17 +1330,14 @@ function cerrarSesion() {
   localStorage.removeItem('empresaClientes');
   localStorage.removeItem('empresaVentas');
 
-  // Ocultar elementos de admin
   const adminMenu = document.getElementById('admin-menu');
   const btnCodigo = document.getElementById('btn-codigo');
   if (adminMenu) adminMenu.style.display = 'none';
   if (btnCodigo) btnCodigo.style.display = 'none';
 
-  // Ocultar botón de logout de cliente
   const btnLogout = document.getElementById('btn-logout-cliente');
   if (btnLogout) btnLogout.style.display = 'none';
 
-  // Mostrar botón de alternar cliente (para admin)
   const btnCliente = document.getElementById('btn-cliente');
   if (btnCliente) btnCliente.style.display = 'inline-flex';
 
@@ -1254,9 +1351,6 @@ function cerrarSesion() {
   mostrarPantallaBienvenida();
 }
 
-// ================================================================
-//  FUNCIÓN actualizarAdminUI MODIFICADA
-// ================================================================
 function actualizarAdminUI(nombre) {
   const adminMenu = document.getElementById('admin-menu');
   const avatar = document.getElementById('avatar-admin');
@@ -1266,14 +1360,12 @@ function actualizarAdminUI(nombre) {
   const userRol = sessionStorage.getItem('userRol');
 
   if (userRol === 'cliente') {
-    // Ocultar todo lo de admin
     if (adminMenu) adminMenu.style.display = 'none';
     if (btnCliente) btnCliente.style.display = 'none';
     if (btnCodigo) btnCodigo.style.display = 'none';
     return;
   }
 
-  // Si es admin
   if (nombre) {
     if (adminMenu) adminMenu.style.display = 'block';
     if (btnCliente) btnCliente.style.display = 'inline-flex';
@@ -1326,19 +1418,16 @@ async function mostrarPanelCliente() {
   const nombreSpan = document.getElementById('cliente-nombre');
   if (panelDiv) panelDiv.style.display = 'block';
 
-  // Ocultar navegación inferior y FAB para cliente
   const bottomNav = document.getElementById('bottom-nav');
   const fabBtn = document.getElementById('fab-btn');
   if (bottomNav) bottomNav.style.display = 'none';
   if (fabBtn) fabBtn.style.display = 'none';
 
-  // Ocultar menú admin y botón de código de invitación
   const adminMenu = document.getElementById('admin-menu');
   const btnCodigo = document.getElementById('btn-codigo');
   if (adminMenu) adminMenu.style.display = 'none';
   if (btnCodigo) btnCodigo.style.display = 'none';
 
-  // Mostrar botón de cerrar sesión en el top-nav (si no existe, lo creamos)
   let btnLogout = document.getElementById('btn-logout-cliente');
   if (!btnLogout) {
     btnLogout = document.createElement('button');
@@ -1352,11 +1441,9 @@ async function mostrarPanelCliente() {
   }
   btnLogout.style.display = 'inline-flex';
 
-  // Ocultar botón de alternar cliente (ya que cliente no debe cambiar)
   const btnCliente = document.getElementById('btn-cliente');
   if (btnCliente) btnCliente.style.display = 'none';
 
-  // Configurar nombre de cliente
   const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail');
   if (nombreSpan) nombreSpan.textContent = nombre;
   actualizarAvatar(nombre);
@@ -1366,10 +1453,7 @@ async function mostrarPanelCliente() {
     bienvenidaEl.textContent = `Hola, ${nombre} 👋`;
   }
 
-  // Cargar inventario si es necesario
   await cargarInventarioCliente();
-
-  // Renderizar catálogo, historial y actualizar carrito
   renderCatalogo();
   await cargarHistorialCliente();
   actualizarCarritoCount();
@@ -2881,6 +2965,65 @@ async function actualizarSaldoEnvases(clienteId, envases) {
   });
 }
 
+// ================================================================
+//  NUEVA FUNCIÓN: Obtener aporte efectivo de un cliente (mejora3)
+// ================================================================
+async function obtenerAporteEfectivoCliente(clienteId) {
+  try {
+    // 1. Obtener perfil del cliente
+    const perfilDoc = await firebase.firestore()
+      .collection('userProfiles')
+      .doc(clienteId)
+      .get();
+    if (!perfilDoc.exists) {
+      console.warn('⚠️ Perfil no encontrado para cliente:', clienteId);
+      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+    }
+    const perfil = perfilDoc.data();
+
+    // 2. Si tiene aporte personalizado, usarlo
+    if (perfil.aportePersonalizado && perfil.aportePersonalizado.valor !== undefined) {
+      console.log('📌 Usando aporte personalizado:', perfil.aportePersonalizado.valor);
+      return {
+        valor: perfil.aportePersonalizado.valor,
+        tipo: 'porcentaje_liquido',
+        aplicaA: ['Cervezas Polar']
+      };
+    }
+
+    // 3. Si no tiene categoría, usar 0%
+    if (!perfil.categoriaClienteId) {
+      console.warn('⚠️ Cliente sin categoría, usando 0%');
+      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+    }
+
+    // 4. Obtener categoría y su aporte
+    const empresaId = perfil.empresaId;
+    const catDoc = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('categoriasClientes')
+      .doc(perfil.categoriaClienteId)
+      .get();
+    if (!catDoc.exists) {
+      console.warn('⚠️ Categoría no encontrada, usando 0%');
+      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+    }
+    const catData = catDoc.data();
+    return {
+      valor: catData.aporteEspecial?.valor || 0,
+      tipo: catData.aporteEspecial?.tipo || 'porcentaje_liquido',
+      aplicaA: catData.aporteEspecial?.aplicaA || ['Cervezas Polar']
+    };
+  } catch (error) {
+    console.error('❌ Error obteniendo aporte del cliente:', error);
+    return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+  }
+}
+
+// ================================================================
+//  CONFIRMAR DESPACHO (modificado con acumulación de líquido - mejora4)
+// ================================================================
 async function confirmarDespacho(id) {
   const venta = store.ventas.find(v => v.id === id);
   if (!venta) {
@@ -2957,7 +3100,10 @@ async function confirmarDespacho(id) {
     return;
   }
   try {
+    // Descontar stock
     await descontarStock(productos);
+
+    // Actualizar saldo de envases
     if (hayMovimiento) {
       const envasesParaCliente = {};
       for (const [tipo, datos] of Object.entries(envases)) {
@@ -2968,7 +3114,11 @@ async function confirmarDespacho(id) {
       }
       await actualizarSaldoEnvases(cliente.id, envasesParaCliente);
     }
-    const ventaUpdates = {
+
+    // ============================================================
+    //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE (mejora4)
+    // ============================================================
+    let ventaUpdates = {
       status: 'pagado',
       metodo: metodoFinal,
       numeroFactura: numeroFactura,
@@ -2976,8 +3126,71 @@ async function confirmarDespacho(id) {
       notas: notas || venta.notas || '',
       envases: envases
     };
+
+    try {
+      // 1. Obtener el aporte efectivo del cliente
+      const aporte = await obtenerAporteEfectivoCliente(cliente.id);
+      console.log('📌 Aporte del cliente:', aporte.valor + '%');
+
+      if (aporte.valor > 0) {
+        // 2. Calcular unidades de cerveza vendidas
+        let unidadesCerveza = 0;
+        for (const item of productos) {
+          const producto = inventario.find(p => p.nombre === item.nombre);
+          if (producto && producto.cat === 'Cervezas Polar') {
+            unidadesCerveza += item.cantidad;
+          }
+        }
+
+        if (unidadesCerveza > 0) {
+          const unidadesExtra = Math.floor(unidadesCerveza * (aporte.valor / 100));
+          console.log(`📌 Unidades vendidas de cerveza: ${unidadesCerveza}, líquido generado: ${unidadesExtra}`);
+
+          if (unidadesExtra > 0) {
+            // 3. Actualizar líquido pendiente del cliente
+            const clienteRef = firebase.firestore()
+              .collection('empresas')
+              .doc(empresaId)
+              .collection('clientes')
+              .doc(cliente.id);
+
+            await firebase.firestore().runTransaction(async (transaction) => {
+              const doc = await transaction.get(clienteRef);
+              if (!doc.exists) return;
+
+              const data = doc.data();
+              const liquidoPendiente = data.liquidoPendiente || { total: 0, ultimaLiquidacion: null };
+              const nuevoTotal = (liquidoPendiente.total || 0) + unidadesExtra;
+
+              transaction.update(clienteRef, {
+                'liquidoPendiente.total': nuevoTotal,
+                'liquidoPendiente.ultimaLiquidacion': liquidoPendiente.ultimaLiquidacion || null
+              });
+            });
+
+            // 4. Guardar el aporte en la venta para consulta futura
+            ventaUpdates.aporteGenerado = {
+              unidadesVendidas: unidadesCerveza,
+              porcentaje: aporte.valor,
+              unidadesExtra: unidadesExtra
+            };
+            console.log(`✅ Líquido acumulado: ${unidadesExtra} unidades para ${cliente.nombre}`);
+          }
+        } else {
+          console.log('ℹ️ No hay productos de cerveza en este pedido, sin líquido acumulado.');
+        }
+      } else {
+        console.log('ℹ️ Cliente sin aporte especial (0%).');
+      }
+    } catch (error) {
+      console.error('❌ Error acumulando líquido:', error);
+      // No detenemos el despacho por error en el cálculo de líquido
+    }
+
+    // Actualizar la venta en Firestore
     await store.updateVenta(id, ventaUpdates);
     syncGlobals();
+
     const ventaActualizada = store.ventas.find(v => v.id === id);
     generarFacturaDespacho(ventaActualizada, numeroFactura, envases);
     renderVentas('', filtroVentas, 1);
@@ -3255,10 +3468,8 @@ document.addEventListener('DOMContentLoaded', () => {
           goScreen('dashboard');
           setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
         } else {
-          // ===== CLIENTE =====
           document.getElementById('admin-menu').style.display = 'none';
           document.getElementById('btn-codigo').style.display = 'none';
-          // Ocultar bottom-nav y FAB para cliente
           const bottomNav = document.getElementById('bottom-nav');
           const fabBtn = document.getElementById('fab-btn');
           if (bottomNav) bottomNav.style.display = 'none';
@@ -3382,11 +3593,13 @@ const funcionesGlobales = {
   verificarStock, descontarStock, obtenerSiguienteNumeroFactura,
   actualizarSaldoEnvases, calcularNuevoSaldo,
   generarFactura,
-  cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago
+  cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago,
+  // Nuevas funciones
+  obtenerAporteEfectivoCliente
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {
   window[nombre] = fn;
 });
 
-console.log('✅ app.js cargado correctamente — Versión unificada con despacho de pedidos y control de envases');
+console.log('✅ app.js cargado correctamente — Versión unificada con despacho de pedidos, control de envases y gestión de aportes especiales (categorías y líquido)');

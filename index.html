@@ -265,6 +265,7 @@
       <button class="config-tab" data-tab="ventas">🛒 Ventas</button>
       <button class="config-tab" data-tab="json">📁 JSON</button>
       <button class="config-tab" data-tab="pagos">💳 Pagos</button>
+      <button class="config-tab" data-tab="categorias">🏷️ Categorías</button>
     </div>
 
     <div class="config-panel" id="panel-pagos">
@@ -317,6 +318,30 @@
 
     <button class="btn btn-primary" onclick="guardarDatosPago()">💾 Guardar datos de pago</button>
     <div id="mensaje-pago" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+    <!-- ===== PANEL: CATEGORÍAS ===== -->
+<div class="config-panel" id="panel-categorias">
+  <div class="config-toolbar">
+    <h3>🏷️ Categorías de clientes</h3>
+    <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Crear categoría</button>
+  </div>
+  <div class="config-table-wrap">
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Código de invitación</th>
+          <th>Aporte %</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-categorias">
+        <tr><td colspan="5" class="config-empty">Cargando categorías...</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -538,6 +563,36 @@
 
 <!-- ==================== FAB ==================== -->
 <button class="fab" onclick="openModal()" id="fab-btn" style="display:none;">＋</button>
+
+  <!-- ==================== MODAL: CATEGORÍA ==================== -->
+<div class="modal-overlay" id="modal-categoria" onclick="cerrarModalCategoria(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="modal-categoria-title">📝 Nueva categoría</div>
+    <div id="modal-body-categoria">
+      <div class="field">
+        <label>Nombre *</label>
+        <input type="text" id="cat-nombre" placeholder="Ej: Mayorista Cervezas">
+      </div>
+      <div class="field">
+        <label>Código de invitación (opcional)</label>
+        <input type="text" id="cat-codigo" placeholder="Ej: MAYOR14" maxlength="10" style="text-transform:uppercase;">
+        <small style="color:var(--text3); font-size:11px;">Si se deja vacío, no se podrá asignar por código</small>
+      </div>
+      <div class="field">
+        <label>Porcentaje de aporte (%) *</label>
+        <input type="number" id="cat-porcentaje" placeholder="0" min="0" max="100">
+      </div>
+      <div class="field">
+        <label>Descripción (opcional)</label>
+        <textarea id="cat-descripcion" rows="2" placeholder="Descripción del convenio..."></textarea>
+      </div>
+      <input type="hidden" id="cat-edit-id">
+      <button class="btn btn-primary" onclick="guardarCategoria()">Guardar categoría</button>
+      <button class="btn btn-outline" onclick="cerrarModalCategoria()">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ==================== MODAL SHEET (uso general) ==================== -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">

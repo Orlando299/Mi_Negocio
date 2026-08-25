@@ -975,3 +975,55 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 .resumen-productos-despacho .producto-item:last-child {
   border-bottom: none;
 }
+
+/* ============================================================
+   CATEGORÍAS
+   ============================================================ */
+#panel-categorias .config-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#panel-categorias .config-toolbar h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Badge de estado */
+.categoria-estado {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.categoria-estado.activa {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.categoria-estado.inactiva {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+/* Botones en tabla de categorías */
+.config-actions-cell .btn-sm-toggle {
+  background: #f3f4f6;
+  color: #374151;
+}
+.config-actions-cell .btn-sm-toggle:hover {
+  background: #e5e7eb;
+}
+.config-actions-cell .btn-sm-toggle.activa {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.config-actions-cell .btn-sm-toggle.inactiva {
+  background: #fee2e2;
+  color: #991b1b;
+}

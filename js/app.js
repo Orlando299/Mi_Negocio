@@ -539,9 +539,9 @@ async function registrarClienteNuevo() {
           total: 0,
           ultimaLiquidacion: null
         },
-        historialCambios: [
+       historialCambios: [
           {
-            fecha: firebase.firestore.FieldValue.serverTimestamp(),
+            fecha: new Date().toISOString(), // ✅ Usar string ISO en lugar de FieldValue
             categoriaId: categoriaId,
             aporteValor: aporteEspecial.valor,
             motivo: 'Registro inicial'

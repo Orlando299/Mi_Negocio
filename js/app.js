@@ -292,7 +292,34 @@ async function registrarEmpresa() {
     const empresaId = empresaRef.id;
 
     // ============================================================
-    //  PASO 3.5: Crear categoría por defecto "Cliente Regular"
+    //  PASO 4: Actualizar el perfil con el empresaId real
+    // ============================================================
+    await firebase.firestore()
+      .collection('userProfiles')
+      .doc(user.uid)
+      .update({
+        empresaId: empresaId
+      });
+
+    // ============================================================
+    //  PASO 5: Crear el usuario en la subcolección de la empresa
+    // ============================================================
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombreAdmin,
+        email: email,
+        rol: 'admin',
+        fcmToken: ''
+      });
+
+    // ============================================================
+    //  PASO 6: Crear categoría por defecto "Cliente Regular"
+    //  (AHORA después de que el perfil tenga empresaId real)
     // ============================================================
     console.log('📌 Creando categoría por defecto...');
     const categoriaDefault = {
@@ -324,33 +351,7 @@ async function registrarEmpresa() {
     console.log('✅ Categoría por defecto creada:', categoriaDefaultId);
 
     // ============================================================
-    //  PASO 4: Actualizar el perfil con el empresaId real
-    // ============================================================
-    await firebase.firestore()
-      .collection('userProfiles')
-      .doc(user.uid)
-      .update({
-        empresaId: empresaId
-      });
-
-    // ============================================================
-    //  PASO 5: Crear el usuario en la subcolección de la empresa
-    // ============================================================
-    await firebase.firestore()
-      .collection('empresas')
-      .doc(empresaId)
-      .collection('usuarios')
-      .doc(user.uid)
-      .set({
-        uid: user.uid,
-        nombre: nombreAdmin,
-        email: email,
-        rol: 'admin',
-        fcmToken: ''
-      });
-
-    // ============================================================
-    //  PASO 6: Guardar sesión y redirigir
+    //  PASO 7: Guardar sesión y redirigir
     // ============================================================
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);

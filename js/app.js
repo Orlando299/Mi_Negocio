@@ -390,10 +390,8 @@ async function registrarClienteNuevo() {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
     return;
   }
-  if (codigo.length !== 6) {
-    showToast('❌ El código debe tener 6 caracteres');
-    return;
-  }
+  // ✅ ELIMINADA la validación de longitud fija (codigo.length !== 6)
+  // Ahora se aceptan códigos de cualquier longitud (ej. MAYOR14)
 
   const btn = document.querySelector('#modal-registro-cliente .btn-primary');
   if (btn) btn.disabled = true;
@@ -539,7 +537,7 @@ async function registrarClienteNuevo() {
           total: 0,
           ultimaLiquidacion: null
         },
-       historialCambios: [
+        historialCambios: [
           {
             fecha: new Date().toISOString(), // ✅ Usar string ISO en lugar de FieldValue
             categoriaId: categoriaId,

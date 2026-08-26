@@ -13,7 +13,7 @@
   <title>MiNegocio — Gestión Inteligente</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css?v=13">
-<base target="_blank">
+  <base target="_blank">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
@@ -127,8 +127,7 @@
 <nav class="top-nav" id="top-nav" style="display:none;">
   <div class="nav-logo">Mi<span>Negocio</span></div>
   <div class="nav-right">
-    <!-- Botón de cerrar sesión (visible solo para cliente) -->
-<button class="nav-icon-btn" id="btn-logout-cliente" style="display:none;" onclick="cerrarSesion()" title="Cerrar sesión">🚪</button>
+    <button class="nav-icon-btn" id="btn-logout-cliente" style="display:none;" onclick="cerrarSesion()" title="Cerrar sesión">🚪</button>
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
     <button class="nav-icon-btn" onclick="mostrarCodigoInvitacion()" id="btn-codigo" title="Código de invitación" style="display:none;">🎟️</button>
@@ -269,81 +268,81 @@
     </div>
 
     <div class="config-panel" id="panel-pagos">
-  <div class="config-json-section">
-    <h3>💳 Datos de pago (Pago Móvil / Zelle / Transferencias)</h3>
-    <p class="config-hint">Configura los datos que se mostrarán al cliente para que realice el pago.</p>
-    
-    <div class="field">
-      <label>Pago Móvil - Teléfono</label>
-      <input type="text" id="pago-pmovil-telefono" placeholder="+58 412 000 0000">
-    </div>
-    <div class="field">
-      <label>Pago Móvil - Cédula</label>
-      <input type="text" id="pago-pmovil-cedula" placeholder="V-12345678">
-    </div>
-    <div class="field">
-      <label>Pago Móvil - Banco</label>
-      <input type="text" id="pago-pmovil-banco" placeholder="Bancaribe">
-    </div>
-    
-    <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
-    
-    <div class="field">
-      <label>Zelle - Email</label>
-      <input type="email" id="pago-zelle-email" placeholder="franquiciado@email.com">
-    </div>
-    <div class="field">
-      <label>Zelle - Nombre del titular</label>
-      <input type="text" id="pago-zelle-nombre" placeholder="Nombre del franquiciado">
-    </div>
-    
-    <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
-    
-    <div class="field">
-      <label>Transferencia - Banco</label>
-      <input type="text" id="pago-transferencia-banco" placeholder="Banesco">
-    </div>
-    <div class="field">
-      <label>Transferencia - Número de cuenta</label>
-      <input type="text" id="pago-transferencia-cuenta" placeholder="0123-4567-89-01234567">
-    </div>
-    <div class="field">
-      <label>Transferencia - Titular</label>
-      <input type="text" id="pago-transferencia-titular" placeholder="Nombre del titular">
-    </div>
-    <div class="field">
-      <label>Transferencia - Cédula</label>
-      <input type="text" id="pago-transferencia-cedula" placeholder="V-12345678">
-    </div>
+      <div class="config-json-section">
+        <h3>💳 Datos de pago (Pago Móvil / Zelle / Transferencias)</h3>
+        <p class="config-hint">Configura los datos que se mostrarán al cliente para que realice el pago.</p>
+        
+        <div class="field">
+          <label>Pago Móvil - Teléfono</label>
+          <input type="text" id="pago-pmovil-telefono" placeholder="+58 412 000 0000">
+        </div>
+        <div class="field">
+          <label>Pago Móvil - Cédula</label>
+          <input type="text" id="pago-pmovil-cedula" placeholder="V-12345678">
+        </div>
+        <div class="field">
+          <label>Pago Móvil - Banco</label>
+          <input type="text" id="pago-pmovil-banco" placeholder="Bancaribe">
+        </div>
+        
+        <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
+        
+        <div class="field">
+          <label>Zelle - Email</label>
+          <input type="email" id="pago-zelle-email" placeholder="franquiciado@email.com">
+        </div>
+        <div class="field">
+          <label>Zelle - Nombre del titular</label>
+          <input type="text" id="pago-zelle-nombre" placeholder="Nombre del franquiciado">
+        </div>
+        
+        <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
+        
+        <div class="field">
+          <label>Transferencia - Banco</label>
+          <input type="text" id="pago-transferencia-banco" placeholder="Banesco">
+        </div>
+        <div class="field">
+          <label>Transferencia - Número de cuenta</label>
+          <input type="text" id="pago-transferencia-cuenta" placeholder="0123-4567-89-01234567">
+        </div>
+        <div class="field">
+          <label>Transferencia - Titular</label>
+          <input type="text" id="pago-transferencia-titular" placeholder="Nombre del titular">
+        </div>
+        <div class="field">
+          <label>Transferencia - Cédula</label>
+          <input type="text" id="pago-transferencia-cedula" placeholder="V-12345678">
+        </div>
 
-    <button class="btn btn-primary" onclick="guardarDatosPago()">💾 Guardar datos de pago</button>
-    <div id="mensaje-pago" style="margin-top:12px;"></div>
-  </div>
-</div>
+        <button class="btn btn-primary" onclick="guardarDatosPago()">💾 Guardar datos de pago</button>
+        <div id="mensaje-pago" style="margin-top:12px;"></div>
+      </div>
+    </div>
 
     <!-- ===== PANEL: CATEGORÍAS ===== -->
-<div class="config-panel" id="panel-categorias">
-  <div class="config-toolbar">
-    <h3>🏷️ Categorías de clientes</h3>
-    <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Crear categoría</button>
-  </div>
-  <div class="config-table-wrap">
-    <table class="config-table">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Código de invitación</th>
-          <th>Aporte %</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tabla-categorias">
-        <tr><td colspan="5" class="config-empty">Cargando categorías...</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+    <div class="config-panel" id="panel-categorias">
+      <div class="config-toolbar">
+        <h3>🏷️ Categorías de clientes</h3>
+        <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Crear categoría</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Código de invitación</th>
+              <th>Aporte %</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-categorias">
+            <tr><td colspan="5" class="config-empty">Cargando categorías...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <div class="config-panel active" id="panel-resumen">
       <div class="config-cards">
@@ -494,6 +493,7 @@
       <button class="config-tab" data-tab-cliente="chat">💬 Chat</button>
       <button class="config-tab" data-tab-cliente="alertas">🚨 Alertas</button>
       <button class="config-tab" data-tab-cliente="pedidos">📋 Pedidos</button>
+      <button class="config-tab" data-tab-cliente="liquidaciones">📊 Liquidaciones</button> <!-- NUEVO -->
     </div>
 
     <div id="cliente-panel-catalogo" class="cliente-panel-content active">
@@ -535,6 +535,16 @@
       <div class="section-header"><span class="section-title">📋 Mis pedidos</span></div>
       <div id="historial-pedidos"></div>
     </div>
+
+    <!-- NUEVO PANEL DE LIQUIDACIONES -->
+    <div id="cliente-panel-liquidaciones" class="cliente-panel-content" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">📊 Historial de liquidaciones</span>
+      </div>
+      <div id="historial-liquidaciones">
+        <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay liquidaciones registradas</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -556,15 +566,15 @@
     <div class="nav-icon">📈</div><div class="nav-label">Reportes</div>
   </div>
   <div class="nav-item" onclick="goScreen('configuracion')" id="nav-configuracion">
-  <div class="nav-icon">⚙️</div>
-  <div class="nav-label">Config</div>
-</div>
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">Config</div>
+  </div>
 </nav>
 
 <!-- ==================== FAB ==================== -->
 <button class="fab" onclick="openModal()" id="fab-btn" style="display:none;">＋</button>
 
-  <!-- ==================== MODAL: CATEGORÍA ==================== -->
+<!-- ==================== MODAL: CATEGORÍA ==================== -->
 <div class="modal-overlay" id="modal-categoria" onclick="cerrarModalCategoria(event)">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
@@ -594,6 +604,17 @@
   </div>
 </div>
 
+<!-- ==================== MODAL: LIQUIDACIÓN (NUEVO) ==================== -->
+<div class="modal-overlay" id="modal-liquidacion" onclick="cerrarModalLiquidacion(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📦 Liquidar líquido</div>
+    <div id="modal-body-liquidacion">
+      <!-- Contenido dinámico -->
+    </div>
+  </div>
+</div>
+
 <!-- ==================== MODAL SHEET (uso general) ==================== -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal-sheet" id="modal-sheet">
@@ -603,7 +624,7 @@
   </div>
 </div>
 
-  <!-- ==================== MODAL DE DESPACHO ==================== -->
+<!-- ==================== MODAL DE DESPACHO ==================== -->
 <div class="modal-overlay" id="modal-despacho" onclick="cerrarModalDespacho(event)">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>

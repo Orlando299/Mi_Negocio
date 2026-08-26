@@ -292,13 +292,13 @@ async function registrarEmpresa() {
     const empresaId = empresaRef.id;
 
     // ============================================================
-    //  PASO 3.5: Crear categoría por defecto "Cliente Regular" (mejora1)
+    //  PASO 3.5: Crear categoría por defecto "Cliente Regular"
     // ============================================================
     console.log('📌 Creando categoría por defecto...');
     const categoriaDefault = {
       nombre: 'Cliente Regular',
       descripcion: 'Cliente sin convenio especial',
-      codigoInvitacion: '', // Sin código, no se puede asignar manualmente
+      codigoInvitacion: '',
       activa: true,
       aporteEspecial: {
         tipo: 'porcentaje_liquido',
@@ -432,12 +432,11 @@ async function registrarClienteNuevo() {
     console.log('✅ Empresa encontrada:', empresaId);
 
     // ============================================================
-    //  PASO: Buscar categoría por código de invitación (mejora2)
+    //  PASO: Buscar categoría por código de invitación
     // ============================================================
     let categoriaId = null;
     let aporteEspecial = null;
 
-    // Buscar en la subcolección categoriasClientes de la empresa
     const categoriasSnapshot = await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
@@ -447,7 +446,6 @@ async function registrarClienteNuevo() {
       .get();
 
     if (!categoriasSnapshot.empty) {
-      // Código coincide con una categoría
       const categoriaDoc = categoriasSnapshot.docs[0];
       const categoriaData = categoriaDoc.data();
       categoriaId = categoriaDoc.id;
@@ -458,7 +456,6 @@ async function registrarClienteNuevo() {
       };
       console.log('✅ Categoría encontrada por código:', categoriaData.nombre);
     } else {
-      // No coincide con categoría, usar la categoría por defecto de la empresa
       const empresaDataTemp = empresaDoc.data();
       categoriaId = empresaDataTemp.categoriaPorDefectoId || null;
       if (categoriaId) {
@@ -480,7 +477,6 @@ async function registrarClienteNuevo() {
       }
     }
 
-    // Si no hay categoría por defecto, crear una genérica
     if (!categoriaId) {
       console.warn('⚠️ No hay categoría por defecto, creando una...');
       const newDefault = {
@@ -522,7 +518,6 @@ async function registrarClienteNuevo() {
       });
     console.log('✅ Perfil creado');
 
-    // Crear cliente en subcolección con nuevos campos
     await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
@@ -794,6 +789,7 @@ function goScreen(name) {
       renderizarTablaProductos();
       renderizarTablaClientes();
       renderizarTablaVentas();
+      // Nueva pestaña categorías se carga bajo demanda
     }, 300);
   }
 
@@ -1094,12 +1090,41 @@ async function updateProductoFromModal(nombreOriginal) {
   }
 }
 
-function editCliente(nombre) {
+// ================================================================
+//  FUNCIÓN editCliente AMPLIADA (con categoría y aporte)
+// ================================================================
+async function editCliente(nombre) {
   const c = store.clientes.find(item => item.nombre === nombre);
   if (!c) return showToast('Cliente no encontrado');
+
+  // Cargar categorías activas para el selector
+  const empresaId = sessionStorage.getItem('empresaId');
+  let categoriasHTML = '<option value="">Sin categoría</option>';
+  if (empresaId) {
+    try {
+      const snapshot = await firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('categoriasClientes')
+        .where('activa', '==', true)
+        .orderBy('nombre')
+        .get();
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const selected = doc.id === c.categoriaId ? 'selected' : '';
+        categoriasHTML += `<option value="${doc.id}" ${selected}>${escapeHtml(data.nombre)} (${data.aporteEspecial?.valor || 0}%)</option>`;
+      });
+    } catch (e) {
+      console.warn('Error cargando categorías:', e);
+    }
+  }
+
+  const aportePersonalizado = c.aporteEspecial?.valor || '';
+  const liquidoPendiente = c.liquidoPendiente?.total || 0;
+
   const body = `
-    <div class="field"><label>Nombre</label><input type="text" value="${c.nombre}" id="edit-nombre"></div>
-    <div class="field"><label>Teléfono</label><input type="text" value="${c.phone}" id="edit-phone"></div>
+    <div class="field"><label>Nombre</label><input type="text" value="${escapeHtml(c.nombre)}" id="edit-nombre"></div>
+    <div class="field"><label>Teléfono</label><input type="text" value="${escapeHtml(c.phone)}" id="edit-phone"></div>
     <div class="field"><label>Etiqueta</label>
       <select id="edit-tag">
         <option ${c.tag === 'vip' ? 'selected' : ''}>vip</option>
@@ -1107,28 +1132,153 @@ function editCliente(nombre) {
         <option ${c.tag === 'nuevo' ? 'selected' : ''}>nuevo</option>
       </select>
     </div>
-    <button class="btn btn-primary" onclick="updateClienteFromModal('${nombre}')">Actualizar cliente</button>
+    <div class="field">
+      <label>Categoría</label>
+      <select id="edit-categoria">
+        ${categoriasHTML}
+      </select>
+      <small style="color:var(--text3); font-size:11px;">Selecciona una categoría para definir el aporte especial</small>
+    </div>
+    <div class="field">
+      <label>Aporte personalizado (%)</label>
+      <input type="number" id="edit-aporte-personalizado" value="${aportePersonalizado}" min="0" max="100" placeholder="Dejar vacío para usar el de la categoría">
+      <small style="color:var(--text3); font-size:11px;">Si se llena, prevalece sobre el porcentaje de la categoría</small>
+    </div>
+    <div style="background:var(--surface2); padding:10px; border-radius:var(--radius-sm); margin-bottom:12px;">
+      <strong>📦 Líquido pendiente:</strong> ${liquidoPendiente} unidades
+    </div>
+    <button class="btn btn-primary" onclick="updateClienteFromModal('${escapeJsString(c.nombre)}')">Actualizar cliente</button>
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
   `;
+
   openModalWithContent('Editar cliente', body);
 }
 
+// ================================================================
+//  FUNCIÓN updateClienteFromModal AMPLIADA
+// ================================================================
 async function updateClienteFromModal(nombreOriginal) {
   const nombre = document.getElementById('edit-nombre').value.trim();
   const phone = document.getElementById('edit-phone').value.trim();
   const tag = document.getElementById('edit-tag').value;
+  const categoriaId = document.getElementById('edit-categoria').value || null;
+  const aportePersonalizado = document.getElementById('edit-aporte-personalizado').value.trim();
+
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+
   const cliente = store.clientes.find(c => c.nombre === nombreOriginal);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
+
+  // Construir objeto de actualización
   const updates = { nombre, phone, tag };
+
+  // Si cambió la categoría o el aporte personalizado, registrar historial
+  let categoriaCambio = false;
+  let historialEntry = null;
+
+  // Obtener datos actuales del cliente
+  const perfilDoc = await firebase.firestore()
+    .collection('userProfiles')
+    .doc(cliente.id)
+    .get();
+  const perfil = perfilDoc.data();
+
+  const categoriaAnterior = cliente.categoriaId || null;
+  const aporteAnterior = cliente.aporteEspecial?.valor || null;
+  const aportePersonalizadoAnterior = perfil?.aportePersonalizado?.valor || null;
+
+  // Determinar nuevo aporte efectivo
+  let nuevoAporteValor = null;
+  if (aportePersonalizado !== '') {
+    const val = parseFloat(aportePersonalizado);
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      nuevoAporteValor = val;
+    } else {
+      showToast('⚠️ Ingresa un porcentaje válido (0-100) o déjalo vacío');
+      return;
+    }
+  }
+
+  // Si hay cambio de categoría o aporte personalizado, registrar historial
+  if (categoriaId !== categoriaAnterior || nuevoAporteValor !== aportePersonalizadoAnterior) {
+    categoriaCambio = true;
+    // Obtener nombre de la nueva categoría (si existe)
+    let nuevoNombreCategoria = null;
+    if (categoriaId) {
+      const catDoc = await firebase.firestore()
+        .collection('empresas').doc(sessionStorage.getItem('empresaId'))
+        .collection('categoriasClientes').doc(categoriaId)
+        .get();
+      if (catDoc.exists) nuevoNombreCategoria = catDoc.data().nombre;
+    }
+
+    historialEntry = {
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      categoriaId: categoriaId,
+      categoriaNombre: nuevoNombreCategoria || 'Sin categoría',
+      aporteValor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0),
+      motivo: 'Cambio manual por administrador'
+    };
+  }
+
+  // Actualizar cliente en Firestore
   try {
-    await store.updateCliente(cliente.id, updates);
-    syncGlobals();
+    // 1. Actualizar cliente (subcolección)
+    await store.updateCliente(cliente.id, {
+      nombre,
+      phone,
+      tag,
+      categoriaId: categoriaId,
+      // Si se especifica aporte personalizado, guardarlo; si no, mantener el de la categoría o null
+      aporteEspecial: {
+        tipo: 'porcentaje_liquido',
+        valor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0),
+        aplicaA: ['Cervezas Polar']
+      }
+    });
+
+    // 2. Actualizar userProfiles
+    const userUpdates = {
+      categoriaClienteId: categoriaId,
+      fechaAsignacionCategoria: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (nuevoAporteValor !== null) {
+      userUpdates.aportePersonalizado = {
+        valor: nuevoAporteValor,
+        modificadoPor: sessionStorage.getItem('userName') || 'admin',
+        fecha: firebase.firestore.FieldValue.serverTimestamp()
+      };
+    } else {
+      // Si se dejó vacío, eliminar el aporte personalizado
+      userUpdates.aportePersonalizado = null;
+    }
+    await firebase.firestore()
+      .collection('userProfiles')
+      .doc(cliente.id)
+      .update(userUpdates);
+
+    // 3. Registrar historial si hubo cambio
+    if (categoriaCambio && historialEntry) {
+      await firebase.firestore()
+        .collection('empresas').doc(sessionStorage.getItem('empresaId'))
+        .collection('clientes').doc(cliente.id)
+        .update({
+          historialCambios: firebase.firestore.FieldValue.arrayUnion(historialEntry)
+        });
+    }
+
+    // 4. Actualizar store local
+    const index = store.clientes.findIndex(c => c.id === cliente.id);
+    if (index !== -1) {
+      store.clientes[index] = { ...store.clientes[index], ...updates, categoriaId, aporteEspecial: { tipo: 'porcentaje_liquido', valor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0), aplicaA: ['Cervezas Polar'] } };
+      syncGlobals();
+    }
+
     renderClients('', filtroCli, 1);
     closeModal();
     showToast('✅ Cliente actualizado');
   } catch (error) {
-    handleError(error);
+    handleError(error, 'Error actualizando cliente');
   }
 }
 
@@ -2079,6 +2229,9 @@ function renderActividadReciente() {
   `).join('');
 }
 
+// ================================================================
+//  CONFIGURACIÓN (pestañas: resumen, productos, clientes, ventas, categorías)
+// ================================================================
 function cambiarTabConfiguracion(tabId) {
   document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.config-panel').forEach(p => p.classList.remove('active'));
@@ -2090,6 +2243,7 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'productos') renderizarTablaProductos();
   if (tabId === 'clientes') renderizarTablaClientes();
   if (tabId === 'ventas') renderizarTablaVentas();
+  if (tabId === 'categorias') cargarCategorias();  // <-- NUEVO
 }
 
 function renderizarTablaProductos() {
@@ -2186,6 +2340,234 @@ function actualizarResumenConfiguracion() {
   }
 }
 
+// ================================================================
+//  GESTIÓN DE CATEGORÍAS (CRUD) - NUEVO
+// ================================================================
+async function cargarCategorias() {
+  const tbody = document.getElementById('tabla-categorias');
+  if (!tbody) return;
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay sesión activa</td></tr>';
+    return;
+  }
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('categoriasClientes')
+      .orderBy('nombre')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay categorías creadas</td></tr>';
+      return;
+    }
+
+    let html = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const id = doc.id;
+      const nombre = escapeHtml(data.nombre || 'Sin nombre');
+      const codigo = escapeHtml(data.codigoInvitacion || '');
+      const porcentaje = data.aporteEspecial?.valor || 0;
+      const activa = data.activa !== false;
+      const estadoClase = activa ? 'activa' : 'inactiva';
+      const estadoTexto = activa ? 'Activa' : 'Inactiva';
+
+      html += `
+        <tr>
+          <td><strong>${nombre}</strong></td>
+          <td>${codigo ? codigo : '<em style="color:var(--text3);">Sin código</em>'}</td>
+          <td>${porcentaje}%</td>
+          <td><span class="categoria-estado ${estadoClase}">${estadoTexto}</span></td>
+          <td>
+            <div class="config-actions-cell">
+              <button class="btn-sm btn-sm-edit" onclick="editarCategoria('${id}')">Editar</button>
+              <button class="btn-sm btn-sm-toggle ${estadoClase}" onclick="toggleCategoriaEstado('${id}')">
+                ${activa ? 'Desactivar' : 'Activar'}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  } catch (error) {
+    console.error('Error cargando categorías:', error);
+    tbody.innerHTML = `<tr><td colspan="5" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function abrirModalCategoria() {
+  document.getElementById('modal-categoria-title').textContent = '📝 Nueva categoría';
+  document.getElementById('cat-edit-id').value = '';
+  document.getElementById('cat-nombre').value = '';
+  document.getElementById('cat-codigo').value = '';
+  document.getElementById('cat-porcentaje').value = '';
+  document.getElementById('cat-descripcion').value = '';
+  abrirModalId('modal-categoria');
+}
+
+function cerrarModalCategoria(e) {
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-categoria');
+}
+
+async function guardarCategoria() {
+  const nombre = document.getElementById('cat-nombre').value.trim();
+  const codigo = document.getElementById('cat-codigo').value.trim().toUpperCase();
+  const porcentaje = parseFloat(document.getElementById('cat-porcentaje').value);
+  const descripcion = document.getElementById('cat-descripcion').value.trim();
+  const editId = document.getElementById('cat-edit-id').value;
+
+  if (!nombre) {
+    showToast('⚠️ El nombre es obligatorio');
+    return;
+  }
+  if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+    showToast('⚠️ Ingresa un porcentaje válido (0-100)');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const data = {
+    nombre: nombre,
+    codigoInvitacion: codigo || '',
+    descripcion: descripcion || '',
+    aporteEspecial: {
+      tipo: 'porcentaje_liquido',
+      valor: porcentaje,
+      aplicaA: ['Cervezas Polar']
+    },
+    modificado: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    // Validar código único (si se proporciona)
+    if (codigo) {
+      let query = firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('categoriasClientes')
+        .where('codigoInvitacion', '==', codigo);
+
+      if (editId) {
+        const snapshot = await query.get();
+        const existe = snapshot.docs.some(doc => doc.id !== editId);
+        if (existe) {
+          showToast('⚠️ El código de invitación ya está en uso');
+          return;
+        }
+      } else {
+        const snapshot = await query.get();
+        if (!snapshot.empty) {
+          showToast('⚠️ El código de invitación ya está en uso');
+          return;
+        }
+      }
+    }
+
+    if (editId) {
+      await firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('categoriasClientes').doc(editId)
+        .update(data);
+      showToast('✅ Categoría actualizada');
+    } else {
+      data.creado = firebase.firestore.FieldValue.serverTimestamp();
+      data.activa = true;
+      await firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('categoriasClientes')
+        .add(data);
+      showToast('✅ Categoría creada');
+    }
+
+    cerrarModalCategoria();
+    cargarCategorias();
+  } catch (error) {
+    handleError(error, 'Error guardando categoría');
+  }
+}
+
+async function editarCategoria(id) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    const doc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('categoriasClientes').doc(id)
+      .get();
+
+    if (!doc.exists) {
+      showToast('⚠️ Categoría no encontrada');
+      return;
+    }
+
+    const data = doc.data();
+    document.getElementById('modal-categoria-title').textContent = '✏️ Editar categoría';
+    document.getElementById('cat-edit-id').value = id;
+    document.getElementById('cat-nombre').value = data.nombre || '';
+    document.getElementById('cat-codigo').value = data.codigoInvitacion || '';
+    document.getElementById('cat-porcentaje').value = data.aporteEspecial?.valor || 0;
+    document.getElementById('cat-descripcion').value = data.descripcion || '';
+
+    abrirModalId('modal-categoria');
+  } catch (error) {
+    handleError(error, 'Error cargando categoría');
+  }
+}
+
+async function toggleCategoriaEstado(id) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    const doc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('categoriasClientes').doc(id)
+      .get();
+
+    if (!doc.exists) {
+      showToast('⚠️ Categoría no encontrada');
+      return;
+    }
+
+    const data = doc.data();
+    const nuevaActiva = !(data.activa !== false);
+
+    // No permitir desactivar la categoría por defecto (codigoInvitacion vacío)
+    if (!nuevaActiva && !data.codigoInvitacion) {
+      showToast('⚠️ No se puede desactivar la categoría por defecto');
+      return;
+    }
+
+    await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('categoriasClientes').doc(id)
+      .update({
+        activa: nuevaActiva,
+        modificado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    showToast(nuevaActiva ? '✅ Categoría activada' : '✅ Categoría desactivada');
+    cargarCategorias();
+  } catch (error) {
+    handleError(error, 'Error cambiando estado');
+  }
+}
+
+// ================================================================
+//  EXPORTAR / IMPORTAR DATOS
+// ================================================================
 function exportarDatosJSON() {
   const empresaId = sessionStorage.getItem('empresaId');
   const nombreEmpresa = sessionStorage.getItem('userName') || 'empresa';
@@ -2294,6 +2676,9 @@ function actualizarAvatar(nombre) {
   }
 }
 
+// ================================================================
+//  CHAT Y ALERTAS (cliente)
+// ================================================================
 async function enviarMensajeChat() {
   const input = document.getElementById('chat-input');
   const texto = input.value.trim();
@@ -2966,11 +3351,10 @@ async function actualizarSaldoEnvases(clienteId, envases) {
 }
 
 // ================================================================
-//  NUEVA FUNCIÓN: Obtener aporte efectivo de un cliente (mejora3)
+//  NUEVA FUNCIÓN: Obtener aporte efectivo de un cliente
 // ================================================================
 async function obtenerAporteEfectivoCliente(clienteId) {
   try {
-    // 1. Obtener perfil del cliente
     const perfilDoc = await firebase.firestore()
       .collection('userProfiles')
       .doc(clienteId)
@@ -2981,7 +3365,6 @@ async function obtenerAporteEfectivoCliente(clienteId) {
     }
     const perfil = perfilDoc.data();
 
-    // 2. Si tiene aporte personalizado, usarlo
     if (perfil.aportePersonalizado && perfil.aportePersonalizado.valor !== undefined) {
       console.log('📌 Usando aporte personalizado:', perfil.aportePersonalizado.valor);
       return {
@@ -2991,13 +3374,11 @@ async function obtenerAporteEfectivoCliente(clienteId) {
       };
     }
 
-    // 3. Si no tiene categoría, usar 0%
     if (!perfil.categoriaClienteId) {
       console.warn('⚠️ Cliente sin categoría, usando 0%');
       return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
     }
 
-    // 4. Obtener categoría y su aporte
     const empresaId = perfil.empresaId;
     const catDoc = await firebase.firestore()
       .collection('empresas')
@@ -3022,7 +3403,7 @@ async function obtenerAporteEfectivoCliente(clienteId) {
 }
 
 // ================================================================
-//  CONFIRMAR DESPACHO (modificado con acumulación de líquido - mejora4)
+//  CONFIRMAR DESPACHO (modificado con acumulación de líquido)
 // ================================================================
 async function confirmarDespacho(id) {
   const venta = store.ventas.find(v => v.id === id);
@@ -3116,7 +3497,7 @@ async function confirmarDespacho(id) {
     }
 
     // ============================================================
-    //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE (mejora4)
+    //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE
     // ============================================================
     let ventaUpdates = {
       status: 'pagado',
@@ -3128,12 +3509,10 @@ async function confirmarDespacho(id) {
     };
 
     try {
-      // 1. Obtener el aporte efectivo del cliente
       const aporte = await obtenerAporteEfectivoCliente(cliente.id);
       console.log('📌 Aporte del cliente:', aporte.valor + '%');
 
       if (aporte.valor > 0) {
-        // 2. Calcular unidades de cerveza vendidas
         let unidadesCerveza = 0;
         for (const item of productos) {
           const producto = inventario.find(p => p.nombre === item.nombre);
@@ -3147,7 +3526,6 @@ async function confirmarDespacho(id) {
           console.log(`📌 Unidades vendidas de cerveza: ${unidadesCerveza}, líquido generado: ${unidadesExtra}`);
 
           if (unidadesExtra > 0) {
-            // 3. Actualizar líquido pendiente del cliente
             const clienteRef = firebase.firestore()
               .collection('empresas')
               .doc(empresaId)
@@ -3168,7 +3546,6 @@ async function confirmarDespacho(id) {
               });
             });
 
-            // 4. Guardar el aporte en la venta para consulta futura
             ventaUpdates.aporteGenerado = {
               unidadesVendidas: unidadesCerveza,
               porcentaje: aporte.valor,
@@ -3184,10 +3561,8 @@ async function confirmarDespacho(id) {
       }
     } catch (error) {
       console.error('❌ Error acumulando líquido:', error);
-      // No detenemos el despacho por error en el cálculo de líquido
     }
 
-    // Actualizar la venta en Firestore
     await store.updateVenta(id, ventaUpdates);
     syncGlobals();
 
@@ -3594,12 +3969,18 @@ const funcionesGlobales = {
   actualizarSaldoEnvases, calcularNuevoSaldo,
   generarFactura,
   cargarDatosPago, guardarDatosPago, mostrarOrdenPago, notificarPago, confirmarPago,
-  // Nuevas funciones
-  obtenerAporteEfectivoCliente
+  // Nuevas funciones de categorías
+  obtenerAporteEfectivoCliente,
+  cargarCategorias,
+  abrirModalCategoria,
+  cerrarModalCategoria,
+  guardarCategoria,
+  editarCategoria,
+  toggleCategoriaEstado
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {
   window[nombre] = fn;
 });
 
-console.log('✅ app.js cargado correctamente — Versión unificada con despacho de pedidos, control de envases y gestión de aportes especiales (categorías y líquido)');
+console.log('✅ app.js cargado correctamente — Versión unificada con despacho de pedidos, control de envases, gestión de aportes especiales (categorías y líquido) y CRUD de categorías.');

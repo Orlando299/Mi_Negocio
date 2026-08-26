@@ -2985,6 +2985,9 @@ function connectWebSocket() {
   return null;
 }
 
+// ================================================================
+//  FUNCIÓN cambiarTabCliente MODIFICADA (agregado 'liquidaciones')
+// ================================================================
 function cambiarTabCliente(tabId) {
   document.querySelectorAll('.cliente-panel-content').forEach(p => p.style.display = 'none');
   const panel = document.getElementById('cliente-panel-' + tabId);
@@ -2999,6 +3002,261 @@ function cambiarTabCliente(tabId) {
     cargarAlertas();
   } else if (tabId === 'pedidos') {
     cargarHistorialCliente();
+  } else if (tabId === 'liquidaciones') {
+    cargarLiquidacionesCliente();
+  }
+}
+
+// ================================================================
+//  FUNCIONES DE LIQUIDACIÓN DE LÍQUIDO (NUEVO)
+// ================================================================
+
+async function abrirModalLiquidacion(clienteId) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  try {
+    // Obtener datos del cliente
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .get();
+
+    if (!clienteDoc.exists) {
+      showToast('⚠️ Cliente no encontrado');
+      return;
+    }
+
+    const cliente = clienteDoc.data();
+    const liquidoPendiente = cliente.liquidoPendiente?.total || 0;
+
+    // Cargar productos de cerveza para el selector (opcional)
+    const productosSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('inventario')
+      .where('cat', '==', 'Cervezas Polar')
+      .get();
+
+    let productosHTML = '<option value="">Sin producto (solo liquidación)</option>';
+    productosSnap.forEach(doc => {
+      const data = doc.data();
+      productosHTML += `<option value="${doc.id}">${escapeHtml(data.nombre)}</option>`;
+    });
+
+    const body = `
+      <div class="field">
+        <label>Cliente</label>
+        <input type="text" value="${escapeHtml(cliente.nombre)}" disabled>
+      </div>
+      <div class="field">
+        <label>Líquido pendiente</label>
+        <input type="text" value="${liquidoPendiente} unidades" disabled>
+      </div>
+      <div class="field">
+        <label>Cantidad a entregar *</label>
+        <input type="number" id="liq-cantidad" min="1" max="${liquidoPendiente}" placeholder="Ej: 10">
+        <small style="color:var(--text3); font-size:11px;">Máximo ${liquidoPendiente} unidades</small>
+      </div>
+      <div class="field">
+        <label>Producto (opcional)</label>
+        <select id="liq-producto">
+          ${productosHTML}
+        </select>
+        <small style="color:var(--text3); font-size:11px;">Selecciona el producto a entregar (opcional)</small>
+      </div>
+      <div class="field">
+        <label>Observaciones</label>
+        <textarea id="liq-observaciones" rows="2" placeholder="Motivo de la entrega, notas..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="confirmarLiquidacion('${clienteId}')">✅ Confirmar liquidación</button>
+      <button class="btn btn-outline" onclick="cerrarModalLiquidacion()">Cancelar</button>
+    `;
+
+    document.getElementById('modal-body-liquidacion').innerHTML = body;
+    abrirModalId('modal-liquidacion');
+  } catch (error) {
+    handleError(error, 'Error al abrir modal de liquidación');
+  }
+}
+
+function cerrarModalLiquidacion(e) {
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-liquidacion');
+}
+
+async function confirmarLiquidacion(clienteId) {
+  const cantidad = parseInt(document.getElementById('liq-cantidad').value);
+  const productoId = document.getElementById('liq-producto').value || null;
+  const observaciones = document.getElementById('liq-observaciones').value.trim();
+
+  if (isNaN(cantidad) || cantidad < 1) {
+    showToast('⚠️ Ingresa una cantidad válida');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  try {
+    // 1. Obtener cliente actual
+    const clienteRef = firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId);
+
+    const clienteDoc = await clienteRef.get();
+    if (!clienteDoc.exists) {
+      showToast('⚠️ Cliente no encontrado');
+      return;
+    }
+
+    const clienteData = clienteDoc.data();
+    const liquidoPendiente = clienteData.liquidoPendiente?.total || 0;
+
+    if (cantidad > liquidoPendiente) {
+      showToast(`⚠️ No hay suficiente líquido pendiente (máximo: ${liquidoPendiente})`);
+      return;
+    }
+
+    // 2. Obtener nombre del producto si se seleccionó
+    let productoNombre = null;
+    if (productoId) {
+      const prodDoc = await firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('inventario').doc(productoId)
+        .get();
+      if (prodDoc.exists) {
+        productoNombre = prodDoc.data().nombre;
+      }
+    }
+
+    // 3. Actualizar liquidoPendiente y agregar historial
+    const nuevoTotal = liquidoPendiente - cantidad;
+    const historialEntry = {
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      cantidad: cantidad,
+      producto: productoNombre || null,
+      observaciones: observaciones || 'Liquidación realizada',
+      entregadoPor: sessionStorage.getItem('userName') || 'admin'
+    };
+
+    await clienteRef.update({
+      'liquidoPendiente.total': nuevoTotal,
+      'liquidoPendiente.ultimaLiquidacion': firebase.firestore.FieldValue.serverTimestamp(),
+      historialLiquidaciones: firebase.firestore.FieldValue.arrayUnion(historialEntry)
+    });
+
+    // 4. Opcional: descontar del inventario si se seleccionó producto
+    if (productoId && productoNombre) {
+      const prodRef = firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('inventario').doc(productoId);
+      await prodRef.update({
+        stock: firebase.firestore.FieldValue.increment(-cantidad)
+      });
+      // También actualizar store local
+      const prodLocal = store.inventario.find(p => p.id === productoId);
+      if (prodLocal) {
+        prodLocal.stock -= cantidad;
+        if (prodLocal.stock < 0) prodLocal.stock = 0;
+        // Actualizar estado si queda en 0
+        if (prodLocal.stock === 0) prodLocal.estado = 'out';
+        else if (prodLocal.stock <= (prodLocal.stockMin || 5)) prodLocal.estado = 'low';
+        else prodLocal.estado = 'ok';
+      }
+    }
+
+    // 5. Actualizar store local del cliente
+    const index = store.clientes.findIndex(c => c.id === clienteId);
+    if (index !== -1) {
+      store.clientes[index].liquidoPendiente = {
+        total: nuevoTotal,
+        ultimaLiquidacion: new Date().toISOString()
+      };
+      if (!store.clientes[index].historialLiquidaciones) {
+        store.clientes[index].historialLiquidaciones = [];
+      }
+      store.clientes[index].historialLiquidaciones.push({
+        fecha: new Date().toISOString(),
+        cantidad: cantidad,
+        producto: productoNombre,
+        observaciones: observaciones || 'Liquidación realizada',
+        entregadoPor: sessionStorage.getItem('userName') || 'admin'
+      });
+      syncGlobals();
+    }
+
+    // 6. Refrescar vistas
+    renderClients('', filtroCli, false);
+    showToast(`✅ Liquidación registrada: ${cantidad} unidades entregadas`);
+
+    cerrarModalLiquidacion();
+  } catch (error) {
+    handleError(error, 'Error al confirmar liquidación');
+  }
+}
+
+async function cargarLiquidacionesCliente() {
+  const container = document.getElementById('historial-liquidaciones');
+  if (!container) return;
+
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver tus liquidaciones</div></div>';
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    container.innerHTML = '<div class="empty"><div class="empty-text">No hay sesión activa</div></div>';
+    return;
+  }
+
+  try {
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(user.uid)
+      .get();
+
+    if (!clienteDoc.exists || !clienteDoc.data().historialLiquidaciones) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay liquidaciones registradas</div></div>';
+      return;
+    }
+
+    const liquidaciones = clienteDoc.data().historialLiquidaciones;
+    // Ordenar de más reciente a más antigua (suponiendo que el array tenga timestamp)
+    liquidaciones.sort((a, b) => {
+      const fechaA = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha);
+      const fechaB = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha);
+      return fechaB - fechaA;
+    });
+
+    let html = '<div style="margin-bottom:12px; font-weight:600;">Total entregado: ' + liquidaciones.reduce((sum, l) => sum + l.cantidad, 0) + ' unidades</div>';
+    html += liquidaciones.map(l => {
+      const fecha = l.fecha?.toDate ? formatDateLocal(l.fecha.toDate()) : (l.fecha || '');
+      const producto = l.producto ? `📦 ${escapeHtml(l.producto)}` : '';
+      return `
+        <div class="sale-card" style="cursor:default;">
+          <div class="sale-header">
+            <span class="sale-id">${fecha}</span>
+            <span class="sale-status pagado" style="background:var(--primary-soft); color:var(--primary);">${l.cantidad} uds.</span>
+          </div>
+          ${producto ? `<div style="font-size:14px; margin:4px 0;">${producto}</div>` : ''}
+          <div style="font-size:12px; color:var(--text3);">${escapeHtml(l.observaciones || 'Sin observaciones')}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Entregado por: ${escapeHtml(l.entregadoPor || 'admin')}</div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+  } catch (error) {
+    console.error('Error cargando liquidaciones:', error);
+    container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar liquidaciones</div></div>';
   }
 }
 
@@ -3934,7 +4192,7 @@ async function confirmarPago(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  EXPOSICIÓN DE FUNCIONES GLOBALES
+//  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
 const funcionesGlobales = {
   goScreen, filterChip, filterVentas, filterInv, filterClients,
@@ -3976,7 +4234,12 @@ const funcionesGlobales = {
   cerrarModalCategoria,
   guardarCategoria,
   editarCategoria,
-  toggleCategoriaEstado
+  toggleCategoriaEstado,
+  // Liquidación de líquido
+  abrirModalLiquidacion,
+  cerrarModalLiquidacion,
+  confirmarLiquidacion,
+  cargarLiquidacionesCliente
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

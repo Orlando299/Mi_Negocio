@@ -3138,8 +3138,11 @@ async function confirmarLiquidacion(clienteId) {
 
     // 3. Actualizar liquidoPendiente y agregar historial
     const nuevoTotal = liquidoPendiente - cantidad;
+    
+    // ✅ USAR string ISO en lugar de FieldValue.serverTimestamp()
+    const ahora = new Date().toISOString();
     const historialEntry = {
-      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      fecha: ahora,
       cantidad: cantidad,
       producto: productoNombre || null,
       observaciones: observaciones || 'Liquidación realizada',
@@ -3148,7 +3151,7 @@ async function confirmarLiquidacion(clienteId) {
 
     await clienteRef.update({
       'liquidoPendiente.total': nuevoTotal,
-      'liquidoPendiente.ultimaLiquidacion': firebase.firestore.FieldValue.serverTimestamp(),
+      'liquidoPendiente.ultimaLiquidacion': ahora,
       historialLiquidaciones: firebase.firestore.FieldValue.arrayUnion(historialEntry)
     });
 
@@ -3160,12 +3163,11 @@ async function confirmarLiquidacion(clienteId) {
       await prodRef.update({
         stock: firebase.firestore.FieldValue.increment(-cantidad)
       });
-      // También actualizar store local
+      // Actualizar store local
       const prodLocal = store.inventario.find(p => p.id === productoId);
       if (prodLocal) {
         prodLocal.stock -= cantidad;
         if (prodLocal.stock < 0) prodLocal.stock = 0;
-        // Actualizar estado si queda en 0
         if (prodLocal.stock === 0) prodLocal.estado = 'out';
         else if (prodLocal.stock <= (prodLocal.stockMin || 5)) prodLocal.estado = 'low';
         else prodLocal.estado = 'ok';
@@ -3177,13 +3179,13 @@ async function confirmarLiquidacion(clienteId) {
     if (index !== -1) {
       store.clientes[index].liquidoPendiente = {
         total: nuevoTotal,
-        ultimaLiquidacion: new Date().toISOString()
+        ultimaLiquidacion: ahora
       };
       if (!store.clientes[index].historialLiquidaciones) {
         store.clientes[index].historialLiquidaciones = [];
       }
       store.clientes[index].historialLiquidaciones.push({
-        fecha: new Date().toISOString(),
+        fecha: ahora,
         cantidad: cantidad,
         producto: productoNombre,
         observaciones: observaciones || 'Liquidación realizada',

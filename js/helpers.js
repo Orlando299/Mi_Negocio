@@ -21,7 +21,8 @@ function formatCurrency(value) {
 }
 
 function parseCurrency(str) {
-  if (!str) return 0;
+  if (str === null || str === undefined || str === '') return 0;
+  if (typeof str === 'number') return str; // ✅ Si ya es número, devolverlo directamente
   return parseFloat(str.replace(/[$,]/g, '')) || 0;
 }
 

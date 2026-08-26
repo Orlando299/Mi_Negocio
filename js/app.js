@@ -1918,11 +1918,18 @@ function renderProductoCard(p) {
 }
 
 function agregarAlCarrito(nombre) {
-  const producto = inventario.find(p => p.nombre === nombre);
-  if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
-  if (producto.estado === 'out') { showToast('⚠️ Producto agotado'); return; }
+  // Buscar producto ignorando mayúsculas y espacios
+  const producto = inventario.find(p => p.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
+  if (!producto) {
+    showToast('⚠️ Producto no encontrado');
+    return;
+  }
+  if (producto.estado === 'out') {
+    showToast('⚠️ Producto agotado');
+    return;
+  }
   
-  const itemEnCarrito = carrito.find(c => c.nombre === nombre);
+  const itemEnCarrito = carrito.find(c => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
   const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
   
   if (cantidadActual >= producto.stock) {
@@ -1933,12 +1940,12 @@ function agregarAlCarrito(nombre) {
   if (itemEnCarrito) {
     itemEnCarrito.cantidad++;
   } else {
-    carrito.push({ nombre: nombre, cantidad: 1, precio: parseCurrency(producto.precio) });
+    carrito.push({ nombre: producto.nombre, cantidad: 1, precio: parseCurrency(producto.precio) });
   }
   
   guardarCarrito();
   actualizarCarritoCount();
-  showToast(`➕ ${nombre} agregado al carrito`);
+  showToast(`➕ ${producto.nombre} agregado al carrito`);
 }
 
 function agregarAlCarritoConCantidad(nombre, cantidadInput) {
@@ -1948,9 +1955,11 @@ function agregarAlCarritoConCantidad(nombre, cantidadInput) {
     return;
   }
   
-  const producto = inventario.find(p => p.nombre === nombre);
+  // Buscar producto ignorando mayúsculas y espacios
+  const producto = inventario.find(p => p.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
   if (!producto) {
     showToast('⚠️ Producto no encontrado');
+    console.warn('🔍 Producto buscado:', nombre, '| Inventario:', inventario.map(p => p.nombre));
     return;
   }
   if (producto.estado === 'out') {
@@ -1958,7 +1967,7 @@ function agregarAlCarritoConCantidad(nombre, cantidadInput) {
     return;
   }
   
-  const itemEnCarrito = carrito.find(c => c.nombre === nombre);
+  const itemEnCarrito = carrito.find(c => c.nombre.trim().toLowerCase() === producto.nombre.trim().toLowerCase());
   const cantidadActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
   
   if (cantidadActual + cantidad > producto.stock) {
@@ -1969,12 +1978,12 @@ function agregarAlCarritoConCantidad(nombre, cantidadInput) {
   if (itemEnCarrito) {
     itemEnCarrito.cantidad += cantidad;
   } else {
-    carrito.push({ nombre: nombre, cantidad: cantidad, precio: parseCurrency(producto.precio) });
+    carrito.push({ nombre: producto.nombre, cantidad: cantidad, precio: parseCurrency(producto.precio) });
   }
   
   guardarCarrito();
   actualizarCarritoCount();
-  showToast(`➕ ${cantidad} x ${nombre} agregado al carrito`);
+  showToast(`➕ ${cantidad} x ${producto.nombre} agregado al carrito`);
 }
 
 function actualizarCarritoCount() {

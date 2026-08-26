@@ -1664,14 +1664,28 @@ async function cargarInventarioCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
   if (!empresaId) return false;
   
+  // Si ya hay inventario en memoria, no recargar
   if (store.inventario && store.inventario.length > 0) {
     return true;
   }
   
   try {
-    const data = await store.cargarInventarioPaginado(empresaId, 100);
-    store.inventario = data.items;
-    store.lastInventarioDoc = data.lastDoc;
+    // ✅ Cargar TODOS los productos (sin límite de paginación)
+    const snapshot = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('inventario')
+      .orderBy('nombre')
+      .get();
+    
+    const items = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+      items.push({ id: doc.id, ...data });
+    });
+    
+    store.inventario = items;
+    store.lastInventarioDoc = null; // No se usa paginación para cliente
     syncGlobals();
     return true;
   } catch (error) {

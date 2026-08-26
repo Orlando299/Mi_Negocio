@@ -688,9 +688,6 @@ async function regenerarCodigo() {
   }
 }
 
-// ================================================================
-//  FUNCIÓN goScreen MODIFICADA (con control de rol)
-// ================================================================
 function goScreen(name) {
   const userRol = sessionStorage.getItem('userRol');
 
@@ -747,7 +744,9 @@ function goScreen(name) {
     return;
   }
 
-  // Lógica admin
+  // ============================================================
+  //  VENTAS: recargar desde Firestore
+  // ============================================================
   if (name === 'ventas') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
@@ -770,12 +769,35 @@ function goScreen(name) {
     renderVentas('', filtroVentas, false);
   }
 
+  // ============================================================
+  //  INVENTARIO: recargar desde Firestore (MEJORADO)
+  // ============================================================
   if (name === 'inventario') {
-    store.lastInventarioDoc = null;
-    store.hasMoreInventario = true;
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      store.lastInventarioDoc = null;
+      store.hasMoreInventario = true;
+      filtroInv = 'todos'; // ✅ Forzar filtro para ver todos
+      setTimeout(async () => {
+        try {
+          const data = await store.cargarInventarioPaginado(empresaId, 100); // ✅ Cargar más
+          store.inventario = data.items;
+          store.lastInventarioDoc = data.lastDoc;
+          syncGlobals();
+          renderInv('', filtroInv, false);
+          updateKPIs();
+        } catch (error) {
+          console.warn('Error recargando inventario:', error);
+        }
+      }, 100);
+    }
+    filtroInv = 'todos';
     renderInv('', filtroInv, false);
   }
 
+  // ============================================================
+  //  CLIENTES: recargar desde Firestore
+  // ============================================================
   if (name === 'clientes') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
@@ -798,20 +820,28 @@ function goScreen(name) {
     renderClients('', filtroCli, false);
   }
 
+  // ============================================================
+  //  REPORTES
+  // ============================================================
   if (name === 'reportes') {
     renderReportes('semana');
   }
 
+  // ============================================================
+  //  CONFIGURACIÓN
+  // ============================================================
   if (name === 'configuracion') {
     actualizarResumenConfiguracion();
     setTimeout(() => {
       renderizarTablaProductos();
       renderizarTablaClientes();
       renderizarTablaVentas();
-      // Nueva pestaña categorías se carga bajo demanda
     }, 300);
   }
 
+  // ============================================================
+  //  DASHBOARD: actualizar KPIs y gráfico
+  // ============================================================
   if (name === 'dashboard') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId && sessionStorage.getItem('userRol') === 'admin') {

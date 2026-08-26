@@ -579,7 +579,7 @@ async function registrarClienteNuevo() {
 }
 
 async function loginUnificado() {
-  const email    = document.getElementById('login-email').value.trim();
+  const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
   if (!email || !password) {
     showToast('❌ Ingresa correo y contraseña');
@@ -589,25 +589,34 @@ async function loginUnificado() {
     const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
     const perfilDoc = await firebase.firestore()
-      .collection('userProfiles').doc(user.uid)
+      .collection('userProfiles')
+      .doc(user.uid)
       .get();
+    
     if (!perfilDoc.exists) {
-      showToast('❌ Perfil de usuario no encontrado');
+      // ❌ El perfil no existe: cerrar sesión y mostrar mensaje
       await firebase.auth().signOut();
+      showToast('❌ Tu perfil no está completo. Por favor, regístrate nuevamente.');
+      console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+      forzarCierreModal('modal-login', true);
       return;
     }
+    
     const perfil = perfilDoc.data();
     const empresaId = perfil.empresaId;
     const rol = perfil.rol;
     const nombre = perfil.nombre || email;
+    
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', rol);
+    
     forzarCierreModal('modal-login', true);
     forzarReflowBody();
     await new Promise(r => setTimeout(r, 100));
     setTimeout(() => { window.location.reload(); }, 300);
+    
   } catch (error) {
     console.error('❌ Error en login:', error);
     if (error.code === 'auth/user-not-found') {

@@ -159,7 +159,8 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
 }
 
 // ================================================================
-//  RENDERIZAR CLIENTES (con "Cargar más")
+//  RENDERIZAR CLIENTES (con "Cargar más") - MODIFICADO
+//  - Ahora incluye columna "Líquido pendiente" y botón de liquidación
 // ================================================================
 
 function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
@@ -195,6 +196,9 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
     const init = c.init || '??';
     const nombreJs = escapeJsString(c.nombre);
 
+    // === NUEVO: líquido pendiente ===
+    const liquidoPendiente = c.liquidoPendiente?.total || 0;
+
     return `
       <div class="client-card">
         <div class="client-avatar" style="background:${color}">${init}</div>
@@ -206,10 +210,16 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
         <div class="client-right">
           <div class="client-spent">${comprasEscapado}</div>
           <div class="client-orders">${c.pedidos} pedidos</div>
+          <!-- NUEVA LÍNEA: Líquido pendiente -->
+          <div class="client-liquido" style="font-size:12px; color:var(--primary); font-weight:600;">
+            📦 ${liquidoPendiente} uds.
+          </div>
         </div>
-        <div style="display:flex; gap:4px; align-items:center;">
+        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
           <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
           <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
+          <!-- NUEVO BOTÓN: Liquidar líquido -->
+          <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Liquidar líquido">📦</button>
         </div>
       </div>
     `;

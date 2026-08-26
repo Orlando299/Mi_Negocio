@@ -390,8 +390,10 @@ async function registrarClienteNuevo() {
     showToast('❌ La contraseña debe tener al menos 6 caracteres');
     return;
   }
-  // ✅ ELIMINADA la validación de longitud fija (codigo.length !== 6)
-  // Ahora se aceptan códigos de cualquier longitud (ej. MAYOR14)
+  if (codigo.length < 6) {
+    showToast('❌ El código debe tener al menos 6 caracteres (empresa + categoría)');
+    return;
+  }
 
   const btn = document.querySelector('#modal-registro-cliente .btn-primary');
   if (btn) btn.disabled = true;
@@ -409,17 +411,23 @@ async function registrarClienteNuevo() {
     await user.getIdToken(true);
     console.log('✅ Token actualizado');
 
-    // 🔍 Buscar empresa por código
-    console.log('🔍 Buscando empresa con código:', codigo);
+    // ============================================================
+    //  PASO: Extraer código de empresa (primeros 6 caracteres)
+    // ============================================================
+    const codigoEmpresa = codigo.substring(0, 6);
+    console.log('🔍 Código de empresa (primeros 6):', codigoEmpresa);
+
+    // 🔍 Buscar empresa por código de empresa
+    console.log('🔍 Buscando empresa con código:', codigoEmpresa);
     const empresasSnapshot = await firebase.firestore()
       .collection('empresas')
-      .where('codigoAcceso', '==', codigo)
+      .where('codigoAcceso', '==', codigoEmpresa)
       .get();
     console.log('📊 Resultados encontrados:', empresasSnapshot.size);
 
     if (empresasSnapshot.empty) {
       await user.delete();
-      showToast('❌ Código de invitación no válido');
+      showToast('❌ Código de empresa no válido');
       if (btn) btn.disabled = false;
       _registrando = false;
       return;
@@ -431,16 +439,18 @@ async function registrarClienteNuevo() {
     console.log('✅ Empresa encontrada:', empresaId);
 
     // ============================================================
-    //  PASO: Buscar categoría por código de invitación
+    //  PASO: Buscar categoría por código completo (o código de empresa si no hay más)
     // ============================================================
     let categoriaId = null;
     let aporteEspecial = null;
 
+    // Usar el código completo para buscar categoría
+    const codigoCategoria = codigo; // el código completo
     const categoriasSnapshot = await firebase.firestore()
       .collection('empresas')
       .doc(empresaId)
       .collection('categoriasClientes')
-      .where('codigoInvitacion', '==', codigo)
+      .where('codigoInvitacion', '==', codigoCategoria)
       .limit(1)
       .get();
 
@@ -455,6 +465,7 @@ async function registrarClienteNuevo() {
       };
       console.log('✅ Categoría encontrada por código:', categoriaData.nombre);
     } else {
+      // Si no se encuentra categoría con el código completo, usar la categoría por defecto
       const empresaDataTemp = empresaDoc.data();
       categoriaId = empresaDataTemp.categoriaPorDefectoId || null;
       if (categoriaId) {
@@ -539,7 +550,7 @@ async function registrarClienteNuevo() {
         },
         historialCambios: [
           {
-            fecha: new Date().toISOString(), // ✅ Usar string ISO en lugar de FieldValue
+            fecha: new Date().toISOString(),
             categoriaId: categoriaId,
             aporteValor: aporteEspecial.valor,
             motivo: 'Registro inicial'

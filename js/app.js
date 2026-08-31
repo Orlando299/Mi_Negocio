@@ -1662,34 +1662,34 @@ async function mostrarPanelCliente() {
 
 async function cargarInventarioCliente() {
   const empresaId = sessionStorage.getItem('empresaId');
-  if (!empresaId) return false;
-  
-  // Si ya hay inventario en memoria, no recargar
-  if (store.inventario && store.inventario.length > 0) {
-    return true;
+  if (!empresaId) {
+    console.warn('⚠️ No hay empresaId en sesión');
+    return false;
   }
-  
+
   try {
-    // ✅ Cargar TODOS los productos (sin límite de paginación)
+    // ✅ SIEMPRE recargar desde Firestore (sin condición de memoria)
+    console.log('🔄 Cargando inventario desde Firestore...');
     const snapshot = await firebase.firestore()
       .collection('empresas').doc(empresaId)
       .collection('inventario')
       .orderBy('nombre')
       .get();
-    
+
     const items = [];
     snapshot.forEach(doc => {
       const data = doc.data();
       if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
       items.push({ id: doc.id, ...data });
     });
-    
+
     store.inventario = items;
     store.lastInventarioDoc = null; // No se usa paginación para cliente
     syncGlobals();
+    console.log(`✅ Inventario cargado: ${items.length} productos`);
     return true;
   } catch (error) {
-    console.error('Error cargando inventario para cliente:', error);
+    console.error('❌ Error cargando inventario para cliente:', error);
     return false;
   }
 }

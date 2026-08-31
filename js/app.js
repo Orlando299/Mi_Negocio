@@ -1668,7 +1668,6 @@ async function cargarInventarioCliente() {
   }
 
   try {
-    // ✅ SIEMPRE recargar desde Firestore (sin condición de memoria)
     console.log('🔄 Cargando inventario desde Firestore...');
     const snapshot = await firebase.firestore()
       .collection('empresas').doc(empresaId)
@@ -1683,10 +1682,17 @@ async function cargarInventarioCliente() {
       items.push({ id: doc.id, ...data });
     });
 
+    // 🔥 Actualizar TODAS las variables que usa la aplicación
     store.inventario = items;
-    store.lastInventarioDoc = null; // No se usa paginación para cliente
+    store.lastInventarioDoc = null;
+    window.inventario = items;
+    // La variable global 'inventario' se actualiza en syncGlobals, pero la asignamos directamente por seguridad
+    inventario = items;
+    // También forzamos syncGlobals para sincronizar todo
     syncGlobals();
+
     console.log(`✅ Inventario cargado: ${items.length} productos`);
+    console.log('📦 Cervezas:', items.filter(p => p.cat === 'Cervezas Polar').map(p => p.nombre));
     return true;
   } catch (error) {
     console.error('❌ Error cargando inventario para cliente:', error);

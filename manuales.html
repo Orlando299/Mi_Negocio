@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manuales de Usuario - MiNegocio</title>
+    <!-- html2pdf (incluye jsPDF y html2canvas) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        /* ===== ENCABEZADO CON LOGO ===== */
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .logo-img {
+            height: 60px;
+            width: auto;
+            border-radius: 12px;
+            background: #f2f6fc;
+            padding: 6px 12px;
+            border: 1px solid #e6edf4;
+        }
+
+        .header-logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0b1a33;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .header-logo h1 small {
+            font-size: 15px;
+            font-weight: 400;
+            color: #5e6f8d;
+            margin-left: 8px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin: 16px 0 30px 0;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e6edf4;
+        }
+
+        .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            background: #00338D;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 2px 8px rgba(0, 51, 141, 0.2);
+        }
+
+        .btn-pdf:hover {
+            background: #002a75;
+        }
+
+        .btn-pdf:active {
+            transform: scale(0.96);
+        }
+
+        .btn-pdf.cliente {
+            background: #0b7b4b;
+            box-shadow: 0 2px 8px rgba(11, 123, 75, 0.2);
+        }
+
+        .btn-pdf.cliente:hover {
+            background: #09663d;
+        }
+
+        .manual-section {
+            background: #fafcff;
+            border-radius: 16px;
+            padding: 30px 30px 10px 30px;
+            margin-bottom: 40px;
+            border: 1px solid #e6edf4;
+        }
+
+        .manual-section h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0b1a33;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .manual-section h2 .badge {
+            font-size: 12px;
+            font-weight: 600;
+            background: #00338D;
+            color: white;
+            padding: 2px 14px;
+            border-radius: 20px;
+            letter-spacing: 0.3px;
+        }
+
+        .manual-section h2 .badge.cliente-badge {
+            background: #0b7b4b;
+        }
+
+        .manual-section .subtitle {
+            color: #5e6f8d;
+            font-size: 15px;
+            margin-bottom: 20px;
+        }
+
+        .manual-content {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1e2a41;
+        }
+
+        .manual-content h3 {
+            font-size: 17px;
+            font-weight: 600;
+            color: #0b1a33;
+            margin: 24px 0 10px 0;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #eef3f9;
+        }
+
+        .manual-content h3:first-of-type {
+            margin-top: 0;
+        }
+
+        .manual-content ul,
+        .manual-content ol {
+            padding-left: 22px;
+            margin: 8px 0 12px 0;
+        }
+
+        .manual-content li {
+            margin-bottom: 6px;
+        }
+
+        .manual-content .step {
+            font-weight: 600;
+            color: #00338D;
+        }
+
+        .manual-content .step.cliente-step {
+            color: #0b7b4b;
+        }
+
+        .manual-content .note {
+            background: #f2f6fc;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin: 16px 0;
+            border-left: 4px solid #00338D;
+            font-size: 14px;
+        }
+
+        .manual-content .note.cliente-note {
+            border-left-color: #0b7b4b;
+            background: #f0faf5;
+        }
+
+        .manual-content .icon {
+            font-size: 18px;
+            margin-right: 4px;
+        }
+
+        /* Sección Misión/Visión */
+        .mvv-section {
+            background: #eef3f9;
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            border-left: 5px solid #00338D;
+        }
+
+        .mvv-section.cliente-mvv {
+            border-left-color: #0b7b4b;
+            background: #ecf6f0;
+        }
+
+        .mvv-section h4 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0b1a33;
+            margin-bottom: 4px;
+        }
+
+        .mvv-section p {
+            margin-bottom: 10px;
+        }
+
+        .mvv-section ul {
+            padding-left: 22px;
+            margin: 6px 0 0 0;
+        }
+
+        .footer-note {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #7a8aa3;
+            text-align: center;
+            border-top: 1px solid #e6edf4;
+            padding-top: 20px;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 20px;
+            }
+            .manual-section {
+                padding: 20px 16px 10px 16px;
+            }
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn-pdf {
+                justify-content: center;
+            }
+            .header-logo h1 {
+                font-size: 22px;
+            }
+            .logo-img {
+                height: 44px;
+            }
+        }
+
+        /* Estilos para la impresión / PDF */
+        @media print {
+            .btn-pdf {
+                display: none !important;
+            }
+            .toolbar {
+                display: none !important;
+            }
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+                border-radius: 0;
+            }
+            .manual-section {
+                border: 1px solid #d0d9e6;
+                page-break-inside: avoid;
+            }
+            .mvv-section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="main-container">
+
+        <!-- ===== ENCABEZADO CON LOGO ===== -->
+        <div class="header-logo">
+            <!-- 
+                Reemplaza el src por la URL de tu logo o usa una imagen base64.
+                Si no tienes logo, puedes dejar este div con el texto "MiNegocio" en lugar de la imagen.
+            -->
+            <img class="logo-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3E%3Crect width='120' height='60' fill='%2300338D' rx='10'/%3E%3Ctext x='12' y='38' font-family='Arial, sans-serif' font-size='22' font-weight='700' fill='white'%3EMiNegocio%3C/text%3E%3Ctext x='12' y='52' font-family='Arial, sans-serif' font-size='10' fill='%2380b5ff'%3EGesti%C3%B3n Polar%3C/text%3E%3C/svg%3E" alt="Logo MiNegocio" />
+            <h1>
+                Manuales de Usuario
+                <small>MiNegocio — Gestión Inteligente</small>
+            </h1>
+        </div>
+
+        <!-- Barra de herramientas con botones PDF -->
+        <div class="toolbar">
+            <button class="btn-pdf" id="btn-pdf-franquiciado">📄 Descargar PDF (Franquiciado)</button>
+            <button class="btn-pdf cliente" id="btn-pdf-cliente">📄 Descargar PDF (Cliente)</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECCIÓN COMÚN: MISIÓN, VISIÓN Y OBJETIVOS                     -->
+        <!-- Aparece en ambos manuales (se duplica para cada PDF)         -->
+        <!-- ============================================================ -->
+
+        <!-- ============================================================ -->
+        <!-- MANUAL DEL FRANQUICIADO (ADMINISTRADOR)                        -->
+        <!-- ============================================================ -->
+        <div class="manual-section" id="manual-franquiciado">
+            <h2>
+                🏪 Manual del Franquiciado
+                <span class="badge">Administrador</span>
+            </h2>
+            <div class="subtitle">Guía para gestionar tu negocio Polar desde MiNegocio</div>
+
+            <div class="manual-content">
+
+                <!-- ===== MISIÓN, VISIÓN, OBJETIVOS ===== -->
+                <div class="mvv-section">
+                    <h4>🌐 Acerca de MiNegocio</h4>
+                    <p><strong>Misión:</strong> Empoderar a los franquiciados Polar y sus clientes con una herramienta digital integral que simplifique la gestión de ventas, inventario, envases y convenios comerciales, promoviendo la eficiencia y la transparencia en cada operación.</p>
+                    <p><strong>Visión:</strong> Ser la plataforma de gestión preferida por las franquicias Polar en Venezuela, conectando a franquiciados y clientes en un ecosistema confiable, ágil y adaptado a las necesidades del mercado local.</p>
+                    <p><strong>Objetivos de la plataforma:</strong></p>
+                    <ul>
+                        <li><strong>Optimizar la operación diaria</strong> del franquiciado, reduciendo tiempos en despacho, facturación y control de inventario.</li>
+                        <li><strong>Facilitar la comunicación</strong> y transparencia entre franquiciado y cliente mediante órdenes de pago, notificaciones y chat comunitario.</li>
+                        <li><strong>Automatizar el control de envases retornables</strong> y el cálculo de aportes especiales (líquido) para una gestión precisa y sin errores.</li>
+                        <li><strong>Ofrecer una experiencia de usuario</strong> intuitiva y móvil, accesible desde cualquier dispositivo.</li>
+                        <li><strong>Proporcionar reportes y estadísticas</strong> que permitan tomar decisiones basadas en datos reales.</li>
+                    </ul>
+                </div>
+
+                <h3>1. Registro y configuración inicial</h3>
+                <ul>
+                    <li><span class="step">1.1</span> Desde la pantalla de bienvenida, haz clic en <strong>“Crear mi franquicia”</strong>.</li>
+                    <li><span class="step">1.2</span> Completa los datos: nombre del negocio, tu nombre, correo y contraseña.</li>
+                    <li><span class="step">1.3</span> El sistema generará un <strong>código de acceso de 6 caracteres</strong> (ej. <code>ABCDEF</code>). Compártelo con tus clientes para que se registren en tu empresa.</li>
+                    <li><span class="step">1.4</span> Automáticamente se creará la categoría <strong>“Cliente Regular”</strong> con 0% de aporte especial.</li>
+                </ul>
+
+                <h3>2. Panel de control (Dashboard)</h3>
+                <ul>
+                    <li>Visualiza <strong>ventas del día</strong>, total de pedidos, productos con stock bajo y número de clientes.</li>
+                    <li>El gráfico de barras muestra las <strong>ventas de los últimos 7 días</strong>.</li>
+                    <li>La sección <strong>“Actividad reciente”</strong> lista los últimos movimientos.</li>
+                </ul>
+
+                <h3>3. Gestión de Inventario</h3>
+                <ul>
+                    <li><span class="step">3.1</span> Ve a la pestaña <strong>Inventario</strong>.</li>
+                    <li><span class="step">3.2</span> Haz clic en <strong>“＋ Agregar producto”</strong>.</li>
+                    <li><span class="step">3.3</span> Rellena: nombre, categoría (ej. <em>Cervezas Polar</em>), precio, stock inicial y stock mínimo.</li>
+                    <li><span class="step">3.4</span> Guarda. El producto aparecerá en el catálogo del cliente.</li>
+                    <li>Puedes <strong>editar</strong> (✏️) o <strong>eliminar</strong> (🗑️) productos desde la lista.</li>
+                </ul>
+
+                <h3>4. Gestión de Clientes</h3>
+                <ul>
+                    <li><span class="step">4.1</span> Ve a <strong>Clientes</strong> → verás todos los clientes registrados.</li>
+                    <li><span class="step">4.2</span> Puedes <strong>editar</strong> un cliente para cambiar su nombre, teléfono o etiqueta (VIP / Regular / Nuevo).</li>
+                    <li><span class="step">4.3</span> En la edición, también puedes <strong>asignar una categoría</strong> (porcentaje de aporte) o establecer un <strong>aporte personalizado</strong>.</li>
+                </ul>
+
+                <h3>5. Categorías de clientes (Convenios)</h3>
+                <ul>
+                    <li><span class="step">5.1</span> Ve a <strong>Configuración → Categorías</strong>.</li>
+                    <li><span class="step">5.2</span> Crea una nueva categoría con:
+                        <ul>
+                            <li><strong>Nombre</strong> (ej. “Mayorista Cervezas”).</li>
+                            <li><strong>Código de invitación</strong> (ej. <code>MAYOR14</code>). Este código lo usan los clientes al registrarse para obtener ese beneficio.</li>
+                            <li><strong>Porcentaje de aporte</strong> (ej. 14% para cervezas).</li>
+                        </ul>
+                    </li>
+                    <li><span class="step">5.3</span> Puedes editar o desactivar categorías. La categoría por defecto (sin código) no se puede desactivar.</li>
+                </ul>
+
+                <h3>6. Ventas y Despacho</h3>
+                <ul>
+                    <li><span class="step">6.1</span> Ve a <strong>Ventas</strong> para ver todos los pedidos.</li>
+                    <li><span class="step">6.2</span> Los pedidos de clientes aparecen con estado <strong>“Pendiente”</strong>.</li>
+                    <li><span class="step">6.3</span> Para despachar, haz clic en el botón <strong>📦</strong> (Despachar) sobre el pedido.</li>
+                    <li><span class="step">6.4</span> En el modal:
+                        <ul>
+                            <li>Verifica los productos y el total.</li>
+                            <li>Selecciona el <strong>método de pago</strong>.</li>
+                            <li>Controla los <strong>envases retornables</strong> (prestados / recuperados).</li>
+                            <li>Confirma el despacho.</li>
+                        </ul>
+                    </li>
+                    <li><span class="step">6.5</span> El sistema:
+                        <ul>
+                            <li>Descuenta el stock.</li>
+                            <li>Actualiza el saldo de envases del cliente.</li>
+                            <li>Genera un <strong>número de factura</strong> correlativo.</li>
+                            <li>Crea y descarga automáticamente la <strong>factura en PDF</strong> con el detalle de envases.</li>
+                        </ul>
+                    </li>
+                    <li>Los pedidos <strong>pagados</strong> se pueden facturar nuevamente con el botón 🧾.</li>
+                </ul>
+
+                <h3>7. Control de envases (vacíos retornables)</h3>
+                <ul>
+                    <li>Tipos predefinidos: <strong>botella 222 ml</strong>, <strong>botella 330 ml</strong> y <strong>botella 350 ml</strong>.</li>
+                    <li>Al despachar, ingresa las cantidades <em>prestadas</em> y <em>recuperadas</em>.</li>
+                    <li>El saldo del cliente y el stock de la empresa se actualizan automáticamente.</li>
+                    <li>El historial de envases se refleja en la factura.</li>
+                </ul>
+
+                <h3>8. Líquido especial (aporte por convenio)</h3>
+                <ul>
+                    <li>Cuando despachas un pedido que contiene <strong>cervezas Polar</strong>, el sistema calcula el <strong>líquido extra</strong> según la categoría del cliente.</li>
+                    <li>Ejemplo: si el cliente tiene 14% de aporte y compra 100 unidades, genera 14 unidades de líquido pendiente.</li>
+                    <li>El líquido se acumula en el perfil del cliente y puedes <strong>liquidarlo</strong> (entregarlo físicamente) desde la lista de clientes con el botón <strong>📦</strong> (Liquidar).</li>
+                    <li>Al liquidar, descuenta el saldo y queda registrado en el historial del cliente.</li>
+                </ul>
+
+                <h3>9. Configuración de Pagos</h3>
+                <ul>
+                    <li>Ve a <strong>Configuración → Pagos</strong>.</li>
+                    <li>Registra tus datos de <strong>Pago Móvil</strong>, <strong>Zelle</strong> y <strong>Transferencia</strong>.</li>
+                    <li>Estos datos se mostrarán al cliente en la <strong>Orden de pago</strong> cuando realice un pedido.</li>
+                </ul>
+
+                <h3>10. Reportes</h3>
+                <ul>
+                    <li>La pestaña <strong>Reportes</strong> muestra resúmenes financieros por semana, mes o año.</li>
+                    <li>Visualiza el ticket promedio, productos más vendidos y clientes top.</li>
+                </ul>
+
+                <div class="note">
+                    <strong>💡 Consejo:</strong> Mantén actualizado tu inventario y revisa periódicamente los pedidos pendientes para ofrecer un mejor servicio a tus clientes.
+                </div>
+
+            </div><!-- /manual-content -->
+        </div><!-- /manual-section -->
+
+        <!-- ============================================================ -->
+        <!-- MANUAL DEL CLIENTE                                              -->
+        <!-- ============================================================ -->
+        <div class="manual-section" id="manual-cliente">
+            <h2>
+                🛒 Manual del Cliente
+                <span class="badge cliente-badge">Usuario</span>
+            </h2>
+            <div class="subtitle">Guía para realizar pedidos y gestionar tu cuenta desde MiNegocio</div>
+
+            <div class="manual-content">
+
+                <!-- ===== MISIÓN, VISIÓN, OBJETIVOS (para cliente) ===== -->
+                <div class="mvv-section cliente-mvv">
+                    <h4>🌐 Acerca de MiNegocio</h4>
+                    <p><strong>Misión:</strong> Empoderar a los franquiciados Polar y sus clientes con una herramienta digital integral que simplifique la gestión de ventas, inventario, envases y convenios comerciales, promoviendo la eficiencia y la transparencia en cada operación.</p>
+                    <p><strong>Visión:</strong> Ser la plataforma de gestión preferida por las franquicias Polar en Venezuela, conectando a franquiciados y clientes en un ecosistema confiable, ágil y adaptado a las necesidades del mercado local.</p>
+                    <p><strong>Objetivos de la plataforma:</strong></p>
+                    <ul>
+                        <li><strong>Optimizar la operación diaria</strong> del franquiciado, reduciendo tiempos en despacho, facturación y control de inventario.</li>
+                        <li><strong>Facilitar la comunicación</strong> y transparencia entre franquiciado y cliente mediante órdenes de pago, notificaciones y chat comunitario.</li>
+                        <li><strong>Automatizar el control de envases retornables</strong> y el cálculo de aportes especiales (líquido) para una gestión precisa y sin errores.</li>
+                        <li><strong>Ofrecer una experiencia de usuario</strong> intuitiva y móvil, accesible desde cualquier dispositivo.</li>
+                        <li><strong>Proporcionar reportes y estadísticas</strong> que permitan tomar decisiones basadas en datos reales.</li>
+                    </ul>
+                </div>
+
+                <h3>1. Registro y acceso</h3>
+                <ul>
+                    <li><span class="step cliente-step">1.1</span> En la pantalla de bienvenida, elige <strong>“Unirme a la franquicia”</strong>.</li>
+                    <li><span class="step cliente-step">1.2</span> Completa tus datos: nombre, correo, contraseña y el <strong>código de invitación</strong> que te ha proporcionado el franquiciado.</li>
+                    <li><span class="step cliente-step">1.3</span> El código puede ser:
+                        <ul>
+                            <li>El código de acceso de la empresa (6 caracteres) → te asignará la categoría por defecto.</li>
+                            <li>Un código de categoría (ej. <code>MAYOR14</code>) → te asignará ese convenio especial.</li>
+                        </ul>
+                    </li>
+                    <li><span class="step cliente-step">1.4</span> Si ya tienes cuenta, haz clic en <strong>“Inicia sesión”</strong>.</li>
+                </ul>
+
+                <h3>2. Mi panel (Bienvenida)</h3>
+                <ul>
+                    <li>Al ingresar, verás tu nombre de bienvenida y el <strong>catálogo de productos</strong> disponibles.</li>
+                    <li>En la parte superior, tienes acceso a las secciones: <strong>Catálogo</strong>, <strong>Chat</strong>, <strong>Alertas</strong>, <strong>Pedidos</strong> y <strong>Liquidaciones</strong>.</li>
+                </ul>
+
+                <h3>3. Realizar un pedido</h3>
+                <ul>
+                    <li><span class="step cliente-step">3.1</span> Navega por el catálogo. Usa los filtros para ver <em>Cervezas Polar</em>, <em>Alimentos Polar</em> u <em>Otros</em>.</li>
+                    <li><span class="step cliente-step">3.2</span> Cada producto muestra su stock y precio. Puedes elegir la cantidad deseada con los botones <strong>➕</strong> y <strong>➖</strong>.</li>
+                    <li><span class="step cliente-step">3.3</span> Haz clic en <strong>“Agregar”</strong> para añadir el producto al carrito.</li>
+                    <li><span class="step cliente-step">3.4</span> Para ver tu carrito, haz clic en el enlace <strong>“Carrito (n)”</strong> en la parte superior del catálogo.</li>
+                    <li><span class="step cliente-step">3.5</span> En el carrito, puedes ajustar cantidades, eliminar productos o vaciarlo por completo.</li>
+                    <li><span class="step cliente-step">3.6</span> Confirma el pedido con el botón <strong>“Confirmar pedido”</strong>.</li>
+                    <li><span class="step cliente-step">3.7</span> Se generará una <strong>Orden de pago</strong> con los datos del franquiciado para que realices el pago (Pago Móvil, Zelle o Transferencia).</li>
+                    <li><span class="step cliente-step">3.8</span> Después de pagar, haz clic en <strong>“✅ Ya pagué - Notificar al franquiciado”</strong>.</li>
+                </ul>
+
+                <h3>4. Historial de pedidos</h3>
+                <ul>
+                    <li>Ve a la pestaña <strong>Pedidos</strong>.</li>
+                    <li>Verás todos tus pedidos con fecha, estado (pendiente / pagado / cancelado) y total.</li>
+                    <li>Puedes dar seguimiento a cada pedido desde aquí.</li>
+                </ul>
+
+                <h3>5. Chat comunitario</h3>
+                <ul>
+                    <li>La pestaña <strong>Chat</strong> te permite comunicarte con otros clientes de la misma franquicia.</li>
+                    <li>Escribe un mensaje y haz clic en “Enviar”. Los mensajes son públicos dentro de la empresa.</li>
+                    <li>Es útil para compartir información sobre promociones, disponibilidad, etc.</li>
+                </ul>
+
+                <h3>6. Alertas de seguridad</h3>
+                <ul>
+                    <li>En la pestaña <strong>Alertas</strong> puedes reportar incidentes en tu zona (fiscalización, riña, operativo policial, corte de luz, etc.).</li>
+                    <li>Al enviar una alerta, otros clientes y el franquiciado podrán verla y confirmarla o marcarla como falsa.</li>
+                    <li>Las alertas ayudan a mantener informada a la comunidad.</li>
+                </ul>
+
+                <h3>7. Liquidaciones de líquido</h3>
+                <ul>
+                    <li>Si tu franquiciado te ha asignado un convenio de aporte especial (ej. 14% en cervezas), el líquido extra generado por tus compras se acumula.</li>
+                    <li>En la pestaña <strong>Liquidaciones</strong> puedes ver el <strong>total entregado</strong> y el historial de cada liquidación.</li>
+                    <li>Cuando el franquiciado te entregue el líquido físicamente, lo registrará en el sistema y aparecerá en este historial.</li>
+                </ul>
+
+                <div class="note cliente-note">
+                    <strong>💡 Consejo:</strong> Mantente atento a las notificaciones del franquiciado y revisa periódicamente tus pedidos y liquidaciones para un mejor control.
+                </div>
+
+            </div><!-- /manual-content -->
+        </div><!-- /manual-section -->
+
+        <div class="footer-note">
+            © 2026 MiNegocio · Manual de usuario v1.0 · Para cualquier duda, contacta a tu franquiciado.
+        </div>
+
+    </div><!-- /container -->
+
+
+    <!-- ============================================================ -->
+    <!-- SCRIPTS PARA GENERAR PDF                                       -->
+    <!-- ============================================================ -->
+    <script>
+        (function() {
+
+            // Configuración común para html2pdf
+            const PDF_OPTS = {
+                margin:        [0.5, 0.5, 0.5, 0.5], // top, right, bottom, left (en unidades)
+                filename:      'manual.pdf',
+                image:         { type: 'jpeg', quality: 0.98 },
+                html2canvas:   { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:         { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak:     { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            /**
+             * Exporta una sección del DOM a PDF
+             * @param {string} elementId  - ID del elemento a exportar
+             * @param {string} filename   - Nombre del archivo PDF
+             */
+            function exportarPDF(elementId, filename) {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    alert('No se encontró el contenido para exportar.');
+                    return;
+                }
+
+                // Clonamos el nodo para no interferir con la visualización
+                const clon = element.cloneNode(true);
+                // Eliminamos cualquier botón que pueda haber dentro del clon (por si acaso)
+                const botones = clon.querySelectorAll('.btn-pdf');
+                botones.forEach(b => b.remove());
+
+                // Creamos un contenedor temporal para el PDF
+                const wrapper = document.createElement('div');
+                wrapper.style.padding = '20px';
+                wrapper.style.background = 'white';
+                wrapper.style.fontFamily = "'Segoe UI', Roboto, sans-serif";
+                wrapper.appendChild(clon);
+
+                // Añadimos un pequeño título adicional para el PDF
+                const titulo = document.createElement('div');
+                titulo.style.textAlign = 'center';
+                titulo.style.marginBottom = '20px';
+                titulo.style.fontSize = '22px';
+                titulo.style.fontWeight = '700';
+                titulo.style.color = '#00338D';
+                // Usamos el texto del encabezado principal (o un fallback)
+                const headerText = document.querySelector('.header-logo h1')?.textContent?.trim() || 'MiNegocio - Manual';
+                titulo.textContent = headerText;
+                wrapper.prepend(titulo);
+
+                // Opciones específicas para este PDF
+                const opts = {
+                    ...PDF_OPTS,
+                    filename: filename,
+                };
+
+                html2pdf()
+                    .set(opts)
+                    .from(wrapper)
+                    .save()
+                    .catch(function(error) {
+                        console.error('Error al generar PDF:', error);
+                        alert('Ocurrió un error al generar el PDF. Revisa la consola para más detalles.');
+                    });
+            }
+
+            // Asignar eventos a los botones
+            document.getElementById('btn-pdf-franquiciado').addEventListener('click', function(e) {
+                exportarPDF('manual-franquiciado', 'Manual_Franquiciado_MiNegocio.pdf');
+            });
+
+            document.getElementById('btn-pdf-cliente').addEventListener('click', function(e) {
+                exportarPDF('manual-cliente', 'Manual_Cliente_MiNegocio.pdf');
+            });
+
+        })();
+    </script>
+
+</body>
+</html>

@@ -200,11 +200,6 @@
             background: #f0faf5;
         }
 
-        .manual-content .icon {
-            font-size: 18px;
-            margin-right: 4px;
-        }
-
         /* Sección Misión/Visión */
         .mvv-section {
             background: #eef3f9;
@@ -297,24 +292,22 @@
 
     <div class="container" id="main-container">
 
-        <!-- ===== ENCABEZADO CON LOGO ===== -->
-       <div class="header-logo">
-    <img class="logo-img" src="https://orlando299.github.io/Mi_Negocio/icon-128x128.png" alt="Logo MiNegocio" crossorigin="anonymous" />
-    <h1>
-        Manuales de Usuario
-        <small>MiNegocio — Gestión Inteligente</small>
-    </h1>
-</div>
+        <!-- ===== ENCABEZADO CON LOGO (Base64) ===== -->
+        <div class="header-logo">
+            <!-- Logo incrustado en Base64 -->
+            <img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAEbklEQVR4nO2dSUhVURjHv/fSJiSlskEQxeaQxAwaF9LCAgvEiMqoKIKoMDSXLdq0CkqRija1qFAzglw0WQS1qUXvpWBZi0aibDJKbHgNr8Xj3nz33fkM37nvfb/duYPnO////Z87qReAIAiCIAiCIKQTwi7ANRVH4p73iTQpPz51C/QjuBMKGqJOQSIEd0IBQ9ALQBHeCKIReAaoILwRBCPkG6Ci8EYkGiHPgCAIb0SCEWHRHQBAMMUHkFK3eAOCKr6G4PrFRSzowpshYEoSk4B0FB9AyLj4G5Cu4mtwHh9fA9JdfA2O4+RnQKaIr8FpvHwMyDTxNTiMm92ATBVfg3H8cm7ECEvYDMj0o1+DQQf/BpD4yfjUw58BJL45PnShcwAy3g2go98ej/pQApDxZgAd/e7woBMlABn3BtDR7w2XelECkHFnAB39/nChGyUAGTIAGTIAGWcDaP5nw0E/SgAyZAAyZAAy9gbQ/M8HGx0pAchkie4gfn8/0/7vBmNM+0+dOJppfwCA0KKjzD/DCkoAMmQAMmQAMmQAMsINYD2BTas6htq/yBMwACUAHTIAGTIAGSkG+J1Htf38nge0/Vj7FwklABl7Azj+WabXo8m4vdcUGLdn7Z8JGx2lJsDtoKy2c2uC1Xas/YtA+hTkNDin9U4mOK1n7Z83zlMM4zsB1qehVpg9JeXx5NMMZlNspiDnx9GRppCKL2ZEic0dh/MoXQUhQwYgI/yNmFeOdfZA/eFbpusO7VkOB3Ystt1/28FrcObyI9N1V1trYfWyYtYSueIuAQr8d0EAgOOdPRD79cdy/cCnYejofiKxIgdc6BaoKejtx2E4f8Na4BMXem0NUhH3BiiSgpa2qOnyH7HfcPJir+RqbHCpV6ASAAAQffwe7kRfpyw/d6UfPnz+jlARG94MQEpBQX5OUrulPTUFxmQY95GKB50CkYCayhlJgnbdfgrP33zR2933XsLDZ5/09rIFBVA+Z4rUGv3i3QCEFGRnjYK968v09t+/cWjteKC3m9siSds31C2UVlsKHvUJRAIAAHatK4NxY/7ftpy61Adfh2PQ/3wQrt99oS8vmj4BalfOQqjQH/4MQEjBpNyxsLV6vt4e+haD01190NIehfiIJ1X1G8phVBjpgs2HLv4TgGBCQ91CCI3otbktAmdH3PXmjM+GnTWlsstK4FMPtilIsglziyfCqqXFevvVwBB8//lbb29fWwq5OWNklpSAQYfAnAM0GusqTJeHwyHYt7FccjXssBsgOQVVS4pgfsmklOVrVpTAzMI8maUkYBw/nwRINqFhU+plZuNmhEtPDuPmNwVJNGFL9TyYnDdOb5fNzofKikJZ3SfgNF6+7wMkvb4cOzoLPtzcLboba3j+ug6vH5SEgu+QucE56WKughR5dM0dAeMSL1Q6pEHgASX+PiDoaRBcv5wbsaCaIKFu+o6YGWn5HTEjKhqREV/SM6KCERn5LUkj9DVVxaDvCStGmn5RmyAIgiAIIjP5B2SjNyHWor0qAAAAAElFTkSuQmCC" alt="Logo MiNegocio" />
+
+            <h1>
+                Manuales de Usuario
+                <small>MiNegocio — Gestión Inteligente</small>
+            </h1>
+        </div>
+
         <!-- Barra de herramientas con botones PDF -->
         <div class="toolbar">
             <button class="btn-pdf" id="btn-pdf-franquiciado">📄 Descargar PDF (Franquiciado)</button>
             <button class="btn-pdf cliente" id="btn-pdf-cliente">📄 Descargar PDF (Cliente)</button>
         </div>
-
-        <!-- ============================================================ -->
-        <!-- SECCIÓN COMÚN: MISIÓN, VISIÓN Y OBJETIVOS                     -->
-        <!-- Aparece en ambos manuales (se duplica para cada PDF)         -->
-        <!-- ============================================================ -->
 
         <!-- ============================================================ -->
         <!-- MANUAL DEL FRANQUICIADO (ADMINISTRADOR)                        -->

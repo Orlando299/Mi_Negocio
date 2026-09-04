@@ -91,6 +91,38 @@
   </div>
 </div>
 
+  <!-- ==================== MODAL: REGISTRO EMPLEADO (SOLO DUEÑO) ==================== -->
+<div class="modal-overlay" id="modal-registro-empleado" onclick="cerrarModalEmpleado(event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">👤 Registrar empleado</div>
+    <div id="modal-body-registro-empleado">
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" id="reg-emp-nombre" placeholder="Ej: Carlos Vendedor">
+      </div>
+      <div class="field">
+        <label>Correo electrónico</label>
+        <input type="email" id="reg-emp-email" placeholder="empleado@franquicia.com">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="reg-emp-pass" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="field">
+        <label>Rol</label>
+        <select id="reg-emp-rol">
+          <option value="admin">Administrador / Vendedor</option>
+          <!-- Por ahora solo admin, pero puedes añadir más roles luego -->
+        </select>
+        <small style="color:var(--text3); font-size:11px;">Los empleados tienen acceso total al sistema, pero sin IA</small>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="registrarEmpleado()">Registrar empleado</button>
+      <button type="button" class="btn btn-outline" onclick="cerrarModalEmpleado()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== MODAL: LOGIN UNIFICADO ==================== -->
 <div class="modal-overlay" id="modal-login" onclick="cerrarModalLogin(event)">
   <div class="modal-sheet">

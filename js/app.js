@@ -683,6 +683,189 @@ async function registrarEmpleado() {
   }
 }
 
+// ================================================================
+//  CARGAR LISTA DE EMPLEADOS (para la tabla en Configuración)
+// ================================================================
+async function cargarUsuariosEmpresa() {
+  const tbody = document.getElementById('tabla-usuarios');
+  if (!tbody) return;
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay sesión activa</td></tr>';
+    return;
+  }
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .where('esPropietario', '==', false) // Solo empleados, no el dueño
+      .orderBy('nombre')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay empleados registrados</td></tr>';
+      return;
+    }
+
+    let html = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const uid = doc.id;
+      const nombre = escapeHtml(data.nombre || 'Sin nombre');
+      const email = escapeHtml(data.email || '');
+      const rol = escapeHtml(data.rol || 'admin');
+      const activo = data.activo !== false;
+      const estadoClase = activo ? 'activa' : 'inactiva';
+      const estadoTexto = activo ? 'Activo' : 'Inactivo';
+
+      html += `
+        <tr>
+          <td><strong>${nombre}</strong></td>
+          <td>${email}</td>
+          <td>${rol}</td>
+          <td><span class="categoria-estado ${estadoClase}">${estadoTexto}</span></td>
+          <td>
+            <div class="config-actions-cell">
+              <button class="btn-sm btn-sm-toggle ${estadoClase}" onclick="toggleUsuarioEstado('${uid}')">
+                ${activo ? 'Desactivar' : 'Activar'}
+              </button>
+              <button class="btn-sm btn-sm-delete" onclick="eliminarUsuario('${uid}')">Eliminar</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+
+    // Actualizar el contador en el resumen de configuración
+    actualizarResumenConfiguracion();
+
+  } catch (error) {
+    console.error('Error cargando empleados:', error);
+    tbody.innerHTML = `<tr><td colspan="5" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+// ================================================================
+//  CAMBIAR ESTADO (ACTIVO/INACTIVO) DE UN EMPLEADO
+// ================================================================
+async function toggleUsuarioEstado(uid) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const esPropietario = sessionStorage.getItem('esPropietario') === 'true';
+  if (!esPropietario) {
+    showToast('⚠️ Solo el dueño puede modificar empleados');
+    return;
+  }
+
+  try {
+    const userRef = firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .doc(uid);
+
+    const doc = await userRef.get();
+    if (!doc.exists) {
+      showToast('⚠️ Usuario no encontrado');
+      return;
+    }
+
+    const data = doc.data();
+    const nuevoEstado = !(data.activo !== false);
+
+    await userRef.update({
+      activo: nuevoEstado
+    });
+
+    showToast(nuevoEstado ? '✅ Empleado activado' : '✅ Empleado desactivado');
+    cargarUsuariosEmpresa();
+  } catch (error) {
+    handleError(error, 'Error cambiando estado del empleado');
+  }
+}
+
+// ================================================================
+//  ELIMINAR EMPLEADO (SOLO EL DUEÑO)
+// ================================================================
+async function eliminarUsuario(uid) {
+  const esPropietario = sessionStorage.getItem('esPropietario') === 'true';
+  if (!esPropietario) {
+    showToast('⚠️ Solo el dueño puede eliminar empleados');
+    return;
+  }
+
+  if (!confirm('¿Seguro que deseas eliminar este empleado? Esta acción no se puede deshacer.')) {
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    // 1. Eliminar de la subcolección 'usuarios'
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .doc(uid)
+      .delete();
+
+    // 2. Eliminar de 'userProfiles'
+    await firebase.firestore()
+      .collection('userProfiles')
+      .doc(uid)
+      .delete();
+
+    // 3. Decrementar contador de empleados
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .update({
+        totalEmpleados: firebase.firestore.FieldValue.increment(-1)
+      });
+
+    showToast('🗑️ Empleado eliminado');
+    cargarUsuariosEmpresa();
+    actualizarResumenConfiguracion();
+  } catch (error) {
+    handleError(error, 'Error al eliminar empleado');
+  }
+}
+
+// ================================================================
+//  ABRIR MODAL DE REGISTRO DE EMPLEADO
+// ================================================================
+function abrirModalEmpleado() {
+  // Limpiar campos
+  document.getElementById('reg-emp-nombre').value = '';
+  document.getElementById('reg-emp-email').value = '';
+  document.getElementById('reg-emp-pass').value = '';
+  document.getElementById('reg-emp-rol').value = 'admin';
+  
+  abrirModalId('modal-registro-empleado');
+}
+
+// ================================================================
+//  CERRAR MODAL DE REGISTRO DE EMPLEADO
+// ================================================================
+function cerrarModalRegistroEmpleado(e) {
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-registro-empleado');
+}
+
+
+
+
+
 async function loginUnificado() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
@@ -2418,6 +2601,7 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'clientes') renderizarTablaClientes();
   if (tabId === 'ventas') renderizarTablaVentas();
   if (tabId === 'categorias') cargarCategorias();  // <-- NUEVO
+  if (tabId === 'usuarios') cargarUsuariosEmpresa();
 }
 
 function renderizarTablaProductos() {
@@ -2493,15 +2677,20 @@ function renderizarTablaVentas() {
   `).join('');
 }
 
+// ================================================================
+//  ACTUALIZAR RESUMEN EN CONFIGURACIÓN (con contador de empleados)
+// ================================================================
 function actualizarResumenConfiguracion() {
   const productos = window.inventario || [];
   const clientes = window.clientes || [];
   const ventas = window.ventas || [];
   const totalVentas = ventas.reduce((sum, v) => sum + parseCurrency(v.total), 0);
+  
   document.getElementById('resumen-productos').textContent = productos.length;
   document.getElementById('resumen-clientes').textContent = clientes.length;
   document.getElementById('resumen-ventas').textContent = ventas.length;
   document.getElementById('resumen-total-ventas').textContent = formatCurrency(totalVentas);
+  
   const empresaEl = document.getElementById('config-empresa-nombre');
   const usuarioEl = document.getElementById('config-usuario-nombre');
   if (empresaEl) {
@@ -2511,6 +2700,27 @@ function actualizarResumenConfiguracion() {
   if (usuarioEl) {
     const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail') || 'Usuario';
     usuarioEl.textContent = `👤 ${nombre}`;
+  }
+
+  // 🔽 NUEVO: Mostrar total de empleados
+  const empleadosEl = document.getElementById('resumen-empleados');
+  if (empleadosEl) {
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      firebase.firestore()
+        .collection('empresas')
+        .doc(empresaId)
+        .get()
+        .then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            empleadosEl.textContent = data.totalEmpleados || 0;
+          }
+        })
+        .catch(() => {
+          empleadosEl.textContent = '?';
+        });
+    }
   }
 }
 
@@ -4395,7 +4605,8 @@ const funcionesGlobales = {
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
-  registrarEmpresa, registrarClienteNuevo, loginUnificado,registrarEmpleado,
+  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa,
+  toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,

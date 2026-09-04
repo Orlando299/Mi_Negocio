@@ -678,5 +678,29 @@
   }
 </script>
 
+  <!-- ==================== CHAT FLOTANTE DEL AGENTE ==================== -->
+<!-- Botón para abrir/cerrar el chat -->
+<button id="chat-toggle" class="fab" style="bottom: calc(var(--bottom-h) + 80px); right: calc(50% - 215px + 16px); background: #00338D; font-size: 24px; z-index: 150; width: 56px; height: 56px; border-radius: 50%; border: none; color: white; box-shadow: 0 4px 16px rgba(0,51,141,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="toggleAgentPanel()">
+  💬
+</button>
+
+<!-- Panel del chat (oculto por defecto) -->
+<div id="agent-panel" style="display:none; position:fixed; bottom:150px; right:16px; width:340px; max-height:450px; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); padding:16px; z-index:160; overflow-y:auto; border:1px solid var(--border);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <strong style="font-size:16px;">🤖 PolarBot</strong>
+    <button onclick="toggleAgentPanel()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text2);">✕</button>
+  </div>
+  <div id="agent-response" style="background:var(--bg); padding:12px; border-radius:8px; min-height:60px; margin-bottom:8px; font-size:14px; white-space:pre-wrap; color:var(--text); border:1px solid var(--border);">
+    ℹ️ Escribe un comando.
+  </div>
+  <div style="display:flex; gap:8px;">
+    <input type="text" id="agent-input" placeholder="Ej: ventas hoy" style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:14px;">
+    <button onclick="sendAgentCommand()" class="btn btn-primary" style="width:auto; padding:8px 16px; height:auto; font-size:14px;">Enviar</button>
+  </div>
+  <div style="margin-top:8px; font-size:11px; color:var(--text3); text-align:center;">
+    <span id="agent-status">● Conectado</span>
+  </div>
+</div>
+
 </body>
 </html>

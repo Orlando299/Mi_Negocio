@@ -265,7 +265,23 @@ async function registrarEmpresa() {
     const user = userCredential.user;
 
     // ============================================================
-    //  PASO 2: Crear el perfil del usuario (con empresaId temporal)
+    //  PASO 2: Crear la empresa (primero para obtener el ID)
+    // ============================================================
+    const codigoAcceso = generarCodigoAcceso();
+    const empresaRef = await firebase.firestore().collection('empresas').add({
+      nombre: nombreNegocio,
+      codigoAcceso: codigoAcceso,
+      creadoPor: user.uid,
+      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp(),
+      // 🔽 NUEVO: Contador de empleados (inicia en 0)
+      totalEmpleados: 0,
+      // 🔽 NUEVO: Plan base (por defecto "basico")
+      plan: 'basico'
+    });
+    const empresaId = empresaRef.id;
+
+    // ============================================================
+    //  PASO 3: Crear el perfil del usuario (con esPropietario: true)
     // ============================================================
     await firebase.firestore()
       .collection('userProfiles')
@@ -275,34 +291,14 @@ async function registrarEmpresa() {
         nombre: nombreAdmin,
         email: email,
         rol: 'admin',
-        empresaId: 'temp_' + Date.now(),
+        empresaId: empresaId,
+        // 🔽 NUEVO: Flag de propietario (solo el dueño tiene true)
+        esPropietario: true,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
 
     // ============================================================
-    //  PASO 3: Crear la empresa
-    // ============================================================
-    const codigoAcceso = generarCodigoAcceso();
-    const empresaRef = await firebase.firestore().collection('empresas').add({
-      nombre: nombreNegocio,
-      codigoAcceso: codigoAcceso,
-      creadoPor: user.uid,
-      fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    const empresaId = empresaRef.id;
-
-    // ============================================================
-    //  PASO 4: Actualizar el perfil con el empresaId real
-    // ============================================================
-    await firebase.firestore()
-      .collection('userProfiles')
-      .doc(user.uid)
-      .update({
-        empresaId: empresaId
-      });
-
-    // ============================================================
-    //  PASO 5: Crear el usuario en la subcolección de la empresa
+    //  PASO 4: Crear el usuario en la subcolección de la empresa
     // ============================================================
     await firebase.firestore()
       .collection('empresas')
@@ -314,12 +310,12 @@ async function registrarEmpresa() {
         nombre: nombreAdmin,
         email: email,
         rol: 'admin',
+        esPropietario: true, // 🔽 También en la subcolección
         fcmToken: ''
       });
 
     // ============================================================
-    //  PASO 6: Crear categoría por defecto "Cliente Regular"
-    //  (AHORA después de que el perfil tenga empresaId real)
+    //  PASO 5: Crear categoría por defecto "Cliente Regular"
     // ============================================================
     console.log('📌 Creando categoría por defecto...');
     const categoriaDefault = {
@@ -351,12 +347,13 @@ async function registrarEmpresa() {
     console.log('✅ Categoría por defecto creada:', categoriaDefaultId);
 
     // ============================================================
-    //  PASO 7: Guardar sesión y redirigir
+    //  PASO 6: Guardar sesión y redirigir
     // ============================================================
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
+    sessionStorage.setItem('esPropietario', 'true'); // 🔽 NUEVO
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
     setTimeout(() => { window.location.reload(); }, 1500);
@@ -584,6 +581,105 @@ async function registrarClienteNuevo() {
     if (btn) btn.disabled = false;
   } finally {
     _registrando = false;
+  }
+}
+
+// ================================================================
+//  REGISTRAR EMPLEADO (SOLO PARA EL PROPIETARIO)
+// ================================================================
+async function registrarEmpleado() {
+  // Verificar que el usuario actual es propietario
+  const esPropietario = sessionStorage.getItem('esPropietario') === 'true';
+  if (!esPropietario) {
+    showToast('⚠️ Solo el propietario puede registrar empleados');
+    return;
+  }
+
+  const nombre = document.getElementById('reg-emp-nombre').value.trim();
+  const email = document.getElementById('reg-emp-email').value.trim();
+  const password = document.getElementById('reg-emp-pass').value;
+  const rol = document.getElementById('reg-emp-rol').value; // 'admin' o 'vendedor' (por ahora solo admin)
+
+  if (!nombre || !email || !password) {
+    showToast('❌ Completa todos los campos');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('❌ La contraseña debe tener al menos 6 caracteres');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const btn = document.querySelector('#modal-registro-empleado .btn-primary');
+  if (btn) btn.disabled = true;
+
+  try {
+    // 1. Crear usuario en Firebase Auth
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // 2. Crear perfil en userProfiles (con esPropietario: false)
+    await firebase.firestore()
+      .collection('userProfiles')
+      .doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombre,
+        email: email,
+        rol: 'admin', // Los empleados tienen rol admin para acceder al sistema
+        empresaId: empresaId,
+        esPropietario: false,
+        creadoPor: firebase.auth().currentUser.uid, // Dueño que lo creó
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    // 3. Añadir a la subcolección de usuarios de la empresa
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('usuarios')
+      .doc(user.uid)
+      .set({
+        uid: user.uid,
+        nombre: nombre,
+        email: email,
+        rol: 'admin',
+        esPropietario: false,
+        creadoPor: firebase.auth().currentUser.uid,
+        fcmToken: ''
+      });
+
+    // 4. Incrementar contador de empleados en la empresa
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .update({
+        totalEmpleados: firebase.firestore.FieldValue.increment(1)
+      });
+
+    // 5. Cerrar modal y mostrar mensaje
+    forzarCierreModal('modal-registro-empleado');
+    showToast(`✅ Empleado "${nombre}" registrado correctamente`);
+
+    // 6. Refrescar la lista de empleados en la configuración
+    if (typeof renderizarTablaEmpleados === 'function') {
+      renderizarTablaEmpleados();
+    }
+
+  } catch (error) {
+    console.error('❌ Error registrando empleado:', error);
+    if (error.code === 'auth/email-already-in-use') {
+      showToast('❌ Este correo ya está registrado');
+    } else {
+      showToast('❌ Error: ' + error.message);
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -4299,7 +4395,7 @@ const funcionesGlobales = {
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
-  registrarEmpresa, registrarClienteNuevo, loginUnificado,
+  registrarEmpresa, registrarClienteNuevo, loginUnificado,registrarEmpleado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,

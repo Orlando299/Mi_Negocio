@@ -863,9 +863,6 @@ function cerrarModalRegistroEmpleado(e) {
 }
 
 
-
-
-
 async function loginUnificado() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
@@ -882,7 +879,6 @@ async function loginUnificado() {
       .get();
     
     if (!perfilDoc.exists) {
-      // ❌ El perfil no existe: cerrar sesión y mostrar mensaje
       await firebase.auth().signOut();
       showToast('❌ Tu perfil no está completo. Por favor, regístrate nuevamente.');
       console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
@@ -894,11 +890,13 @@ async function loginUnificado() {
     const empresaId = perfil.empresaId;
     const rol = perfil.rol;
     const nombre = perfil.nombre || email;
+    const esPropietario = perfil.esPropietario || false; // 🔽 NUEVO
     
     sessionStorage.setItem('empresaId', empresaId);
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombre);
     sessionStorage.setItem('userRol', rol);
+    sessionStorage.setItem('esPropietario', String(esPropietario)); // 🔽 NUEVO
     
     forzarCierreModal('modal-login', true);
     forzarReflowBody();
@@ -4452,60 +4450,64 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof initStore === 'function') initStore();
 
   firebase.auth().onAuthStateChanged(async (user) => {
-    if (_registrando) {
-      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
-      return;
-    }
-    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-      return;
-    }
-    if (user) {
-      try {
-        const perfilDoc = await firebase.firestore()
-          .collection('userProfiles').doc(user.uid)
-          .get();
-        if (!perfilDoc.exists) {
-          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-          await firebase.auth().signOut();
-          mostrarPantallaBienvenida();
-          return;
-        }
-        const perfil = perfilDoc.data();
-        const empresaId = perfil.empresaId;
-        const rol = perfil.rol;
-        const nombre = perfil.nombre || user.email;
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', user.email);
-        sessionStorage.setItem('userName', nombre);
-        sessionStorage.setItem('userRol', rol);
-        ocultarPantallaBienvenida();
-        if (rol === 'admin') {
-          actualizarAdminUI(nombre);
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('dashboard');
-          setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-        } else {
-          document.getElementById('admin-menu').style.display = 'none';
-          document.getElementById('btn-codigo').style.display = 'none';
-          const bottomNav = document.getElementById('bottom-nav');
-          const fabBtn = document.getElementById('fab-btn');
-          if (bottomNav) bottomNav.style.display = 'none';
-          if (fabBtn) fabBtn.style.display = 'none';
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('cliente');
-          mostrarPanelCliente();
-        }
-      } catch (error) {
-        console.error('❌ Error verificando sesión:', error);
+  if (_registrando) {
+    console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+    return;
+  }
+  if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+    console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+    return;
+  }
+  if (user) {
+    try {
+      const perfilDoc = await firebase.firestore()
+        .collection('userProfiles').doc(user.uid)
+        .get();
+      if (!perfilDoc.exists) {
+        console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+        await firebase.auth().signOut();
         mostrarPantallaBienvenida();
+        return;
       }
-    } else {
+      const perfil = perfilDoc.data();
+      const empresaId = perfil.empresaId;
+      const rol = perfil.rol;
+      const nombre = perfil.nombre || user.email;
+      const esPropietario = perfil.esPropietario || false; // 🔽 NUEVO
+      
+      sessionStorage.setItem('empresaId', empresaId);
+      sessionStorage.setItem('userEmail', user.email);
+      sessionStorage.setItem('userName', nombre);
+      sessionStorage.setItem('userRol', rol);
+      sessionStorage.setItem('esPropietario', String(esPropietario)); // 🔽 NUEVO
+      
+      ocultarPantallaBienvenida();
+      if (rol === 'admin') {
+        actualizarAdminUI(nombre);
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('dashboard');
+        setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
+      } else {
+        document.getElementById('admin-menu').style.display = 'none';
+        document.getElementById('btn-codigo').style.display = 'none';
+        const bottomNav = document.getElementById('bottom-nav');
+        const fabBtn = document.getElementById('fab-btn');
+        if (bottomNav) bottomNav.style.display = 'none';
+        if (fabBtn) fabBtn.style.display = 'none';
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('cliente');
+        mostrarPanelCliente();
+      }
+    } catch (error) {
+      console.error('❌ Error verificando sesión:', error);
       mostrarPantallaBienvenida();
     }
-  });
+  } else {
+    mostrarPantallaBienvenida();
+  }
+});
 
   document.addEventListener('click', function(e) {
     const tab = e.target.closest('.config-tab');

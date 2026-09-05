@@ -163,7 +163,6 @@
     <button class="nav-icon-btn" id="theme-toggle" onclick="toggleTheme()">🌙</button>
     <button class="nav-icon-btn" onclick="showToast('🔔 Sin notificaciones nuevas')">🔔</button>
     <button class="nav-icon-btn" onclick="mostrarCodigoInvitacion()" id="btn-codigo" title="Código de invitación" style="display:none;">🎟️</button>
-    <button class="nav-icon-btn" onclick="window.toggleCliente()" id="btn-cliente" title="Acceso cliente">👤</button>
     <div id="admin-menu" style="display:none; position:relative; cursor:pointer;">
       <span class="avatar" id="avatar-admin" style="background:var(--primary); color:white; cursor:pointer;" onclick="toggleAdminMenu(event)">A</span>
       <div id="admin-dropdown" style="display:none; position:absolute; right:0; top:45px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md); min-width:180px; z-index:1000; padding:8px 0;">
@@ -173,7 +172,6 @@
         </div>
         <div onclick="event.stopPropagation(); mostrarCodigoInvitacion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">🎟️ Código de invitación</div>
         <div onclick="event.stopPropagation(); goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📊 Panel de control</div>
-        <div onclick="event.stopPropagation(); window.toggleCliente(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">👤 Ver como cliente</div>
         <div onclick="event.stopPropagation(); cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; color:var(--danger);">🚪 Cerrar sesión</div>
       </div>
     </div>

@@ -4579,6 +4579,89 @@ async function confirmarPago(id) {
   }
 }
 
+// ================================================================
+//  BOTÓN FLOTANTE ARRASTRABLE (AGENTE)
+// ================================================================
+
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+function makeDraggable(element) {
+  if (!element) return;
+  
+  element.addEventListener('mousedown', startDrag);
+  element.addEventListener('touchstart', startDragTouch, { passive: false });
+  
+  function startDrag(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    isDragging = false;
+    const rect = element.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', endDrag);
+    element.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+  
+  function startDragTouch(e) {
+    const touch = e.touches[0];
+    const rect = element.getBoundingClientRect();
+    dragOffsetX = touch.clientX - rect.left;
+    dragOffsetY = touch.clientY - rect.top;
+    document.addEventListener('touchmove', onDragTouch, { passive: false });
+    document.addEventListener('touchend', endDragTouch);
+    e.preventDefault();
+  }
+  
+  function onDrag(e) {
+    isDragging = true;
+    const x = e.clientX - dragOffsetX;
+    const y = e.clientY - dragOffsetY;
+    element.style.left = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, x)) + 'px';
+    element.style.top = Math.max(0, Math.min(window.innerHeight - element.offsetHeight, y)) + 'px';
+    element.style.right = 'auto';
+    element.style.bottom = 'auto';
+  }
+  
+  function onDragTouch(e) {
+    isDragging = true;
+    const touch = e.touches[0];
+    const x = touch.clientX - dragOffsetX;
+    const y = touch.clientY - dragOffsetY;
+    element.style.left = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, x)) + 'px';
+    element.style.top = Math.max(0, Math.min(window.innerHeight - element.offsetHeight, y)) + 'px';
+    element.style.right = 'auto';
+    element.style.bottom = 'auto';
+    e.preventDefault();
+  }
+  
+  function endDrag() {
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', endDrag);
+    element.style.cursor = 'pointer';
+  }
+  
+  function endDragTouch() {
+    document.removeEventListener('touchmove', onDragTouch);
+    document.removeEventListener('touchend', endDragTouch);
+  }
+}
+
+// Aplicar al botón del chat después de cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+  const chatToggle = document.getElementById('chat-toggle');
+  if (chatToggle) {
+    makeDraggable(chatToggle);
+    // Establecer posición inicial si no tiene
+    if (!chatToggle.style.left && !chatToggle.style.right) {
+      chatToggle.style.right = '16px';
+      chatToggle.style.bottom = '80px';
+    }
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════

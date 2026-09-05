@@ -91,42 +91,33 @@
   </div>
 </div>
 
-  <!-- ==================== MODAL: REGISTRO EMPLEADO (SOLO DUEÑO) ==================== -->
+<!-- ==================== MODAL: REGISTRO EMPLEADO (SOLO DUEÑO) ==================== -->
 <div class="modal-overlay" id="modal-registro-empleado" onclick="cerrarModalRegistroEmpleado(event)">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title">👤 Registrar empleado</div>
     <div id="modal-body-registro-empleado">
-      <!-- Campo: Nombre -->
       <div class="field">
         <label>Nombre completo *</label>
         <input type="text" id="reg-emp-nombre" placeholder="Ej: Carlos Vendedor" required>
       </div>
-      
-      <!-- Campo: Correo electrónico -->
       <div class="field">
         <label>Correo electrónico *</label>
         <input type="email" id="reg-emp-email" placeholder="empleado@franquicia.com" required>
       </div>
-      
-      <!-- Campo: Contraseña -->
       <div class="field">
         <label>Contraseña *</label>
-        <input type="password" id="reg-emp-pass" placeholder="Mínimo 6 caracteres" required>
+        <input type="password" id="reg-emp-pass" placeholder="Mínimo 6 caracteres" required minlength="6">
         <small style="color:var(--text3); font-size:11px;">La contraseña debe tener al menos 6 caracteres</small>
       </div>
-      
-      <!-- Campo: Rol (solo administrador por ahora) -->
       <div class="field">
         <label>Rol</label>
         <select id="reg-emp-rol">
           <option value="admin">Administrador / Vendedor</option>
-          <!-- Puedes añadir más roles en el futuro -->
+          <!-- Por ahora solo admin, pero puedes añadir más roles luego -->
         </select>
         <small style="color:var(--text3); font-size:11px;">Los empleados tienen acceso total al sistema, pero sin IA</small>
       </div>
-      
-      <!-- Botones -->
       <button type="button" class="btn btn-primary" onclick="registrarEmpleado()">Registrar empleado</button>
       <button type="button" class="btn btn-outline" onclick="cerrarModalRegistroEmpleado()">Cancelar</button>
     </div>

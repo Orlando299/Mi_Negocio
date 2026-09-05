@@ -351,6 +351,30 @@
       </div>
     </div>
 
+    <!-- ===== PANEL: USUARIOS (EMPLEADOS) ===== -->
+<div class="config-panel" id="panel-usuarios">
+  <div class="config-toolbar">
+    <h3>👤 Empleados y personal</h3>
+    <button class="btn btn-primary" onclick="abrirModalEmpleado()">+ Registrar empleado</button>
+  </div>
+  <div class="config-table-wrap">
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-usuarios">
+        <tr><td colspan="5" class="config-empty">Cargando empleados...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
     <!-- ===== PANEL: CATEGORÍAS ===== -->
     <div class="config-panel" id="panel-categorias">
       <div class="config-toolbar">
@@ -376,34 +400,49 @@
     </div>
 
     <div class="config-panel active" id="panel-resumen">
-      <div class="config-cards">
-        <div class="config-card">
-          <div class="config-card-icon">📦</div>
-          <div class="config-card-number" id="resumen-productos">0</div>
-          <div class="config-card-label">Productos</div>
-        </div>
-        <div class="config-card">
-          <div class="config-card-icon">👥</div>
-          <div class="config-card-number" id="resumen-clientes">0</div>
-          <div class="config-card-label">Clientes</div>
-        </div>
-        <div class="config-card">
-          <div class="config-card-icon">🛒</div>
-          <div class="config-card-number" id="resumen-ventas">0</div>
-          <div class="config-card-label">Ventas</div>
-        </div>
-        <div class="config-card">
-          <div class="config-card-icon">💰</div>
-          <div class="config-card-number" id="resumen-total-ventas">$0.00</div>
-          <div class="config-card-label">Total en ventas</div>
-        </div>
-      </div>
-      <div class="config-actions">
-        <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar todo a JSON</button>
-        <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config').click()">📂 Importar desde JSON</button>
-        <input type="file" id="file-input-json-config" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
-      </div>
+  <div class="config-cards">
+    <!-- Tarjeta: Productos -->
+    <div class="config-card">
+      <div class="config-card-icon">📦</div>
+      <div class="config-card-number" id="resumen-productos">0</div>
+      <div class="config-card-label">Productos</div>
     </div>
+
+    <!-- Tarjeta: Clientes -->
+    <div class="config-card">
+      <div class="config-card-icon">👥</div>
+      <div class="config-card-number" id="resumen-clientes">0</div>
+      <div class="config-card-label">Clientes</div>
+    </div>
+
+    <!-- Tarjeta: Empleados (NUEVA) -->
+    <div class="config-card">
+      <div class="config-card-icon">👤</div>
+      <div class="config-card-number" id="resumen-empleados">0</div>
+      <div class="config-card-label">Empleados</div>
+    </div>
+
+    <!-- Tarjeta: Ventas -->
+    <div class="config-card">
+      <div class="config-card-icon">🛒</div>
+      <div class="config-card-number" id="resumen-ventas">0</div>
+      <div class="config-card-label">Ventas</div>
+    </div>
+
+    <!-- Tarjeta: Total Ventas -->
+    <div class="config-card">
+      <div class="config-card-icon">💰</div>
+      <div class="config-card-number" id="resumen-total-ventas">$0.00</div>
+      <div class="config-card-label">Total en ventas</div>
+    </div>
+  </div>
+
+  <div class="config-actions">
+    <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar todo a JSON</button>
+    <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config').click()">📂 Importar desde JSON</button>
+    <input type="file" id="file-input-json-config" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
+  </div>
+</div>
 
     <div class="config-panel" id="panel-productos">
       <div class="config-toolbar">

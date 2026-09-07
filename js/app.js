@@ -19,6 +19,9 @@ const TIPOS_ENVASE = {
 // ═══════════════════════════════════════════════════════════════
 //  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
+// ═══════════════════════════════════════════════════════════════
 (function detectarSesionTemprano() {
   const empresaId = sessionStorage.getItem('empresaId');
   const userRol = sessionStorage.getItem('userRol');
@@ -53,17 +56,8 @@ const TIPOS_ENVASE = {
       if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
     }
 
-    setTimeout(() => {
-      if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
-        store.cargarDatosEmpresa(empresaId).then(() => {
-          if (typeof syncGlobals === 'function') syncGlobals();
-          if (typeof updateKPIs === 'function') updateKPIs();
-          if (userRol === 'admin' && typeof renderChartVentas === 'function') {
-            setTimeout(() => renderChartVentas(), 300);
-          }
-        });
-      }
-    }, 100);
+    // ❌ ELIMINADO: No cargar datos aquí, se hará en onAuthStateChanged
+    // (El bloque original que hacía setTimeout con store.cargarDatosEmpresa ha sido removido)
   }
 })();
 
@@ -1116,45 +1110,54 @@ function goScreen(name) {
     }, 300);
   }
 
-  // ============================================================
-  //  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
-  // ============================================================
-  if (name === 'dashboard') {
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
-      // Forzar carga de datos si están vacíos o si no hay clientes
-      const cargarDatos = async () => {
-        try {
-          // Si no hay clientes, cargar todo desde Firestore
-          if (store.clientes.length === 0) {
-            console.log('🔄 Cargando datos para dashboard...');
-            await store.cargarDatosEmpresa(empresaId);
-            syncGlobals();
+ // ============================================================
+//  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
+// ============================================================
+if (name === 'dashboard') {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
+    const cargarDatos = async () => {
+      // Verificar autenticación antes de cargar
+      if (!firebase.auth().currentUser) {
+        console.log('⏳ Usuario no autenticado, esperando 500ms...');
+        setTimeout(() => {
+          if (firebase.auth().currentUser) {
+            cargarDatos(); // Reintentar
+          } else {
+            console.warn('⚠️ No se pudo autenticar, omitiendo carga de datos');
           }
-          // Actualizar KPIs y gráfico
-          updateKPIs();
-          if (typeof renderChartVentas === 'function') {
-            setTimeout(() => renderChartVentas(), 300);
-          }
-          // También refrescar las listas internas (aunque no se muestren)
-          // para que cuando el usuario vaya a la pestaña, ya estén listas
-          renderVentas('', filtroVentas, false);
-          renderInv('', filtroInv, false);
-          renderClients('', filtroCli, false);
-        } catch (error) {
-          console.warn('Error recargando datos del dashboard:', error);
+        }, 500);
+        return;
+      }
+      try {
+        // Si no hay clientes, cargar todo desde Firestore
+        if (store.clientes.length === 0) {
+          console.log('🔄 Cargando datos para dashboard...');
+          await store.cargarDatosEmpresa(empresaId);
+          syncGlobals();
         }
-      };
-      // Ejecutar la carga asíncrona
-      cargarDatos();
-    } else {
-      // Si no es admin, solo actualizar KPIs con los datos existentes
-      setTimeout(() => {
+        // Actualizar KPIs y gráfico
         updateKPIs();
-        if (typeof renderChartVentas === 'function') renderChartVentas();
-      }, 100);
-    }
+        if (typeof renderChartVentas === 'function') {
+          setTimeout(() => renderChartVentas(), 300);
+        }
+        // Refrescar listas internas
+        renderVentas('', filtroVentas, false);
+        renderInv('', filtroInv, false);
+        renderClients('', filtroCli, false);
+      } catch (error) {
+        console.warn('Error recargando datos del dashboard:', error);
+      }
+    };
+    cargarDatos();
+  } else {
+    // Si no es admin, solo actualizar KPIs con los datos existentes
+    setTimeout(() => {
+      updateKPIs();
+      if (typeof renderChartVentas === 'function') renderChartVentas();
+    }, 100);
   }
+}
 }
 function filterChip(el, ctx) {
   const chips = el.closest('.chips').querySelectorAll('.chip');

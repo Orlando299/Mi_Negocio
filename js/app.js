@@ -959,7 +959,7 @@ async function regenerarCodigo() {
   }
 }
 
-function goScreen(name) {
+async function goScreen(name) {
   const userRol = sessionStorage.getItem('userRol');
 
   if (userRol === 'cliente' && name !== 'cliente') {
@@ -1142,20 +1142,26 @@ function goScreen(name) {
 
       // Si no hay datos, cargarlos con verificación de autenticación
       console.log('🔄 Cargando datos para dashboard...');
-      const cargados = await cargarDatosSiAutenticado(empresaId, (exito) => {
-        if (exito) {
-          updateKPIs();
-          if (typeof renderChartVentas === 'function') {
-            setTimeout(() => renderChartVentas(), 300);
-          }
-          // Refrescar listas internas
-          renderVentas('', filtroVentas, false);
-          renderInv('', filtroInv, false);
-          renderClients('', filtroCli, false);
-        } else {
-          console.warn('⚠️ No se pudieron cargar los datos para el dashboard');
+      const exito = await cargarDatosSiAutenticado(empresaId);
+      if (exito) {
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') {
+          setTimeout(() => renderChartVentas(), 300);
         }
-      });
+        // Refrescar listas internas
+        renderVentas('', filtroVentas, false);
+        renderInv('', filtroInv, false);
+        renderClients('', filtroCli, false);
+      } else {
+        console.warn('⚠️ No se pudieron cargar los datos para el dashboard');
+        // Fallback: esperar a que onAuthStateChanged cargue los datos
+        setTimeout(() => {
+          if (store.clientes.length > 0) {
+            updateKPIs();
+            if (typeof renderChartVentas === 'function') renderChartVentas();
+          }
+        }, 2000);
+      }
     } else {
       // Si no es admin, solo actualizar KPIs con los datos existentes
       setTimeout(() => {

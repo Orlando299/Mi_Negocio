@@ -1047,17 +1047,17 @@ function goScreen(name) {
   }
 
   // ============================================================
-  //  INVENTARIO: recargar desde Firestore (MEJORADO)
+  //  INVENTARIO: recargar desde Firestore
   // ============================================================
   if (name === 'inventario') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
       store.lastInventarioDoc = null;
       store.hasMoreInventario = true;
-      filtroInv = 'todos'; // ✅ Forzar filtro para ver todos
+      filtroInv = 'todos';
       setTimeout(async () => {
         try {
-          const data = await store.cargarInventarioPaginado(empresaId, 100); // ✅ Cargar más
+          const data = await store.cargarInventarioPaginado(empresaId, 100);
           store.inventario = data.items;
           store.lastInventarioDoc = data.lastDoc;
           syncGlobals();
@@ -1117,31 +1117,38 @@ function goScreen(name) {
   }
 
   // ============================================================
-  //  DASHBOARD: actualizar KPIs y gráfico
+  //  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
   // ============================================================
   if (name === 'dashboard') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
-      if (store.clientes.length === 0) {
-        setTimeout(async () => {
-          try {
-            const data = await store.cargarClientesPaginado(empresaId, ITEMS_POR_PAGINA);
-            store.clientes = data.items;
-            store.lastClienteDoc = data.lastDoc;
+      // Forzar carga de datos si están vacíos o si no hay clientes
+      const cargarDatos = async () => {
+        try {
+          // Si no hay clientes, cargar todo desde Firestore
+          if (store.clientes.length === 0) {
+            console.log('🔄 Cargando datos para dashboard...');
+            await store.cargarDatosEmpresa(empresaId);
             syncGlobals();
-            updateKPIs();
-            if (typeof renderChartVentas === 'function') renderChartVentas();
-          } catch (error) {
-            console.warn('Error recargando clientes desde dashboard:', error);
           }
-        }, 100);
-      } else {
-        setTimeout(() => {
+          // Actualizar KPIs y gráfico
           updateKPIs();
-          if (typeof renderChartVentas === 'function') renderChartVentas();
-        }, 100);
-      }
+          if (typeof renderChartVentas === 'function') {
+            setTimeout(() => renderChartVentas(), 300);
+          }
+          // También refrescar las listas internas (aunque no se muestren)
+          // para que cuando el usuario vaya a la pestaña, ya estén listas
+          renderVentas('', filtroVentas, false);
+          renderInv('', filtroInv, false);
+          renderClients('', filtroCli, false);
+        } catch (error) {
+          console.warn('Error recargando datos del dashboard:', error);
+        }
+      };
+      // Ejecutar la carga asíncrona
+      cargarDatos();
     } else {
+      // Si no es admin, solo actualizar KPIs con los datos existentes
       setTimeout(() => {
         updateKPIs();
         if (typeof renderChartVentas === 'function') renderChartVentas();
@@ -1149,7 +1156,6 @@ function goScreen(name) {
     }
   }
 }
-
 function filterChip(el, ctx) {
   const chips = el.closest('.chips').querySelectorAll('.chip');
   chips.forEach(c => c.classList.remove('active'));
@@ -4450,64 +4456,69 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof initStore === 'function') initStore();
 
   firebase.auth().onAuthStateChanged(async (user) => {
-  if (_registrando) {
-    console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
-    return;
-  }
-  if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-    console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-    return;
-  }
-  if (user) {
-    try {
-      const perfilDoc = await firebase.firestore()
-        .collection('userProfiles').doc(user.uid)
-        .get();
-      if (!perfilDoc.exists) {
-        console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-        await firebase.auth().signOut();
+    if (_registrando) {
+      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+      return;
+    }
+    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+      return;
+    }
+    if (user) {
+      try {
+        const perfilDoc = await firebase.firestore()
+          .collection('userProfiles').doc(user.uid)
+          .get();
+        if (!perfilDoc.exists) {
+          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+          await firebase.auth().signOut();
+          mostrarPantallaBienvenida();
+          return;
+        }
+        const perfil = perfilDoc.data();
+        const empresaId = perfil.empresaId;
+        const rol = perfil.rol;
+        const nombre = perfil.nombre || user.email;
+        const esPropietario = perfil.esPropietario || false;
+
+        sessionStorage.setItem('empresaId', empresaId);
+        sessionStorage.setItem('userEmail', user.email);
+        sessionStorage.setItem('userName', nombre);
+        sessionStorage.setItem('userRol', rol);
+        sessionStorage.setItem('esPropietario', String(esPropietario));
+
+        ocultarPantallaBienvenida();
+
+        if (rol === 'admin') {
+          actualizarAdminUI(nombre);
+          await store.cargarDatosEmpresa(empresaId);
+          syncGlobals();
+          goScreen('dashboard');
+          // 🔽 NUEVO: Forzar actualización de KPIs y gráfico después de cargar
+          setTimeout(() => {
+            updateKPIs();
+            if (typeof renderChartVentas === 'function') renderChartVentas();
+          }, 500);
+        } else {
+          document.getElementById('admin-menu').style.display = 'none';
+          document.getElementById('btn-codigo').style.display = 'none';
+          const bottomNav = document.getElementById('bottom-nav');
+          const fabBtn = document.getElementById('fab-btn');
+          if (bottomNav) bottomNav.style.display = 'none';
+          if (fabBtn) fabBtn.style.display = 'none';
+          await store.cargarDatosEmpresa(empresaId);
+          syncGlobals();
+          goScreen('cliente');
+          mostrarPanelCliente();
+        }
+      } catch (error) {
+        console.error('❌ Error verificando sesión:', error);
         mostrarPantallaBienvenida();
-        return;
       }
-      const perfil = perfilDoc.data();
-      const empresaId = perfil.empresaId;
-      const rol = perfil.rol;
-      const nombre = perfil.nombre || user.email;
-      const esPropietario = perfil.esPropietario || false; // 🔽 NUEVO
-      
-      sessionStorage.setItem('empresaId', empresaId);
-      sessionStorage.setItem('userEmail', user.email);
-      sessionStorage.setItem('userName', nombre);
-      sessionStorage.setItem('userRol', rol);
-      sessionStorage.setItem('esPropietario', String(esPropietario)); // 🔽 NUEVO
-      
-      ocultarPantallaBienvenida();
-      if (rol === 'admin') {
-        actualizarAdminUI(nombre);
-        await store.cargarDatosEmpresa(empresaId);
-        syncGlobals();
-        goScreen('dashboard');
-        setTimeout(() => { if(typeof renderChartVentas === 'function') renderChartVentas(); }, 300);
-      } else {
-        document.getElementById('admin-menu').style.display = 'none';
-        document.getElementById('btn-codigo').style.display = 'none';
-        const bottomNav = document.getElementById('bottom-nav');
-        const fabBtn = document.getElementById('fab-btn');
-        if (bottomNav) bottomNav.style.display = 'none';
-        if (fabBtn) fabBtn.style.display = 'none';
-        await store.cargarDatosEmpresa(empresaId);
-        syncGlobals();
-        goScreen('cliente');
-        mostrarPanelCliente();
-      }
-    } catch (error) {
-      console.error('❌ Error verificando sesión:', error);
+    } else {
       mostrarPantallaBienvenida();
     }
-  } else {
-    mostrarPantallaBienvenida();
-  }
-});
+  });
 
   document.addEventListener('click', function(e) {
     const tab = e.target.closest('.config-tab');

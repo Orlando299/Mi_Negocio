@@ -297,6 +297,7 @@
       <button class="config-tab" data-tab="json">📁 JSON</button>
       <button class="config-tab" data-tab="pagos">💳 Pagos</button>
       <button class="config-tab" data-tab="categorias">🏷️ Categorías</button>
+      <button class="config-tab" data-tab="agente">🤖 Agente</button>
     </div>
 
     <div class="config-panel" id="panel-pagos">
@@ -398,6 +399,35 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+        <!-- ===== PANEL: AGENTE (ESTADÍSTICAS) ===== -->
+    <div class="config-panel" id="panel-agente">
+      <div class="config-toolbar">
+        <h3>🤖 Estadísticas del Agente</h3>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div class="config-card" style="padding:12px;">
+          <div style="font-size:12px; color:var(--text3);">Consultas usadas hoy</div>
+          <div style="font-size:24px; font-weight:700;" id="agente-usadas">0</div>
+        </div>
+        <div class="config-card" style="padding:12px;">
+          <div style="font-size:12px; color:var(--text3);">Límite diario</div>
+          <div style="font-size:24px; font-weight:700;" id="agente-limite">20</div>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <h4>Últimas consultas</h4>
+        <div class="config-table-wrap">
+          <table class="config-table">
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Pregunta</th></tr></thead>
+            <tbody id="tabla-historial-agente">
+              <tr><td colspan="3" class="config-empty">Cargando historial...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <button class="btn btn-outline" onclick="recargarEstadisticasAgente()" style="width:auto; padding:8px 16px;">🔄 Recargar</button>
     </div>
 
     <div class="config-panel active" id="panel-resumen">

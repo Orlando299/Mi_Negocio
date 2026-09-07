@@ -2526,6 +2526,7 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'ventas') renderizarTablaVentas();
   if (tabId === 'categorias') cargarCategorias();  // <-- NUEVO
   if (tabId === 'usuarios') cargarUsuariosEmpresa();
+  if (tabId === 'agente') cargarEstadisticasAgente();
 }
 
 function renderizarTablaProductos() {
@@ -4485,6 +4486,64 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// ================================================================
+//  ESTADÍSTICAS DEL AGENTE (FASE 4)
+// ================================================================
+async function cargarEstadisticasAgente() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    document.getElementById('agente-usadas').textContent = '0';
+    document.getElementById('agente-limite').textContent = '20';
+    document.getElementById('tabla-historial-agente').innerHTML = '<tr><td colspan="3" class="config-empty">No hay sesión activa</td></tr>';
+    return;
+  }
+
+  try {
+    // Cargar estadísticas de uso
+    const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+    if (doc.exists) {
+      const data = doc.data();
+      const usage = data.agentUsage || { contador: 0 };
+      document.getElementById('agente-usadas').textContent = usage.contador || 0;
+      document.getElementById('agente-limite').textContent = 20;
+    }
+
+    // Cargar historial
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('agentHistory')
+      .orderBy('fecha', 'desc')
+      .limit(10)
+      .get();
+
+    const tbody = document.getElementById('tabla-historial-agente');
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="3" class="config-empty">Sin consultas registradas</td></tr>';
+      return;
+    }
+
+    let html = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const fecha = data.fecha?.toDate?.() ? formatDateLocal(data.fecha.toDate()) : 'Sin fecha';
+      const usuario = data.usuario || 'Anónimo';
+      const pregunta = data.pregunta || '';
+      html += `<tr><td>${fecha}</td><td>${escapeHtml(usuario)}</td><td>${escapeHtml(pregunta)}</td></tr>`;
+    });
+    tbody.innerHTML = html;
+
+  } catch (error) {
+    console.error('Error cargando estadísticas del agente:', error);
+    document.getElementById('tabla-historial-agente').innerHTML = '<tr><td colspan="3" class="config-empty">Error al cargar</td></tr>';
+  }
+}
+
+async function recargarEstadisticasAgente() {
+  await cargarEstadisticasAgente();
+  showToast('✅ Estadísticas actualizadas');
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -4533,7 +4592,7 @@ const funcionesGlobales = {
   abrirModalLiquidacion,
   cerrarModalLiquidacion,
   confirmarLiquidacion,
-  cargarLiquidacionesCliente
+  cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente,
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

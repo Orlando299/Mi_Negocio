@@ -4502,7 +4502,7 @@ const funcionesGlobales = {
   vaciarCarrito, realizarPedido, renderHistorial, renderActividadReciente,
   actualizarResumenConfiguracion,
   exportarDatosJSON, importarDatosJSON, actualizarAvatar,
-  agentCommand, sendAgentCommand, toggleAgentPanel, executeManualCommand,
+  agentCommand, sendAgentCommand, toggleAgentPanel,
   cambiarTabConfiguracion, cambiarTabCliente,
   enviarMensajeChat, cargarMensajesChat,
   abrirModalAlerta, enviarAlerta, cargarAlertas, votarAlerta,

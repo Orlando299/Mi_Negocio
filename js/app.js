@@ -595,9 +595,9 @@ async function registrarEmpleado() {
     return;
   }
 
-  const nombre = document.getElementById('reg-emp-nombre').value.trim();
-  const email = document.getElementById('reg-emp-email').value.trim();
-  const password = document.getElementById('reg-emp-pass').value;
+  const nombre = document.getElementById('reg-emp-nombre-empleado').value.trim();
+  const email = document.getElementById('reg-emp-email-empleado').value.trim();
+  const password = document.getElementById('reg-emp-pass-empleado').value;
   const rol = document.getElementById('reg-emp-rol').value; // 'admin' o 'vendedor' (por ahora solo admin)
 
   if (!nombre || !email || !password) {

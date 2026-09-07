@@ -1016,79 +1016,86 @@ function goScreen(name) {
   }
 
   // ============================================================
-  //  VENTAS: recargar desde Firestore
+  //  VENTAS: recargar desde Firestore (solo si autenticado)
   // ============================================================
   if (name === 'ventas') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
-      store.lastVentaDoc = null;
-      store.hasMoreVentas = true;
-      setTimeout(async () => {
-        try {
-          const data = await store.cargarVentasPaginado(empresaId, ITEMS_POR_PAGINA);
-          store.ventas = data.items;
-          store.lastVentaDoc = data.lastDoc;
-          syncGlobals();
-          renderVentas('', filtroVentas, false);
-          updateKPIs();
-          if (typeof renderChartVentas === 'function') renderChartVentas();
-        } catch (error) {
-          console.warn('Error recargando ventas:', error);
-        }
-      }, 100);
+      // Si ya hay ventas cargadas, mostrarlas sin recargar
+      if (store.ventas.length > 0) {
+        renderVentas('', filtroVentas, false);
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      } else {
+        // Si no hay ventas, cargarlas con verificación de autenticación
+        store.lastVentaDoc = null;
+        store.hasMoreVentas = true;
+        cargarDatosSiAutenticado(empresaId, (exito) => {
+          if (exito) {
+            renderVentas('', filtroVentas, false);
+            updateKPIs();
+            if (typeof renderChartVentas === 'function') renderChartVentas();
+          } else {
+            showToast('⚠️ No se pudieron cargar las ventas');
+          }
+        });
+      }
+    } else {
+      renderVentas('', filtroVentas, false);
     }
-    renderVentas('', filtroVentas, false);
   }
 
   // ============================================================
-  //  INVENTARIO: recargar desde Firestore
+  //  INVENTARIO: recargar desde Firestore (solo si autenticado)
   // ============================================================
   if (name === 'inventario') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
-      store.lastInventarioDoc = null;
-      store.hasMoreInventario = true;
-      filtroInv = 'todos';
-      setTimeout(async () => {
-        try {
-          const data = await store.cargarInventarioPaginado(empresaId, 100);
-          store.inventario = data.items;
-          store.lastInventarioDoc = data.lastDoc;
-          syncGlobals();
-          renderInv('', filtroInv, false);
-          updateKPIs();
-        } catch (error) {
-          console.warn('Error recargando inventario:', error);
-        }
-      }, 100);
+      if (store.inventario.length > 0) {
+        renderInv('', filtroInv, false);
+        updateKPIs();
+      } else {
+        store.lastInventarioDoc = null;
+        store.hasMoreInventario = true;
+        filtroInv = 'todos';
+        cargarDatosSiAutenticado(empresaId, (exito) => {
+          if (exito) {
+            renderInv('', filtroInv, false);
+            updateKPIs();
+          } else {
+            showToast('⚠️ No se pudo cargar el inventario');
+          }
+        });
+      }
+    } else {
+      renderInv('', filtroInv, false);
     }
-    filtroInv = 'todos';
-    renderInv('', filtroInv, false);
   }
 
   // ============================================================
-  //  CLIENTES: recargar desde Firestore
+  //  CLIENTES: recargar desde Firestore (solo si autenticado)
   // ============================================================
   if (name === 'clientes') {
     const empresaId = sessionStorage.getItem('empresaId');
     if (empresaId) {
-      store.lastClienteDoc = null;
-      store.hasMoreClientes = true;
-      setTimeout(async () => {
-        try {
-          const data = await store.cargarClientesPaginado(empresaId, ITEMS_POR_PAGINA);
-          store.clientes = data.items;
-          store.lastClienteDoc = data.lastDoc;
-          syncGlobals();
-          renderClients('', filtroCli, false);
-          updateKPIs();
-        } catch (error) {
-          console.warn('Error recargando clientes:', error);
-          showToast('⚠️ Error al cargar clientes. Recarga la página.');
-        }
-      }, 100);
+      if (store.clientes.length > 0) {
+        renderClients('', filtroCli, false);
+        updateKPIs();
+      } else {
+        store.lastClienteDoc = null;
+        store.hasMoreClientes = true;
+        cargarDatosSiAutenticado(empresaId, (exito) => {
+          if (exito) {
+            renderClients('', filtroCli, false);
+            updateKPIs();
+          } else {
+            showToast('⚠️ No se pudieron cargar los clientes');
+          }
+        });
+      }
+    } else {
+      renderClients('', filtroCli, false);
     }
-    renderClients('', filtroCli, false);
   }
 
   // ============================================================
@@ -1107,58 +1114,90 @@ function goScreen(name) {
       renderizarTablaProductos();
       renderizarTablaClientes();
       renderizarTablaVentas();
+      // Cargar empleados si la pestaña existe
+      const panelUsuarios = document.getElementById('panel-usuarios');
+      if (panelUsuarios && typeof cargarUsuariosEmpresa === 'function') {
+        cargarUsuariosEmpresa();
+      }
     }, 300);
   }
 
- // ============================================================
-//  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
-// ============================================================
-if (name === 'dashboard') {
-  const empresaId = sessionStorage.getItem('empresaId');
-  if (empresaId && sessionStorage.getItem('userRol') === 'admin') {
-    const cargarDatos = async () => {
-      // Verificar autenticación antes de cargar
-      if (!firebase.auth().currentUser) {
-        console.log('⏳ Usuario no autenticado, esperando 500ms...');
-        setTimeout(() => {
-          if (firebase.auth().currentUser) {
-            cargarDatos(); // Reintentar
-          } else {
-            console.warn('⚠️ No se pudo autenticar, omitiendo carga de datos');
-          }
-        }, 500);
-        return;
-      }
-      try {
-        // Si no hay clientes, cargar todo desde Firestore
-        if (store.clientes.length === 0) {
-          console.log('🔄 Cargando datos para dashboard...');
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-        }
-        // Actualizar KPIs y gráfico
+  // ============================================================
+  //  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
+  // ============================================================
+  if (name === 'dashboard') {
+    const empresaId = sessionStorage.getItem('empresaId');
+    const userRol = sessionStorage.getItem('userRol');
+
+    if (empresaId && userRol === 'admin') {
+      // Si los datos ya están cargados, solo actualizar KPIs y gráfico
+      if (store.clientes.length > 0 && store.ventas.length > 0) {
+        console.log('📊 Datos ya cargados, actualizando KPIs y gráfico');
         updateKPIs();
         if (typeof renderChartVentas === 'function') {
           setTimeout(() => renderChartVentas(), 300);
         }
-        // Refrescar listas internas
-        renderVentas('', filtroVentas, false);
-        renderInv('', filtroInv, false);
-        renderClients('', filtroCli, false);
-      } catch (error) {
-        console.warn('Error recargando datos del dashboard:', error);
+        return;
       }
-    };
-    cargarDatos();
-  } else {
-    // Si no es admin, solo actualizar KPIs con los datos existentes
-    setTimeout(() => {
-      updateKPIs();
-      if (typeof renderChartVentas === 'function') renderChartVentas();
-    }, 100);
+
+      // Si no hay datos, cargarlos con verificación de autenticación
+      console.log('🔄 Cargando datos para dashboard...');
+      const cargados = await cargarDatosSiAutenticado(empresaId, (exito) => {
+        if (exito) {
+          updateKPIs();
+          if (typeof renderChartVentas === 'function') {
+            setTimeout(() => renderChartVentas(), 300);
+          }
+          // Refrescar listas internas
+          renderVentas('', filtroVentas, false);
+          renderInv('', filtroInv, false);
+          renderClients('', filtroCli, false);
+        } else {
+          console.warn('⚠️ No se pudieron cargar los datos para el dashboard');
+        }
+      });
+    } else {
+      // Si no es admin, solo actualizar KPIs con los datos existentes
+      setTimeout(() => {
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      }, 100);
+    }
   }
 }
+
+// ================================================================
+//  CARGAR DATOS SOLO SI EL USUARIO ESTÁ AUTENTICADO
+// ================================================================
+async function cargarDatosSiAutenticado(empresaId, callback) {
+  // Esperar hasta que firebase.auth().currentUser esté disponible
+  let intentos = 0;
+  const maxIntentos = 10;
+  while (!firebase.auth().currentUser && intentos < maxIntentos) {
+    await new Promise(r => setTimeout(r, 300));
+    intentos++;
+  }
+
+  if (!firebase.auth().currentUser) {
+    console.warn('⚠️ No se pudo autenticar después de varios intentos');
+    if (typeof callback === 'function') callback(false);
+    return false;
+  }
+
+  try {
+    if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
+      await store.cargarDatosEmpresa(empresaId);
+      syncGlobals();
+      if (typeof callback === 'function') callback(true);
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Error cargando datos:', error);
+    if (typeof callback === 'function') callback(false);
+    return false;
+  }
 }
+
 function filterChip(el, ctx) {
   const chips = el.closest('.chips').querySelectorAll('.chip');
   chips.forEach(c => c.classList.remove('active'));
@@ -4459,69 +4498,71 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof initStore === 'function') initStore();
 
   firebase.auth().onAuthStateChanged(async (user) => {
-    if (_registrando) {
-      console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
-      return;
-    }
-    if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-      console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-      return;
-    }
-    if (user) {
-      try {
-        const perfilDoc = await firebase.firestore()
-          .collection('userProfiles').doc(user.uid)
-          .get();
-        if (!perfilDoc.exists) {
-          console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
-          await firebase.auth().signOut();
-          mostrarPantallaBienvenida();
-          return;
-        }
-        const perfil = perfilDoc.data();
-        const empresaId = perfil.empresaId;
-        const rol = perfil.rol;
-        const nombre = perfil.nombre || user.email;
-        const esPropietario = perfil.esPropietario || false;
-
-        sessionStorage.setItem('empresaId', empresaId);
-        sessionStorage.setItem('userEmail', user.email);
-        sessionStorage.setItem('userName', nombre);
-        sessionStorage.setItem('userRol', rol);
-        sessionStorage.setItem('esPropietario', String(esPropietario));
-
-        ocultarPantallaBienvenida();
-
-        if (rol === 'admin') {
-          actualizarAdminUI(nombre);
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('dashboard');
-          // 🔽 NUEVO: Forzar actualización de KPIs y gráfico después de cargar
-          setTimeout(() => {
-            updateKPIs();
-            if (typeof renderChartVentas === 'function') renderChartVentas();
-          }, 500);
-        } else {
-          document.getElementById('admin-menu').style.display = 'none';
-          document.getElementById('btn-codigo').style.display = 'none';
-          const bottomNav = document.getElementById('bottom-nav');
-          const fabBtn = document.getElementById('fab-btn');
-          if (bottomNav) bottomNav.style.display = 'none';
-          if (fabBtn) fabBtn.style.display = 'none';
-          await store.cargarDatosEmpresa(empresaId);
-          syncGlobals();
-          goScreen('cliente');
-          mostrarPanelCliente();
-        }
-      } catch (error) {
-        console.error('❌ Error verificando sesión:', error);
+  if (_registrando) {
+    console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
+    return;
+  }
+  // ❌ ELIMINAR el salto por sessionStorage
+  // if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
+  //   console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
+  //   return;
+  // }
+  if (user) {
+    try {
+      const perfilDoc = await firebase.firestore()
+        .collection('userProfiles').doc(user.uid)
+        .get();
+      if (!perfilDoc.exists) {
+        console.warn('⚠️ Perfil no encontrado para uid:', user.uid);
+        await firebase.auth().signOut();
         mostrarPantallaBienvenida();
+        return;
       }
-    } else {
+      const perfil = perfilDoc.data();
+      const empresaId = perfil.empresaId;
+      const rol = perfil.rol;
+      const nombre = perfil.nombre || user.email;
+      const esPropietario = perfil.esPropietario || false;
+
+      sessionStorage.setItem('empresaId', empresaId);
+      sessionStorage.setItem('userEmail', user.email);
+      sessionStorage.setItem('userName', nombre);
+      sessionStorage.setItem('userRol', rol);
+      sessionStorage.setItem('esPropietario', String(esPropietario));
+
+      ocultarPantallaBienvenida();
+
+      if (rol === 'admin') {
+        actualizarAdminUI(nombre);
+        // Cargar datos antes de ir al dashboard
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('dashboard');
+        // Forzar actualización de KPIs y gráfico
+        setTimeout(() => {
+          updateKPIs();
+          if (typeof renderChartVentas === 'function') renderChartVentas();
+        }, 500);
+      } else {
+        document.getElementById('admin-menu').style.display = 'none';
+        document.getElementById('btn-codigo').style.display = 'none';
+        const bottomNav = document.getElementById('bottom-nav');
+        const fabBtn = document.getElementById('fab-btn');
+        if (bottomNav) bottomNav.style.display = 'none';
+        if (fabBtn) fabBtn.style.display = 'none';
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        goScreen('cliente');
+        mostrarPanelCliente();
+      }
+    } catch (error) {
+      console.error('❌ Error verificando sesión:', error);
       mostrarPantallaBienvenida();
     }
-  });
+  } else {
+    mostrarPantallaBienvenida();
+  }
+});
 
   document.addEventListener('click', function(e) {
     const tab = e.target.closest('.config-tab');
@@ -4704,8 +4745,7 @@ const funcionesGlobales = {
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
-  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa,
-  toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
+  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa,cargarDatosSiAutenticado, toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,

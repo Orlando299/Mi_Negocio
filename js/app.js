@@ -3271,12 +3271,30 @@ async function agentCommand(comando) {
   return result;
 }
 
-function sendAgentCommand() {
+async function sendAgentCommand() {
   const input = document.getElementById('agent-input');
+  const responseDiv = document.getElementById('agent-response');
+  if (!input || !responseDiv) return;
+
   const comando = input.value.trim();
-  if (comando) {
-    agentCommand(comando);
+  if (!comando) return;
+
+  // Mostrar indicador de carga
+  responseDiv.innerHTML = '⏳ Pensando...';
+  input.disabled = true;
+  input.style.opacity = '0.6';
+
+  try {
+    const respuesta = await agentCommand(comando);
+    responseDiv.innerHTML = respuesta;
+  } catch (error) {
+    console.error('❌ Error en el agente:', error);
+    responseDiv.innerHTML = '❌ Error al procesar tu consulta. Intenta de nuevo.';
+  } finally {
+    input.disabled = false;
+    input.style.opacity = '1';
     input.value = '';
+    input.focus();
   }
 }
 

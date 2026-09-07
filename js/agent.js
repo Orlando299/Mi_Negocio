@@ -184,6 +184,7 @@ async function llamarDeepSeek(prompt) {
 }
 
 // ── COMANDO PRINCIPAL DEL AGENTE (con contador de restantes) ──
+
 async function agentCommand(comando) {
   if (!comando || comando.trim() === '') {
     return 'ℹ️ Escribe un comando. Por ejemplo: "ventas hoy" o "ayuda".';
@@ -193,43 +194,26 @@ async function agentCommand(comando) {
   const esPropietario = sessionStorage.getItem('esPropietario') === 'true';
   const empresaId = sessionStorage.getItem('empresaId');
 
-  // 1. Si NO es dueño (propietario) o NO es admin -> modo manual
   if (userRol !== 'admin' || !esPropietario) {
-    console.log('👤 Usuario no propietario, usando modo manual');
     const result = executeManualCommand(comando);
     return result;
   }
 
-  // 2. Verificar cupo diario (solo para el dueño)
   try {
     const cupo = await verificarCupoDiario(empresaId);
-    
     if (!cupo.disponible) {
       const result = executeManualCommand(comando);
       return `⚠️ Has agotado tus ${cupo.limite} consultas IA de hoy.\n\n📌 (Respuesta manual): ${result}`;
     }
 
-    // 3. Tiene cupo disponible, llamar a la API
-    console.log(`🤖 Usando API de DeepSeek (${cupo.usado + 1}/${cupo.limite})`);
-    
-    try {
-      const respuestaIA = await llamarDeepSeek(comando);
-      // Incrementar el contador después de una respuesta exitosa
-      await incrementarCupo(empresaId);
-      
-      // Calcular consultas restantes
-      const restantes = cupo.limite - cupo.usado - 1;
-      
-      // Devolver respuesta con contador
-      return `${respuestaIA}\n\n📊 Consultas restantes hoy: ${restantes}`;
-    } catch (error) {
-      console.warn('Fallback a manual por error en API:', error);
-      return executeManualCommand(comando);
-    }
-
+    const respuestaIA = await llamarDeepSeek(comando);
+    await incrementarCupo(empresaId);
+    const restantes = cupo.limite - cupo.usado - 1;
+    return `${respuestaIA}\n\n📊 Consultas restantes hoy: ${restantes}`;
   } catch (error) {
-    console.error('❌ Error en agentCommand:', error);
-    return executeManualCommand(comando);
+    console.warn('Fallback a manual por error en API:', error.message);
+    const manual = executeManualCommand(comando);
+    return `⚠️ ${error.message}\n\n📌 (Respuesta manual): ${manual}`;
   }
 }
 

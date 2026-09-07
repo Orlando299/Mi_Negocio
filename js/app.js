@@ -4366,8 +4366,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('ℹ️ Modo Light: Page Agent desactivado (GitHub Pages)');
     agentReady = false;
   }
-  setTimeout(connectWebSocket, 1000);
-  console.log('🤖 Sistema de comandos listo (modo mixto)');
 });
 
 // ================================================================
@@ -4504,7 +4502,7 @@ const funcionesGlobales = {
   vaciarCarrito, realizarPedido, renderHistorial, renderActividadReciente,
   actualizarResumenConfiguracion,
   exportarDatosJSON, importarDatosJSON, actualizarAvatar,
-  agentCommand, sendAgentCommand, toggleAgentPanel, executeAgentCommand, executeManualCommand,
+  agentCommand, sendAgentCommand, toggleAgentPanel, executeManualCommand,
   cambiarTabConfiguracion, cambiarTabCliente,
   enviarMensajeChat, cargarMensajesChat,
   abrirModalAlerta, enviarAlerta, cargarAlertas, votarAlerta,

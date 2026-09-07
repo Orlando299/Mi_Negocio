@@ -19,9 +19,6 @@ const TIPOS_ENVASE = {
 // ═══════════════════════════════════════════════════════════════
 //  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
 // ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-//  DETECCIÓN TEMPRANA DE SESIÓN (se ejecuta antes de todo)
-// ═══════════════════════════════════════════════════════════════
 (function detectarSesionTemprano() {
   const empresaId = sessionStorage.getItem('empresaId');
   const userRol = sessionStorage.getItem('userRol');
@@ -47,6 +44,12 @@ const TIPOS_ENVASE = {
     if (userRol === 'admin') {
       if (typeof actualizarAdminUI === 'function') actualizarAdminUI(userName);
       if (typeof goScreen === 'function') goScreen('dashboard');
+      // 🔽 NUEVO: Forzar actualización de datos después de un breve retraso
+      // Esto dará tiempo a que onAuthStateChanged cargue los datos
+      setTimeout(() => {
+        if (typeof updateKPIs === 'function') updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      }, 500);
     } else {
       const adminMenu = document.getElementById('admin-menu');
       const btnCodigo = document.getElementById('btn-codigo');
@@ -55,9 +58,6 @@ const TIPOS_ENVASE = {
       if (typeof goScreen === 'function') goScreen('cliente');
       if (typeof mostrarPanelCliente === 'function') mostrarPanelCliente();
     }
-
-    // ❌ ELIMINADO: No cargar datos aquí, se hará en onAuthStateChanged
-    // (El bloque original que hacía setTimeout con store.cargarDatosEmpresa ha sido removido)
   }
 })();
 
@@ -959,7 +959,7 @@ async function regenerarCodigo() {
   }
 }
 
-async function goScreen(name) {
+function goScreen(name) {
   const userRol = sessionStorage.getItem('userRol');
 
   if (userRol === 'cliente' && name !== 'cliente') {
@@ -1016,86 +1016,28 @@ async function goScreen(name) {
   }
 
   // ============================================================
-  //  VENTAS: recargar desde Firestore (solo si autenticado)
+  //  VENTAS: renderizar con los datos ya cargados en store
   // ============================================================
   if (name === 'ventas') {
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-      // Si ya hay ventas cargadas, mostrarlas sin recargar
-      if (store.ventas.length > 0) {
-        renderVentas('', filtroVentas, false);
-        updateKPIs();
-        if (typeof renderChartVentas === 'function') renderChartVentas();
-      } else {
-        // Si no hay ventas, cargarlas con verificación de autenticación
-        store.lastVentaDoc = null;
-        store.hasMoreVentas = true;
-        cargarDatosSiAutenticado(empresaId, (exito) => {
-          if (exito) {
-            renderVentas('', filtroVentas, false);
-            updateKPIs();
-            if (typeof renderChartVentas === 'function') renderChartVentas();
-          } else {
-            showToast('⚠️ No se pudieron cargar las ventas');
-          }
-        });
-      }
-    } else {
-      renderVentas('', filtroVentas, false);
-    }
+    renderVentas('', filtroVentas, false);
+    updateKPIs();
+    if (typeof renderChartVentas === 'function') renderChartVentas();
   }
 
   // ============================================================
-  //  INVENTARIO: recargar desde Firestore (solo si autenticado)
+  //  INVENTARIO: renderizar con los datos ya cargados en store
   // ============================================================
   if (name === 'inventario') {
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-      if (store.inventario.length > 0) {
-        renderInv('', filtroInv, false);
-        updateKPIs();
-      } else {
-        store.lastInventarioDoc = null;
-        store.hasMoreInventario = true;
-        filtroInv = 'todos';
-        cargarDatosSiAutenticado(empresaId, (exito) => {
-          if (exito) {
-            renderInv('', filtroInv, false);
-            updateKPIs();
-          } else {
-            showToast('⚠️ No se pudo cargar el inventario');
-          }
-        });
-      }
-    } else {
-      renderInv('', filtroInv, false);
-    }
+    renderInv('', filtroInv, false);
+    updateKPIs();
   }
 
   // ============================================================
-  //  CLIENTES: recargar desde Firestore (solo si autenticado)
+  //  CLIENTES: renderizar con los datos ya cargados en store
   // ============================================================
   if (name === 'clientes') {
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-      if (store.clientes.length > 0) {
-        renderClients('', filtroCli, false);
-        updateKPIs();
-      } else {
-        store.lastClienteDoc = null;
-        store.hasMoreClientes = true;
-        cargarDatosSiAutenticado(empresaId, (exito) => {
-          if (exito) {
-            renderClients('', filtroCli, false);
-            updateKPIs();
-          } else {
-            showToast('⚠️ No se pudieron cargar los clientes');
-          }
-        });
-      }
-    } else {
-      renderClients('', filtroCli, false);
-    }
+    renderClients('', filtroCli, false);
+    updateKPIs();
   }
 
   // ============================================================
@@ -1123,84 +1065,14 @@ async function goScreen(name) {
   }
 
   // ============================================================
-  //  DASHBOARD: recargar TODOS los datos y actualizar KPIs y gráfico
+  //  DASHBOARD: actualizar KPIs y gráfico con los datos ya cargados
   // ============================================================
   if (name === 'dashboard') {
-    const empresaId = sessionStorage.getItem('empresaId');
-    const userRol = sessionStorage.getItem('userRol');
-
-    if (empresaId && userRol === 'admin') {
-      // Si los datos ya están cargados, solo actualizar KPIs y gráfico
-      if (store.clientes.length > 0 && store.ventas.length > 0) {
-        console.log('📊 Datos ya cargados, actualizando KPIs y gráfico');
-        updateKPIs();
-        if (typeof renderChartVentas === 'function') {
-          setTimeout(() => renderChartVentas(), 300);
-        }
-        return;
-      }
-
-      // Si no hay datos, cargarlos con verificación de autenticación
-      console.log('🔄 Cargando datos para dashboard...');
-      const exito = await cargarDatosSiAutenticado(empresaId);
-      if (exito) {
-        updateKPIs();
-        if (typeof renderChartVentas === 'function') {
-          setTimeout(() => renderChartVentas(), 300);
-        }
-        // Refrescar listas internas
-        renderVentas('', filtroVentas, false);
-        renderInv('', filtroInv, false);
-        renderClients('', filtroCli, false);
-      } else {
-        console.warn('⚠️ No se pudieron cargar los datos para el dashboard');
-        // Fallback: esperar a que onAuthStateChanged cargue los datos
-        setTimeout(() => {
-          if (store.clientes.length > 0) {
-            updateKPIs();
-            if (typeof renderChartVentas === 'function') renderChartVentas();
-          }
-        }, 2000);
-      }
-    } else {
-      // Si no es admin, solo actualizar KPIs con los datos existentes
-      setTimeout(() => {
-        updateKPIs();
-        if (typeof renderChartVentas === 'function') renderChartVentas();
-      }, 100);
-    }
-  }
-}
-
-// ================================================================
-//  CARGAR DATOS SOLO SI EL USUARIO ESTÁ AUTENTICADO
-// ================================================================
-async function cargarDatosSiAutenticado(empresaId, callback) {
-  // Esperar hasta que firebase.auth().currentUser esté disponible
-  let intentos = 0;
-  const maxIntentos = 10;
-  while (!firebase.auth().currentUser && intentos < maxIntentos) {
-    await new Promise(r => setTimeout(r, 300));
-    intentos++;
-  }
-
-  if (!firebase.auth().currentUser) {
-    console.warn('⚠️ No se pudo autenticar después de varios intentos');
-    if (typeof callback === 'function') callback(false);
-    return false;
-  }
-
-  try {
-    if (typeof store !== 'undefined' && store.cargarDatosEmpresa) {
-      await store.cargarDatosEmpresa(empresaId);
-      syncGlobals();
-      if (typeof callback === 'function') callback(true);
-      return true;
-    }
-  } catch (error) {
-    console.error('❌ Error cargando datos:', error);
-    if (typeof callback === 'function') callback(false);
-    return false;
+    // Actualizar KPIs y gráfico con los datos existentes en store
+    setTimeout(() => {
+      updateKPIs();
+      if (typeof renderChartVentas === 'function') renderChartVentas();
+    }, 100);
   }
 }
 
@@ -4508,11 +4380,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('⏳ Registro en curso, onAuthStateChanged ignorado');
     return;
   }
-  // ❌ ELIMINAR el salto por sessionStorage
-  // if (sessionStorage.getItem('empresaId') && sessionStorage.getItem('userRol')) {
-  //   console.log('ℹ️ Sesión ya activa en sessionStorage, onAuthStateChanged skip');
-  //   return;
-  // }
+  // ❌ ELIMINADO: Ya no saltamos la carga de datos si la sesión existe en sessionStorage
+  // Ahora siempre cargamos los datos desde Firestore cuando el usuario está autenticado
   if (user) {
     try {
       const perfilDoc = await firebase.firestore()
@@ -4540,11 +4409,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (rol === 'admin') {
         actualizarAdminUI(nombre);
-        // Cargar datos antes de ir al dashboard
+        // 🔽 Cargar datos desde Firestore (esto es lo que faltaba)
         await store.cargarDatosEmpresa(empresaId);
         syncGlobals();
         goScreen('dashboard');
-        // Forzar actualización de KPIs y gráfico
+        // Forzar actualización de KPIs y gráfico después de cargar
         setTimeout(() => {
           updateKPIs();
           if (typeof renderChartVentas === 'function') renderChartVentas();
@@ -4751,7 +4620,7 @@ const funcionesGlobales = {
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
-  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa,cargarDatosSiAutenticado, toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
+  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa, toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,

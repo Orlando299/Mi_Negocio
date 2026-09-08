@@ -514,19 +514,22 @@
       </div>
     </div>
 
-    <div class="config-panel" id="panel-json">
-      <div class="config-json-section">
-        <h3>📁 Exportar / Importar datos</h3>
-        <p class="config-hint">Exporta todos tus datos a un archivo JSON para respaldo. También puedes importar un archivo JSON para restaurar o actualizar tu información.</p>
-        <div class="config-json-buttons">
-          <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar JSON</button>
-          <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config-2').click()">📂 Importar JSON</button>
-          <input type="file" id="file-input-json-config-2" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
-        </div>
-        <div id="mensaje-json" style="margin-top:12px; font-size:14px;"></div>
-      </div>
+ <div class="config-panel" id="panel-json">
+  <div class="config-json-section">
+    <h3>📁 Exportar / Importar datos</h3>
+    <p class="config-hint">...</p>
+    <div class="config-json-buttons">
+      <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar JSON</button>
+      <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config-2').click()">📂 Importar JSON</button>
+      <input type="file" id="file-input-json-config-2" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
     </div>
-
+    <!-- 👇 AQUÍ DEBES AGREGAR EL BOTÓN -->
+    <button class="btn btn-primary" onclick="importarProductosPolar(sessionStorage.getItem('empresaId'))" style="margin-top:12px;">
+      📥 Importar catálogo Polar
+    </button>
+    <div id="mensaje-json" style="margin-top:12px; font-size:14px;"></div>
+  </div>
+</div>
     <div style="margin-top:20px; text-align:center;">
       <button class="btn btn-outline" onclick="goScreen('dashboard')">⬅️ Volver al panel</button>
     </div>

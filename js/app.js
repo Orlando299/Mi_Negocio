@@ -267,9 +267,7 @@ async function registrarEmpresa() {
       codigoAcceso: codigoAcceso,
       creadoPor: user.uid,
       fechaCreacion: firebase.firestore.FieldValue.serverTimestamp(),
-      // 🔽 NUEVO: Contador de empleados (inicia en 0)
       totalEmpleados: 0,
-      // 🔽 NUEVO: Plan base (por defecto "basico")
       plan: 'basico'
     });
     const empresaId = empresaRef.id;
@@ -286,7 +284,6 @@ async function registrarEmpresa() {
         email: email,
         rol: 'admin',
         empresaId: empresaId,
-        // 🔽 NUEVO: Flag de propietario (solo el dueño tiene true)
         esPropietario: true,
         creado: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -304,7 +301,7 @@ async function registrarEmpresa() {
         nombre: nombreAdmin,
         email: email,
         rol: 'admin',
-        esPropietario: true, // 🔽 También en la subcolección
+        esPropietario: true,
         fcmToken: ''
       });
 
@@ -347,7 +344,15 @@ async function registrarEmpresa() {
     sessionStorage.setItem('userEmail', email);
     sessionStorage.setItem('userName', nombreAdmin);
     sessionStorage.setItem('userRol', 'admin');
-    sessionStorage.setItem('esPropietario', 'true'); // 🔽 NUEVO
+    sessionStorage.setItem('esPropietario', 'true');
+
+    // 🔽 NUEVO: Importar productos Polar automáticamente
+    try {
+      await importarProductosPolar(empresaId);
+    } catch (e) {
+      console.warn('⚠️ No se pudieron importar productos Polar automáticamente:', e);
+      // No interrumpimos el flujo, solo mostramos advertencia
+    }
 
     showToast(`✅ ¡Franquicia "${nombreNegocio}" creada! Código: ${codigoAcceso}`);
     setTimeout(() => { window.location.reload(); }, 1500);
@@ -366,7 +371,6 @@ async function registrarEmpresa() {
     _registrando = false;
   }
 }
-
 async function registrarClienteNuevo() {
   const nombre = document.getElementById('reg-cli-nombre').value.trim();
   const email = document.getElementById('reg-cli-email').value.trim();
@@ -4544,6 +4548,100 @@ async function recargarEstadisticasAgente() {
   showToast('✅ Estadísticas actualizadas');
 }
 
+// ================================================================
+//  IMPORTAR PRODUCTOS POLAR DESDE EL CÓDIGO
+// ================================================================
+
+function getIconoPolar(categoria) {
+  const mapa = {
+    'Cerveza': '🍺',
+    'Maltín': '🍻',
+    'Sangría': '🍷',
+    'Vinos': '🍇'
+  };
+  return mapa[categoria] || '📦';
+}
+
+async function importarProductosPolar(empresaId) {
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return false;
+  }
+
+  const productos = window.PRODUCTOS_POLAR;
+  if (!productos || !productos.categorias) {
+    showToast('⚠️ No hay catálogo Polar disponible');
+    return false;
+  }
+
+  // Contar total de productos
+  let total = 0;
+  for (const categoria of productos.categorias) {
+    for (const marca of categoria.marcas) {
+      total += marca.productos.length;
+    }
+  }
+
+  if (total === 0) {
+    showToast('⚠️ El catálogo está vacío');
+    return false;
+  }
+
+  const confirmar = confirm(`¿Importar ${total} productos Polar a tu inventario?`);
+  if (!confirmar) return false;
+
+  showToast('⏳ Importando productos...');
+
+  try {
+    const batch = firebase.firestore().batch();
+    let count = 0;
+    const inventarioRef = firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario');
+
+    for (const categoria of productos.categorias) {
+      for (const marca of categoria.marcas) {
+        for (const prod of marca.productos) {
+          const docRef = inventarioRef.doc();
+          batch.set(docRef, {
+            nombre: `${prod.nombre} ${prod.presentacion}`,
+            codigo: prod.codigo,
+            categoria: categoria.nombre,
+            marca: marca.nombre,
+            presentacion: prod.presentacion,
+            icono: getIconoPolar(categoria.nombre),
+            stock: 0,
+            estado: 'ok',
+            precio: '0.00',
+            fecha: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          count++;
+          if (count >= 400) {
+            await batch.commit();
+            batch = firebase.firestore().batch();
+            count = 0;
+          }
+        }
+      }
+    }
+    if (count > 0) await batch.commit();
+
+    showToast(`✅ ${total} productos importados correctamente`);
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    renderInv('', filtroInv, false);
+    return true;
+  } catch (error) {
+    console.error('Error importando productos Polar:', error);
+    showToast('❌ Error al importar productos');
+    return false;
+  }
+}
+
+// Función auxiliar para importar desde la consola (debug)
+window.importarProductosPolar = importarProductosPolar;
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -4592,7 +4690,7 @@ const funcionesGlobales = {
   abrirModalLiquidacion,
   cerrarModalLiquidacion,
   confirmarLiquidacion,
-  cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente,
+  cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

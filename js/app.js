@@ -4636,6 +4636,14 @@ async function importarProductosPolar(empresaId) {
     return false;
   }
 
+  // ✅ Mapeo definitivo de categorías
+  const categoriaMap = {
+    'Cerveza': 'Cervezas Polar',
+    'Maltín': 'Otros',
+    'Sangría': 'Otros',
+    'Vinos': 'Otros'
+  };
+
   // Contar total de productos
   let total = 0;
   for (const categoria of productos.categorias) {
@@ -4663,17 +4671,18 @@ async function importarProductosPolar(empresaId) {
       .collection('inventario');
 
     for (const categoria of productos.categorias) {
+      const categoriaFinal = categoriaMap[categoria.nombre] || 'Otros';
       for (const marca of categoria.marcas) {
         for (const prod of marca.productos) {
           const docRef = inventarioRef.doc();
           batch.set(docRef, {
             nombre: `${prod.nombre} ${prod.presentacion}`,
             codigo: prod.codigo,
-            categoria: categoria.nombre,
+            categoria: categoriaFinal,
             marca: marca.nombre,
             presentacion: prod.presentacion,
             icono: getIconoPolar(categoria.nombre),
-            stock: 0,
+            stock: 10,
             estado: 'ok',
             precio: '0.00',
             fecha: firebase.firestore.FieldValue.serverTimestamp()
@@ -4695,7 +4704,7 @@ async function importarProductosPolar(empresaId) {
     renderInv('', filtroInv, false);
     return true;
   } catch (error) {
-    console.error('Error importando productos Polar:', error);
+    console.error('Error importando productos:', error);
     showToast('❌ Error al importar productos');
     return false;
   }

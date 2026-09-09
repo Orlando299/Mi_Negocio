@@ -963,7 +963,7 @@ async function regenerarCodigo() {
   }
 }
 
-function goScreen(name) {
+async function goScreen(name) {
   const userRol = sessionStorage.getItem('userRol');
 
   if (userRol === 'cliente' && name !== 'cliente') {
@@ -1029,11 +1029,42 @@ function goScreen(name) {
   }
 
   // ============================================================
-  //  INVENTARIO: renderizar con los datos ya cargados en store
+  //  INVENTARIO: CARGAR TODOS LOS PRODUCTOS SIN PAGINACIÓN
   // ============================================================
   if (name === 'inventario') {
-    renderInv('', filtroInv, false);
-    updateKPIs();
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      try {
+        // 🔽 Cargar TODOS los productos de una sola vez
+        const snapshot = await firebase.firestore()
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('inventario')
+          .orderBy('nombre')
+          .get();
+        
+        const items = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+          items.push({ id: doc.id, ...data });
+        });
+        
+        store.inventario = items;
+        store.lastInventarioDoc = null;
+        store.hasMoreInventario = false; // Desactivar paginación
+        syncGlobals();
+        renderInv('', filtroInv, false);
+        updateKPIs();
+        console.log(`✅ Inventario cargado: ${items.length} productos`);
+      } catch (error) {
+        console.error('❌ Error cargando inventario completo:', error);
+        showToast('⚠️ Error al cargar inventario');
+        renderInv('', filtroInv, false);
+      }
+    } else {
+      renderInv('', filtroInv, false);
+    }
   }
 
   // ============================================================
@@ -1060,7 +1091,6 @@ function goScreen(name) {
       renderizarTablaProductos();
       renderizarTablaClientes();
       renderizarTablaVentas();
-      // Cargar empleados si la pestaña existe
       const panelUsuarios = document.getElementById('panel-usuarios');
       if (panelUsuarios && typeof cargarUsuariosEmpresa === 'function') {
         cargarUsuariosEmpresa();
@@ -1069,14 +1099,46 @@ function goScreen(name) {
   }
 
   // ============================================================
-  //  DASHBOARD: actualizar KPIs y gráfico con los datos ya cargados
+  //  DASHBOARD: actualizar KPIs y gráfico (recargar datos si están vacíos)
   // ============================================================
   if (name === 'dashboard') {
-    // Actualizar KPIs y gráfico con los datos existentes en store
-    setTimeout(() => {
-      updateKPIs();
-      if (typeof renderChartVentas === 'function') renderChartVentas();
-    }, 100);
+    const empresaId = sessionStorage.getItem('empresaId');
+    const userRol = sessionStorage.getItem('userRol');
+
+    if (empresaId && userRol === 'admin') {
+      // Si los datos ya están cargados, solo actualizar KPIs y gráfico
+      if (store.clientes.length > 0 && store.ventas.length > 0) {
+        console.log('📊 Datos ya cargados, actualizando KPIs y gráfico');
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') {
+          setTimeout(() => renderChartVentas(), 300);
+        }
+        return;
+      }
+
+      // Si no hay datos, cargarlos desde Firestore
+      console.log('🔄 Cargando datos para dashboard...');
+      try {
+        await store.cargarDatosEmpresa(empresaId);
+        syncGlobals();
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') {
+          setTimeout(() => renderChartVentas(), 300);
+        }
+        // Refrescar listas internas
+        renderVentas('', filtroVentas, false);
+        renderInv('', filtroInv, false);
+        renderClients('', filtroCli, false);
+      } catch (error) {
+        console.warn('Error cargando datos del dashboard:', error);
+      }
+    } else {
+      // Si no es admin, solo actualizar KPIs con los datos existentes
+      setTimeout(() => {
+        updateKPIs();
+        if (typeof renderChartVentas === 'function') renderChartVentas();
+      }, 100);
+    }
   }
 }
 

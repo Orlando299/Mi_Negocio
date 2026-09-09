@@ -2593,6 +2593,7 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'categorias') cargarCategorias();  // <-- NUEVO
   if (tabId === 'usuarios') cargarUsuariosEmpresa();
   if (tabId === 'agente') cargarEstadisticasAgente();
+  if (tabId === 'catalogo-polar') cargarCatalogoPolar(); // 🔽 NUEVO
 }
 
 function renderizarTablaProductos() {
@@ -4710,6 +4711,177 @@ async function importarProductosPolar(empresaId) {
   }
 }
 
+// ================================================================
+//  CATÁLOGO POLAR MAESTRO (desde Firestore)
+// ================================================================
+
+async function cargarCatalogoPolar() {
+  const tbody = document.getElementById('tabla-catalogo-polar');
+  if (!tbody) return;
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('productosPolar')
+      .where('activo', '==', true)
+      .orderBy('categoria')
+      .orderBy('nombre')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay productos en el catálogo maestro</td></tr>';
+      return;
+    }
+
+    const empresaId = sessionStorage.getItem('empresaId');
+    // Obtener productos que ya tiene la empresa para saber si mostrar "Agregar" o "Ya agregado"
+    const inventarioSnapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario')
+      .get();
+    
+    const codigosExistentes = new Set();
+    inventarioSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.codigo) codigosExistentes.add(data.codigo);
+    });
+
+    let html = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const codigo = data.codigo || '';
+      const yaExiste = codigosExistentes.has(codigo);
+      const nombre = escapeHtml(data.nombre || '');
+      const presentacion = escapeHtml(data.presentacion || '');
+      const categoria = escapeHtml(data.categoria || '');
+      const marca = escapeHtml(data.marca || '');
+      const nombreCompleto = `${nombre} ${presentacion}`;
+
+      html += `
+        <tr>
+          <td><strong>${codigo}</strong></td>
+          <td>${nombreCompleto}</td>
+          <td>${categoria}</td>
+          <td>${marca}</td>
+          <td>
+            ${yaExiste 
+              ? '<span style="color:var(--green);">✅ Ya agregado</span>' 
+              : `<button class="btn btn-sm btn-primary" onclick="agregarProductoPolar('${doc.id}')" style="padding:4px 12px;">➕ Agregar</button>`
+            }
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  } catch (error) {
+    console.error('Error cargando catálogo Polar:', error);
+    tbody.innerHTML = `<tr><td colspan="5" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+// Agregar un producto del catálogo maestro al inventario de la empresa
+async function agregarProductoPolar(productoId) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  try {
+    const doc = await firebase.firestore()
+      .collection('productosPolar')
+      .doc(productoId)
+      .get();
+
+    if (!doc.exists) {
+      showToast('⚠️ Producto no encontrado en el catálogo');
+      return;
+    }
+
+    const data = doc.data();
+    const inventarioRef = firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario');
+
+    // Verificar si ya existe por código
+    const existente = await inventarioRef
+      .where('codigo', '==', data.codigo)
+      .get();
+
+    if (!existente.empty) {
+      showToast('ℹ️ Este producto ya está en tu inventario');
+      cargarCatalogoPolar();
+      return;
+    }
+
+    // Agregar al inventario
+    await inventarioRef.add({
+      nombre: `${data.nombre} ${data.presentacion}`,
+      codigo: data.codigo,
+      categoria: data.categoria,
+      marca: data.marca,
+      presentacion: data.presentacion,
+      icono: getIconoPolar(data.categoria),
+      stock: 0,
+      estado: 'ok',
+      precio: '0.00',
+      fecha: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    showToast(`✅ Producto "${data.nombre}" agregado a tu inventario`);
+    cargarCatalogoPolar();
+    // Refrescar inventario
+    await store.cargarDatosEmpresa(empresaId);
+    syncGlobals();
+    renderInv('', filtroInv, false);
+  } catch (error) {
+    console.error('Error agregando producto:', error);
+    showToast('❌ Error al agregar producto');
+  }
+}
+
+// Función para subir el catálogo a Firestore (ejecutar una sola vez)
+async function subirCatalogoPolar() {
+  const productos = window.PRODUCTOS_POLAR;
+  if (!productos) {
+    showToast('⚠️ No hay catálogo en el código');
+    return;
+  }
+
+  const confirmar = confirm('¿Subir el catálogo completo a Firestore?');
+  if (!confirmar) return;
+
+  const batch = firebase.firestore().batch();
+  let count = 0;
+
+  for (const categoria of productos.categorias) {
+    for (const marca of categoria.marcas) {
+      for (const prod of marca.productos) {
+        const docRef = firebase.firestore().collection('productosPolar').doc(prod.codigo);
+        batch.set(docRef, {
+          codigo: prod.codigo,
+          nombre: prod.nombre,
+          presentacion: prod.presentacion,
+          categoria: categoria.nombre,
+          marca: marca.nombre,
+          icono: getIconoPolar(categoria.nombre),
+          activo: true
+        });
+        count++;
+        if (count >= 400) {
+          await batch.commit();
+          batch = firebase.firestore().batch();
+          count = 0;
+        }
+      }
+    }
+  }
+  if (count > 0) await batch.commit();
+  showToast(`✅ ${count} productos subidos al catálogo maestro`);
+}
+
 // Función auxiliar para importar desde la consola (debug)
 window.importarProductosPolar = importarProductosPolar;
 
@@ -4761,7 +4933,8 @@ const funcionesGlobales = {
   abrirModalLiquidacion,
   cerrarModalLiquidacion,
   confirmarLiquidacion,
-  cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar
+  cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar, cargarCatalogoPolar,
+agregarProductoPolar, subirCatalogoPolar
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

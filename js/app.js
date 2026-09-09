@@ -4817,6 +4817,164 @@ async function subirCatalogoPolar() {
   showToast(`✅ ${count} productos subidos al catálogo maestro`);
 }
 
+// ================================================================
+//  RENDERIZAR CATÁLOGO MAESTRO POLAR
+// ================================================================
+async function renderizarCatalogoMaestro() {
+  const tbody = document.getElementById('tabla-catalogo-polar');
+  if (!tbody) {
+    console.warn('⚠️ No se encontró #tabla-catalogo-polar');
+    return;
+  }
+
+  const productos = window.PRODUCTOS_POLAR;
+  if (!productos || !productos.categorias) {
+    tbody.innerHTML = '<tr><td colspan="5" class="config-empty">No hay productos Polar disponibles</td></tr>';
+    return;
+  }
+
+  // Obtener el inventario actual de la empresa para saber qué productos ya están agregados
+  const empresaId = sessionStorage.getItem('empresaId');
+  let inventarioActual = [];
+  if (empresaId) {
+    try {
+      const snapshot = await firebase.firestore()
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('inventario')
+        .get();
+      snapshot.forEach(doc => {
+        inventarioActual.push(doc.data().codigo);
+      });
+    } catch (e) {
+      console.warn('Error cargando inventario:', e);
+    }
+  }
+
+  // Construir la tabla
+  let html = '';
+  let total = 0;
+
+  for (const categoria of productos.categorias) {
+    for (const marca of categoria.marcas) {
+      for (const prod of marca.productos) {
+        total++;
+        const yaAgregado = inventarioActual.includes(prod.codigo);
+        
+        html += `
+          <tr>
+            <td><strong>${prod.codigo}</strong></td>
+            <td>${prod.nombre}</td>
+            <td>${categoria.nombre}</td>
+            <td>${marca.nombre}</td>
+            <td>
+              ${yaAgregado 
+                ? `<span style="color:var(--green); font-weight:600;">✅ Agregado</span>`
+                : `<button class="btn-sm btn-sm-edit" onclick="agregarProductoPolarAlInventario('${prod.codigo}')">Agregar</button>`
+              }
+            </td>
+          </tr>
+        `;
+      }
+    }
+  }
+
+  tbody.innerHTML = html;
+  console.log(`✅ Catálogo maestro cargado: ${total} productos`);
+}
+
+// ================================================================
+//  AGREGAR PRODUCTO POLAR AL INVENTARIO DE LA EMPRESA
+// ================================================================
+async function agregarProductoPolarAlInventario(codigo) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  // Buscar el producto en el catálogo maestro
+  const productos = window.PRODUCTOS_POLAR;
+  let productoEncontrado = null;
+  let categoriaOriginal = '';
+
+  for (const categoria of productos.categorias) {
+    for (const marca of categoria.marcas) {
+      for (const prod of marca.productos) {
+        if (prod.codigo === codigo) {
+          productoEncontrado = prod;
+          categoriaOriginal = categoria.nombre;
+          break;
+        }
+      }
+      if (productoEncontrado) break;
+    }
+    if (productoEncontrado) break;
+  }
+
+  if (!productoEncontrado) {
+    showToast('⚠️ Producto no encontrado en el catálogo');
+    return;
+  }
+
+  // Mapear categoría para que coincida con los filtros de la app
+  const categoriaMap = {
+    'Cerveza': 'Cervezas Polar',
+    'Maltín': 'Otros',
+    'Sangría': 'Otros',
+    'Vinos': 'Otros'
+  };
+  const categoriaFinal = categoriaMap[categoriaOriginal] || 'Otros';
+
+  // Verificar si ya existe en el inventario
+  const existente = await firebase.firestore()
+    .collection('empresas')
+    .doc(empresaId)
+    .collection('inventario')
+    .where('codigo', '==', codigo)
+    .get();
+
+  if (!existente.empty) {
+    showToast('⚠️ Este producto ya está en tu inventario');
+    return;
+  }
+
+  // Agregar al inventario
+  try {
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario')
+      .add({
+        nombre: `${productoEncontrado.nombre} ${productoEncontrado.presentacion}`.trim(),
+        codigo: productoEncontrado.codigo,
+        categoria: categoriaFinal,
+        marca: productoEncontrado.nombre,
+        presentacion: productoEncontrado.presentacion,
+        icono: getIconoPolar(categoriaOriginal),
+        stock: 10,
+        estado: 'ok',
+        precio: '0.00',
+        fecha: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    showToast(`✅ ${productoEncontrado.nombre} agregado a tu inventario`);
+    renderizarCatalogoMaestro(); // Refrescar la tabla
+  } catch (error) {
+    console.error('Error agregando producto:', error);
+    showToast('❌ Error al agregar producto');
+  }
+}
+
+// ================================================================
+//  RECARGAR CATÁLOGO MAESTRO
+// ================================================================
+async function recargarCatalogoMaestro() {
+  showToast('🔄 Recargando catálogo...');
+  await renderizarCatalogoMaestro();
+  showToast('✅ Catálogo actualizado');
+}
+
 // Función auxiliar para importar desde la consola (debug)
 window.importarProductosPolar = importarProductosPolar;
 

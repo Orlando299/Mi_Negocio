@@ -288,19 +288,20 @@
       </div>
     </div>
 
+    <!-- ===== TABS ===== -->
     <div class="config-tabs">
       <button class="config-tab active" data-tab="resumen">📊 Resumen</button>
       <button class="config-tab" data-tab="productos">📦 Productos</button>
       <button class="config-tab" data-tab="clientes">👥 Clientes</button>
       <button class="config-tab" data-tab="ventas">🛒 Ventas</button>
-      <button class="config-tab" data-tab="usuarios">👤 Usuarios</button> <!-- NUEVO -->
-      <button class="config-tab" data-tab="json">📁 JSON</button>
+      <button class="config-tab" data-tab="usuarios">👤 Usuarios</button>
       <button class="config-tab" data-tab="pagos">💳 Pagos</button>
       <button class="config-tab" data-tab="categorias">🏷️ Categorías</button>
       <button class="config-tab" data-tab="agente">🤖 Agente</button>
       <button class="config-tab" data-tab="catalogo-polar">📦 Catálogo Polar</button>
     </div>
 
+    <!-- ===== PANEL: PAGOS ===== -->
     <div class="config-panel" id="panel-pagos">
       <div class="config-json-section">
         <h3>💳 Datos de pago (Pago Móvil / Zelle / Transferencias)</h3>
@@ -355,28 +356,28 @@
     </div>
 
     <!-- ===== PANEL: USUARIOS (EMPLEADOS) ===== -->
-<div class="config-panel" id="panel-usuarios">
-  <div class="config-toolbar">
-    <h3>👤 Empleados y personal</h3>
-    <button class="btn btn-primary" onclick="abrirModalEmpleado()">+ Registrar empleado</button>
-  </div>
-  <div class="config-table-wrap">
-    <table class="config-table">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Email</th>
-          <th>Rol</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="tabla-usuarios">
-        <tr><td colspan="5" class="config-empty">Cargando empleados...</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+    <div class="config-panel" id="panel-usuarios">
+      <div class="config-toolbar">
+        <h3>👤 Empleados y personal</h3>
+        <button class="btn btn-primary" onclick="abrirModalEmpleado()">+ Registrar empleado</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-usuarios">
+            <tr><td colspan="5" class="config-empty">Cargando empleados...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- ===== PANEL: CATEGORÍAS ===== -->
     <div class="config-panel" id="panel-categorias">
@@ -402,7 +403,7 @@
       </div>
     </div>
 
-        <!-- ===== PANEL: AGENTE (ESTADÍSTICAS) ===== -->
+    <!-- ===== PANEL: AGENTE ===== -->
     <div class="config-panel" id="panel-agente">
       <div class="config-toolbar">
         <h3>🤖 Estadísticas del Agente</h3>
@@ -431,51 +432,38 @@
       <button class="btn btn-outline" onclick="recargarEstadisticasAgente()" style="width:auto; padding:8px 16px;">🔄 Recargar</button>
     </div>
 
+    <!-- ===== PANEL: RESUMEN ===== -->
     <div class="config-panel active" id="panel-resumen">
-  <div class="config-cards">
-    <!-- Tarjeta: Productos -->
-    <div class="config-card">
-      <div class="config-card-icon">📦</div>
-      <div class="config-card-number" id="resumen-productos">0</div>
-      <div class="config-card-label">Productos</div>
+      <div class="config-cards">
+        <div class="config-card">
+          <div class="config-card-icon">📦</div>
+          <div class="config-card-number" id="resumen-productos">0</div>
+          <div class="config-card-label">Productos</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">👥</div>
+          <div class="config-card-number" id="resumen-clientes">0</div>
+          <div class="config-card-label">Clientes</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">👤</div>
+          <div class="config-card-number" id="resumen-empleados">0</div>
+          <div class="config-card-label">Empleados</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">🛒</div>
+          <div class="config-card-number" id="resumen-ventas">0</div>
+          <div class="config-card-label">Ventas</div>
+        </div>
+        <div class="config-card">
+          <div class="config-card-icon">💰</div>
+          <div class="config-card-number" id="resumen-total-ventas">$0.00</div>
+          <div class="config-card-label">Total en ventas</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Tarjeta: Clientes -->
-    <div class="config-card">
-      <div class="config-card-icon">👥</div>
-      <div class="config-card-number" id="resumen-clientes">0</div>
-      <div class="config-card-label">Clientes</div>
-    </div>
-
-    <!-- Tarjeta: Empleados (NUEVA) -->
-    <div class="config-card">
-      <div class="config-card-icon">👤</div>
-      <div class="config-card-number" id="resumen-empleados">0</div>
-      <div class="config-card-label">Empleados</div>
-    </div>
-
-    <!-- Tarjeta: Ventas -->
-    <div class="config-card">
-      <div class="config-card-icon">🛒</div>
-      <div class="config-card-number" id="resumen-ventas">0</div>
-      <div class="config-card-label">Ventas</div>
-    </div>
-
-    <!-- Tarjeta: Total Ventas -->
-    <div class="config-card">
-      <div class="config-card-icon">💰</div>
-      <div class="config-card-number" id="resumen-total-ventas">$0.00</div>
-      <div class="config-card-label">Total en ventas</div>
-    </div>
-  </div>
-
-  <div class="config-actions">
-    <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar todo a JSON</button>
-    <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config').click()">📂 Importar desde JSON</button>
-    <input type="file" id="file-input-json-config" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
-  </div>
-</div>
-
+    <!-- ===== PANEL: PRODUCTOS (INVENTARIO) ===== -->
     <div class="config-panel" id="panel-productos">
       <div class="config-toolbar">
         <h3>📦 Inventario</h3>
@@ -489,6 +477,7 @@
       </div>
     </div>
 
+    <!-- ===== PANEL: CLIENTES ===== -->
     <div class="config-panel" id="panel-clientes">
       <div class="config-toolbar">
         <h3>👥 Clientes</h3>
@@ -502,6 +491,7 @@
       </div>
     </div>
 
+    <!-- ===== PANEL: VENTAS ===== -->
     <div class="config-panel" id="panel-ventas">
       <div class="config-toolbar">
         <h3>🛒 Ventas</h3>
@@ -515,28 +505,42 @@
       </div>
     </div>
 
- <div class="config-panel" id="panel-json">
-  <div class="config-json-section">
-    <h3>📁 Exportar / Importar datos</h3>
-    <p class="config-hint">...</p>
-    <div class="config-json-buttons">
-      <button class="btn btn-primary" onclick="exportarDatosJSON()">📥 Exportar JSON</button>
-      <button class="btn btn-outline" onclick="document.getElementById('file-input-json-config-2').click()">📂 Importar JSON</button>
-      <input type="file" id="file-input-json-config-2" accept=".json" style="display:none" onchange="importarDatosJSON(event)">
+    <!-- ===== PANEL: CATÁLOGO POLAR ===== -->
+    <div class="config-panel" id="panel-catalogo-polar">
+      <div class="config-toolbar">
+        <h3>📦 Catálogo Maestro Polar</h3>
+        <div>
+          <button class="btn btn-outline" onclick="cargarCatalogoPolar()" style="width:auto; padding:8px 16px; margin-right:8px;">🔄 Recargar</button>
+          <button class="btn btn-primary" onclick="importarProductosPolar(sessionStorage.getItem('empresaId'))" style="width:auto; padding:8px 16px;">📥 Importar todos</button>
+        </div>
+      </div>
+      <p class="config-hint">Aquí puedes ver el catálogo completo de productos Polar. Haz clic en "Agregar" para añadir productos a tu inventario, o usa "Importar todos" para cargar el catálogo completo de una vez.</p>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Marca</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-catalogo-polar">
+            <tr><td colspan="5" class="config-empty">Cargando catálogo...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <!-- 👇 AQUÍ DEBES AGREGAR EL BOTÓN -->
-    <button class="btn btn-primary" onclick="importarProductosPolar(sessionStorage.getItem('empresaId'))" style="margin-top:12px;">
-      📥 Importar catálogo Polar
-    </button>
-    <div id="mensaje-json" style="margin-top:12px; font-size:14px;"></div>
-  </div>
-</div>
+
+    <!-- ===== BOTÓN VOLVER ===== -->
     <div style="margin-top:20px; text-align:center;">
       <button class="btn btn-outline" onclick="goScreen('dashboard')">⬅️ Volver al panel</button>
     </div>
   </div>
 </div>
 
+  
 <!-- ==================== SCREEN: REPORTES ==================== -->
 <div class="screen" id="screen-reportes">
   <div class="report-tabs">

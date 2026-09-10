@@ -788,34 +788,31 @@
   }
 </script>
 
- <!-- ==================== CHAT FLOTANTE DEL AGENTE ==================== -->
-<button id="chat-toggle" class="fab" style="bottom: calc(var(--bottom-h) + 80px); right: calc(50% - 215px + 16px); background: #00338D; font-size: 24px; z-index: 150; width: 56px; height: 56px; border-radius: 50%; border: none; color: white; box-shadow: 0 4px 16px rgba(0,51,141,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="toggleAgentPanel()">
+<!-- ==================== CHAT FLOTANTE DEL AGENTE ==================== -->
+<button id="chat-toggle" class="fab" onclick="toggleAgentPanel()">
   💬
 </button>
 
-<!-- Panel del chat mejorado -->
-<div id="agent-panel" style="display:none; position:fixed; bottom:150px; right:16px; width:360px; max-height:500px; background:var(--surface); border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.2); z-index:160; overflow:hidden; border:1px solid var(--border); display:flex; flex-direction:column;">
-  <!-- Header -->
-  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--primary); color:white; flex-shrink:0;">
-    <strong style="font-size:16px;">🤖 PolarBot</strong>
-    <button onclick="toggleAgentPanel()" style="background:none; border:none; font-size:20px; cursor:pointer; color:white;">✕</button>
+<!-- Panel del chat mejorado (compacto y arrastrable) -->
+<div id="agent-panel" class="agent-panel">
+  <!-- Header arrastrable -->
+  <div id="agent-header" class="agent-header">
+    <strong style="font-size:14px;">🤖 PolarBot</strong>
+    <button onclick="toggleAgentPanel()" style="background:none; border:none; font-size:16px; cursor:pointer; color:white; padding:0 4px;">✕</button>
   </div>
   
-  <!-- Contenedor de mensajes (scroll) -->
-  <div id="chat-messages-container" style="flex:1; padding:12px; overflow-y:auto; max-height:350px; background:var(--bg); min-height:150px;">
+  <!-- Contenedor de mensajes -->
+  <div id="chat-messages-container" class="agent-messages">
     <div id="chat-messages"></div>
   </div>
   
   <!-- Input + botones -->
-  <div style="padding:10px 12px; background:var(--surface2); border-top:1px solid var(--border); display:flex; gap:8px; flex-shrink:0;">
-    <button onclick="iniciarVoz()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text2); padding:4px 8px;" title="Comando de voz">🎤</button>
-    <input type="text" id="agent-input" placeholder="Escribe un comando..." style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:20px; background:var(--bg); color:var(--text); font-size:14px; outline:none;">
-    <button onclick="sendAgentCommand()" class="btn btn-primary" style="width:auto; padding:8px 16px; height:auto; border-radius:20px; font-size:14px;">Enviar</button>
-  </div>
-  <div style="padding:4px 12px; font-size:10px; color:var(--text3); text-align:center; background:var(--surface2); border-top:1px solid var(--border); flex-shrink:0;">
-    <span id="agent-status">● Listo</span>
+  <div class="agent-input-area">
+    <button onclick="iniciarVoz()" class="agent-mic-btn" title="Comando de voz">🎤</button>
+    <input type="text" id="agent-input" placeholder="Escribe..." class="agent-input">
+    <button onclick="sendAgentCommand()" class="agent-send-btn">➤</button>
   </div>
 </div>
-
+  
 </body>
 </html>

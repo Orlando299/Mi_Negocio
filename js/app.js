@@ -2593,9 +2593,8 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'categorias') cargarCategorias();
   if (tabId === 'usuarios') cargarUsuariosEmpresa();
   if (tabId === 'agente') cargarEstadisticasAgente();
-  // NOTA: Se eliminó la pestaña 'catalogo-polar' y su llamada a cargarCatalogoPolar()
+  if (tabId === 'catalogo-polar' || tabId === 'polar') renderizarCatalogoMaestro();
 }
-
 function renderizarTablaProductos() {
   const tbody = document.getElementById('tabla-productos');
   if (!tbody) return;
@@ -5027,7 +5026,9 @@ const funcionesGlobales = {
   cerrarModalLiquidacion,
   confirmarLiquidacion,
   cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar,
-  agregarProductoPolar, subirCatalogoPolar
+  agregarProductoPolar, subirCatalogoPolar,renderizarCatalogoMaestro,
+  agregarProductoPolarAlInventario,
+  recargarCatalogoMaestro,
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

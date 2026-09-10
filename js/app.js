@@ -4832,9 +4832,11 @@ async function renderizarCatalogoMaestro() {
     return;
   }
 
-  // Obtener el inventario actual de la empresa para saber qué productos ya están agregados
+  // Obtener el inventario actual de la empresa
   const empresaId = sessionStorage.getItem('empresaId');
-  let inventarioActual = [];
+  let inventarioActual = []; // Lista de códigos en el inventario
+  let mapCodigoId = {}; // Mapa: código → ID del documento en inventario
+
   if (empresaId) {
     try {
       const snapshot = await firebase.firestore()
@@ -4843,7 +4845,9 @@ async function renderizarCatalogoMaestro() {
         .collection('inventario')
         .get();
       snapshot.forEach(doc => {
-        inventarioActual.push(doc.data().codigo);
+        const data = doc.data();
+        inventarioActual.push(data.codigo);
+        mapCodigoId[data.codigo] = doc.id;
       });
     } catch (e) {
       console.warn('Error cargando inventario:', e);
@@ -4853,13 +4857,15 @@ async function renderizarCatalogoMaestro() {
   // Construir la tabla
   let html = '';
   let total = 0;
+  let agregados = 0;
 
   for (const categoria of productos.categorias) {
     for (const marca of categoria.marcas) {
       for (const prod of marca.productos) {
         total++;
         const yaAgregado = inventarioActual.includes(prod.codigo);
-        
+        if (yaAgregado) agregados++;
+
         html += `
           <tr>
             <td><strong>${prod.codigo}</strong></td>
@@ -4868,8 +4874,8 @@ async function renderizarCatalogoMaestro() {
             <td>${marca.nombre}</td>
             <td>
               ${yaAgregado 
-                ? `<span style="color:var(--green); font-weight:600;">✅ Agregado</span>`
-                : `<button class="btn-sm btn-sm-edit" onclick="agregarProductoPolarAlInventario('${prod.codigo}')">Agregar</button>`
+                ? `<button class="btn-sm btn-sm-delete" onclick="quitarProductoPolarDelInventario('${mapCodigoId[prod.codigo]}', '${prod.codigo}')">🗑️ Quitar</button>`
+                : `<button class="btn-sm btn-sm-edit" onclick="agregarProductoPolarAlInventario('${prod.codigo}')">➕ Agregar</button>`
               }
             </td>
           </tr>
@@ -4879,7 +4885,7 @@ async function renderizarCatalogoMaestro() {
   }
 
   tbody.innerHTML = html;
-  console.log(`✅ Catálogo maestro cargado: ${total} productos`);
+  console.log(`✅ Catálogo maestro cargado: ${total} productos (${agregados} ya en inventario)`);
 }
 
 // ================================================================
@@ -4966,6 +4972,35 @@ async function agregarProductoPolarAlInventario(codigo) {
 }
 
 // ================================================================
+//  QUITAR PRODUCTO POLAR DEL INVENTARIO
+// ================================================================
+async function quitarProductoPolarDelInventario(inventarioDocId, codigo) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const confirmar = confirm(`¿Quitar el producto con código ${codigo} de tu inventario?`);
+  if (!confirmar) return;
+
+  try {
+    await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario')
+      .doc(inventarioDocId)
+      .delete();
+
+    showToast(`🗑️ Producto ${codigo} quitado del inventario`);
+    renderizarCatalogoMaestro(); // Refrescar la tabla
+  } catch (error) {
+    console.error('Error quitando producto:', error);
+    showToast('❌ Error al quitar producto');
+  }
+}
+
+// ================================================================
 //  RECARGAR CATÁLOGO MAESTRO
 // ================================================================
 async function recargarCatalogoMaestro() {
@@ -5028,7 +5063,7 @@ const funcionesGlobales = {
   cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar,
   agregarProductoPolar, subirCatalogoPolar,renderizarCatalogoMaestro,
   agregarProductoPolarAlInventario,
-  recargarCatalogoMaestro,
+  recargarCatalogoMaestro, quitarProductoPolarDelInventario
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

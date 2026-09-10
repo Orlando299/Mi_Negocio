@@ -4592,35 +4592,77 @@ let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 
-function makeDraggable(element) {
+// ================================================================
+//  ARRASTRAR BOTÓN Y PANEL DEL AGENTE
+// ================================================================
+
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let dragStartX = 0;
+let dragStartY = 0;
+
+function makeDraggable(element, options = {}) {
   if (!element) return;
-  
-  element.addEventListener('mousedown', startDrag);
-  element.addEventListener('touchstart', startDragTouch, { passive: false });
-  
+
+  const savePosition = options.savePosition || false;
+  const storageKey = options.storageKey || null;
+  const handle = options.handle || element; // Header para el panel
+
+  // Restaurar posición guardada
+  if (savePosition && storageKey) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (saved) {
+        element.style.left = saved.left;
+        element.style.top = saved.top;
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+      }
+    } catch (e) {}
+  }
+
+  // Eventos de mouse
+  handle.addEventListener('mousedown', startDrag);
+  handle.addEventListener('touchstart', startDragTouch, { passive: false });
+
   function startDrag(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    isDragging = false;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+    
     const rect = element.getBoundingClientRect();
     dragOffsetX = e.clientX - rect.left;
     dragOffsetY = e.clientY - rect.top;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    isDragging = false;
+
     document.addEventListener('mousemove', onDrag);
     document.addEventListener('mouseup', endDrag);
     element.style.cursor = 'grabbing';
     e.preventDefault();
   }
-  
+
   function startDragTouch(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+    
     const touch = e.touches[0];
     const rect = element.getBoundingClientRect();
     dragOffsetX = touch.clientX - rect.left;
     dragOffsetY = touch.clientY - rect.top;
+    dragStartX = touch.clientX;
+    dragStartY = touch.clientY;
+    isDragging = false;
+
     document.addEventListener('touchmove', onDragTouch, { passive: false });
     document.addEventListener('touchend', endDragTouch);
     e.preventDefault();
   }
-  
+
   function onDrag(e) {
+    const deltaX = Math.abs(e.clientX - dragStartX);
+    const deltaY = Math.abs(e.clientY - dragStartY);
+    if (deltaX < 5 && deltaY < 5) return; // No arrastrar si fue un clic
+
     isDragging = true;
     const x = e.clientX - dragOffsetX;
     const y = e.clientY - dragOffsetY;
@@ -4629,10 +4671,14 @@ function makeDraggable(element) {
     element.style.right = 'auto';
     element.style.bottom = 'auto';
   }
-  
+
   function onDragTouch(e) {
-    isDragging = true;
     const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - dragStartX);
+    const deltaY = Math.abs(touch.clientY - dragStartY);
+    if (deltaX < 5 && deltaY < 5) return;
+
+    isDragging = true;
     const x = touch.clientX - dragOffsetX;
     const y = touch.clientY - dragOffsetY;
     element.style.left = Math.max(0, Math.min(window.innerWidth - element.offsetWidth, x)) + 'px';
@@ -4641,16 +4687,35 @@ function makeDraggable(element) {
     element.style.bottom = 'auto';
     e.preventDefault();
   }
-  
+
   function endDrag() {
     document.removeEventListener('mousemove', onDrag);
     document.removeEventListener('mouseup', endDrag);
-    element.style.cursor = 'pointer';
+    element.style.cursor = '';
+    
+    // Guardar posición si aplica
+    if (isDragging && savePosition && storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({
+          left: element.style.left,
+          top: element.style.top
+        }));
+      } catch (e) {}
+    }
   }
-  
+
   function endDragTouch() {
     document.removeEventListener('touchmove', onDragTouch);
     document.removeEventListener('touchend', endDragTouch);
+    
+    if (isDragging && savePosition && storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({
+          left: element.style.left,
+          top: element.style.top
+        }));
+      } catch (e) {}
+    }
   }
 }
 

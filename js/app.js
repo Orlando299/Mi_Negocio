@@ -2595,79 +2595,194 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'agente') cargarEstadisticasAgente();
   if (tabId === 'catalogo-polar' || tabId === 'polar') renderizarCatalogoMaestro();
 }
-function renderizarTablaProductos() {
+
+async function renderizarTablaProductos() {
   const tbody = document.getElementById('tabla-productos');
   if (!tbody) return;
-  const productos = window.inventario || [];
-  if (!productos.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay productos registrados</td></tr>';
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay sesión activa</td></tr>';
     return;
   }
-  tbody.innerHTML = productos.map(p => `
-    <tr>
-      <td>${p.id ? p.id.slice(0, 8) + '...' : '-'}</td>
-      <td>${p.nombre || '-'}</td>
-      <td>${p.cat || 'General'}</td>
-      <td>${p.precio || '$0.00'}</td>
-      <td>${p.stock ?? 0}</td>
-      <td>
-        <div class="config-actions-cell">
-          <button class="btn-sm btn-sm-edit" onclick="editProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
-          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+
+  // Mostrar indicador de carga
+  tbody.innerHTML = '<tr><td colspan="6" class="config-empty">Cargando productos...</td></tr>';
+
+  try {
+    // 🔽 Cargar TODOS los productos directamente desde Firestore
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('inventario')
+      .orderBy('nombre')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay productos registrados</td></tr>';
+      return;
+    }
+
+    const productos = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      productos.push({ id: doc.id, ...data });
+    });
+
+    // Actualizar store y variables globales
+    store.inventario = productos;
+    window.inventario = productos;
+    syncGlobals();
+
+    // Renderizar la tabla
+    tbody.innerHTML = productos.map(p => `
+      <tr>
+        <td>${p.codigo || (p.id ? p.id.slice(0, 8) + '...' : '-')}</td>
+        <td>${p.nombre || '-'}</td>
+        <td>${p.categoria || p.cat || 'General'}</td>
+        <td>${p.precio || '$0.00'}</td>
+        <td>${p.stock ?? 0}</td>
+        <td>
+          <div class="config-actions-cell">
+            <button class="btn-sm btn-sm-edit" onclick="editProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+            <button class="btn-sm btn-sm-delete" onclick="confirmDeleteProducto('${(p.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    console.log(`✅ Tabla de productos cargada: ${productos.length} productos`);
+
+  } catch (error) {
+    console.error('Error cargando productos:', error);
+    tbody.innerHTML = `<tr><td colspan="6" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
 }
 
-function renderizarTablaClientes() {
+async function renderizarTablaClientes() {
   const tbody = document.getElementById('tabla-clientes');
   if (!tbody) return;
-  const clientes = window.clientes || [];
-  if (!clientes.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="config-empty">No hay clientes registrados</td></tr>';
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    tbody.innerHTML = '<tr><td colspan="4" class="config-empty">No hay sesión activa</td></tr>';
     return;
   }
-  tbody.innerHTML = clientes.map(c => `
-    <tr>
-      <td>${c.nombre || '-'}</td>
-      <td>${c.email || c.phone || '-'}</td>
-      <td>${c.phone || '-'}</td>
-      <td>
-        <div class="config-actions-cell">
-          <button class="btn-sm btn-sm-edit" onclick="editCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
-          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+
+  // Mostrar indicador de carga
+  tbody.innerHTML = '<tr><td colspan="4" class="config-empty">Cargando clientes...</td></tr>';
+
+  try {
+    // 🔽 Cargar TODOS los clientes directamente desde Firestore
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('clientes')
+      .orderBy('nombre')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="4" class="config-empty">No hay clientes registrados</td></tr>';
+      return;
+    }
+
+    const clientes = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      clientes.push({ id: doc.id, ...data });
+    });
+
+    // Actualizar store y variables globales
+    store.clientes = clientes;
+    window.clientes = clientes;
+    syncGlobals();
+
+    // Renderizar la tabla
+    tbody.innerHTML = clientes.map(c => `
+      <tr>
+        <td>${c.nombre || '-'}</td>
+        <td>${c.email || c.phone || '-'}</td>
+        <td>${c.phone || '-'}</td>
+        <td>
+          <div class="config-actions-cell">
+            <button class="btn-sm btn-sm-edit" onclick="editCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Editar</button>
+            <button class="btn-sm btn-sm-delete" onclick="confirmDeleteCliente('${(c.nombre || '').replace(/'/g, "\\'")}')">Eliminar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    console.log(`✅ Tabla de clientes cargada: ${clientes.length} clientes`);
+
+  } catch (error) {
+    console.error('Error cargando clientes:', error);
+    tbody.innerHTML = `<tr><td colspan="4" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
 }
 
-function renderizarTablaVentas() {
+async function renderizarTablaVentas() {
   const tbody = document.getElementById('tabla-ventas');
   if (!tbody) return;
-  const ventas = window.ventas || [];
-  if (!ventas.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay ventas registradas</td></tr>';
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay sesión activa</td></tr>';
     return;
   }
-  tbody.innerHTML = ventas.map(v => `
-    <tr>
-      <td>${v.cliente || '-'}</td>
-      <td>${v.producto || '-'}</td>
-      <td>${v.total || '$0.00'}</td>
-      <td>${v.fecha || '-'}</td>
-      <td><span style="color:${v.status === 'pagado' ? 'var(--green)' : v.status === 'pendiente' ? 'var(--amber)' : 'var(--red)'}">${v.status || 'pendiente'}</span></td>
-      <td>
-        <div class="config-actions-cell">
-          <button class="btn-sm btn-sm-edit" onclick="editVenta('${v.id}')">Editar</button>
-          <button class="btn-sm btn-sm-delete" onclick="confirmDeleteVenta('${v.id}')">Eliminar</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
 
+  // Mostrar indicador de carga
+  tbody.innerHTML = '<tr><td colspan="6" class="config-empty">Cargando ventas...</td></tr>';
+
+  try {
+    // 🔽 Cargar TODAS las ventas directamente desde Firestore
+    const snapshot = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('ventas')
+      .orderBy('fecha', 'desc')
+      .get();
+
+    if (snapshot.empty) {
+      tbody.innerHTML = '<tr><td colspan="6" class="config-empty">No hay ventas registradas</td></tr>';
+      return;
+    }
+
+    const ventas = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.fecha && data.fecha.toDate) data.fecha = formatDateLocal(data.fecha.toDate());
+      ventas.push({ id: doc.id, ...data });
+    });
+
+    // Actualizar store y variables globales
+    store.ventas = ventas;
+    window.ventas = ventas;
+    syncGlobals();
+
+    // Renderizar la tabla
+    tbody.innerHTML = ventas.map(v => `
+      <tr>
+        <td>${v.cliente || '-'}</td>
+        <td>${v.producto || '-'}</td>
+        <td>${v.total || '$0.00'}</td>
+        <td>${v.fecha || '-'}</td>
+        <td><span style="color:${v.status === 'pagado' ? 'var(--green)' : v.status === 'pendiente' ? 'var(--amber)' : 'var(--red)'}">${v.status || 'pendiente'}</span></td>
+        <td>
+          <div class="config-actions-cell">
+            <button class="btn-sm btn-sm-edit" onclick="editVenta('${v.id}')">Editar</button>
+            <button class="btn-sm btn-sm-delete" onclick="confirmDeleteVenta('${v.id}')">Eliminar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    console.log(`✅ Tabla de ventas cargada: ${ventas.length} ventas`);
+
+  } catch (error) {
+    console.error('Error cargando ventas:', error);
+    tbody.innerHTML = `<tr><td colspan="6" class="config-empty">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
 // ================================================================
 //  ACTUALIZAR RESUMEN EN CONFIGURACIÓN (con contador de empleados)
 // ================================================================

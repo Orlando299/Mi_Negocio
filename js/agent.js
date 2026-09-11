@@ -360,5 +360,83 @@ window.cargarHistorialAgente = cargarHistorialAgente;
 window.appendMessage = appendMessage;
 window.notificarRespuesta = notificarRespuesta;
 
+// ================================================================
+//  COMANDOS MANUALES (FALLBACK SIN IA)
+// ================================================================
+function executeManualCommand(comando) {
+  const cmd = comando.toLowerCase().trim();
+  
+  if (cmd.includes('ventas hoy')) {
+    const hoy = new Date().toLocaleDateString();
+    const ventasHoy = (window.ventas || []).filter(v => {
+      try {
+        const fechaVenta = new Date(v.fecha);
+        return fechaVenta.toLocaleDateString() === hoy;
+      } catch { return false; }
+    });
+    const total = ventasHoy.reduce((sum, v) => sum + parseCurrency(v.total), 0);
+    return `ℹ️ Ventas de hoy: ${ventasHoy.length} pedidos por ${formatCurrency(total)}`;
+  }
+  
+  if (cmd.includes('productos agotados')) {
+    const agotados = (window.inventario || []).filter(p => p.estado === 'out');
+    return `ℹ️ Productos agotados: ${agotados.length} (${agotados.map(p => p.nombre).join(', ') || 'ninguno'})`;
+  }
+  
+  if (cmd.includes('clientes nuevos')) {
+    const nuevos = (window.clientes || []).filter(c => c.tag === 'nuevo');
+    return `ℹ️ Clientes nuevos: ${nuevos.length}`;
+  }
+  
+  if (cmd.includes('top productos')) {
+    const top = (window.inventario || []).sort((a,b) => b.stock - a.stock).slice(0,3);
+    return `ℹ️ Top productos por stock: ${top.map(p => `${p.nombre} (${p.stock})`).join(', ')}`;
+  }
+  
+  if (cmd.includes('ventas') || cmd.includes('pedidos')) { 
+    goScreen('ventas'); 
+    return '✅ Navegando a ventas'; 
+  }
+  if (cmd.includes('inventario') || cmd.includes('productos')) { 
+    goScreen('inventario'); 
+    return '✅ Navegando a inventario'; 
+  }
+  if (cmd.includes('clientes')) { 
+    goScreen('clientes'); 
+    return '✅ Navegando a clientes'; 
+  }
+  if (cmd.includes('reportes') || cmd.includes('estadisticas')) { 
+    goScreen('reportes'); 
+    return '✅ Navegando a reportes'; 
+  }
+  if (cmd.includes('inicio') || cmd.includes('dashboard')) { 
+    goScreen('dashboard'); 
+    return '✅ Navegando a inicio'; 
+  }
+  if (cmd.includes('nueva venta') || cmd.includes('crear venta')) { 
+    openModal(); 
+    return '✅ Abriendo formulario de nueva venta'; 
+  }
+  if (cmd.includes('tema') || cmd.includes('oscuro') || cmd.includes('claro')) { 
+    toggleTheme(); 
+    return '✅ Cambiando tema'; 
+  }
+  if (cmd.includes('ayuda') || cmd.includes('comandos')) {
+    return `ℹ️ **Comandos disponibles:**\n• "ventas hoy", "productos agotados", "clientes nuevos", "top productos"\n• "ir a ventas", "ir a inventario", "ir a clientes", "ir a reportes", "ir a inicio"\n• "nueva venta", "cambiar tema"`;
+  }
+  if (cmd.includes('hola') || cmd.includes('buenos días') || cmd.includes('buenas tardes')) {
+    const hora = new Date().getHours();
+    let saludo = 'Hola';
+    if (hora < 12) saludo = 'Buenos días';
+    else if (hora < 19) saludo = 'Buenas tardes';
+    else saludo = 'Buenas noches';
+    return `✅ ${saludo}! ¿En qué puedo ayudarte?`;
+  }
+  return `ℹ️ Comando no reconocido. Escribe "ayuda" para ver opciones.`;
+}
+
+// Exponer globalmente
+window.executeManualCommand = executeManualCommand;
+
 console.log('🤖 PolarBot Fase 4 cargado correctamente');
 console.log('📌 Funciones: setDeepSeekKey, comandos de voz, historial, notificaciones');

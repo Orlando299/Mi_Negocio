@@ -203,51 +203,50 @@ async function incrementarCupo(empresaId) {
   } catch {}
 }
 
-// ── LLAMADA A DEEPSEEK ──
+// ================================================================
+//  LLAMADA A DEEPSEEK A TRAVÉS DE CLOUDFLARE WORKER
+//  La API Key está oculta en el Worker, no en el frontend
+// ================================================================
 async function llamarDeepSeek(prompt) {
-  const cached = getCachedResponse(prompt);
-  if (cached) return cached;
-
-  if (!DEEPSEEK_API_KEY) {
-    const saved = localStorage.getItem('deepseek_api_key');
-    if (saved) DEEPSEEK_API_KEY = saved;
-    else throw new Error('API Key no configurada');
+  // Verificar caché primero
+  const cachedResponse = getCachedResponse(prompt);
+  if (cachedResponse) {
+    return cachedResponse;
   }
 
+  // URL del Worker de Cloudflare
+  const WORKER_URL = 'https://minegociopolar-proxy.osilva2503.workers.dev';
+
   try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: 'Eres un asistente experto en gestión de franquicias Polar. Responde en español, conciso.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 250,
-        temperature: 0.3
-      })
+      body: JSON.stringify({ prompt })
     });
 
     if (!response.ok) {
-      let errorMsg = `Error ${response.status}`;
-      try {
-        const errorData = await response.json();
-        if (response.status === 402) errorMsg = 'Saldo insuficiente en DeepSeek. Recarga tu cuenta.';
-        else errorMsg = errorData.error?.message || errorMsg;
-      } catch (e) {}
-      throw new Error(errorMsg);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error ${response.status}`);
     }
 
     const data = await response.json();
-    const respuesta = data.choices[0].message.content.trim();
+    const respuesta = data.respuesta;
+
+    if (!respuesta) {
+      throw new Error('Respuesta vacía del Worker');
+    }
+
+    // Guardar en caché
     setCachedResponse(prompt, respuesta);
+
+    console.log('🤖 Respuesta de DeepSeek (vía Cloudflare Worker)');
     return respuesta;
+
   } catch (error) {
-    throw error;
+    console.error('❌ Error llamando al Worker:', error);
+    return '⚠️ Error al procesar tu consulta. Intenta de nuevo más tarde.';
   }
 }
 

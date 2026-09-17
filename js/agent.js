@@ -427,4 +427,3 @@ function executeManualCommand(comando) {
 window.executeManualCommand = executeManualCommand;
 
 console.log('🤖 PolarBot Fase 4 cargado correctamente');
-console.log('📌 Funciones: setDeepSeekKey, comandos de voz, historial, notificaciones');

@@ -1,25 +1,40 @@
-const CACHE_NAME = 'minegocio-v2';
+// ================================================================
+//  SERVICE WORKER - MiNegocio
+//  Compatible con dominio propio (minegociopolar.com)
+// ================================================================
+
+const CACHE_NAME = 'minegocio-v3';
+
+// Assets a cachear (rutas relativas al dominio raíz)
 const STATIC_ASSETS = [
-  '/Mi_Negocio/',
-  '/Mi_Negocio/index.html',
-  '/Mi_Negocio/css/styles.css',
-  '/Mi_Negocio/js/firebase.js',
-  '/Mi_Negocio/js/helpers.js',
-  '/Mi_Negocio/js/data.js',
-  '/Mi_Negocio/js/render.js',
-  '/Mi_Negocio/js/temas.js',
-  '/Mi_Negocio/js/app.js',
-  '/Mi_Negocio/manifest.json'
+  '/',
+  '/index.html',
+  '/css/styles.css',
+  '/js/firebase.js',
+  '/js/helpers.js',
+  '/js/data.js',
+  '/js/render.js',
+  '/js/temas.js',
+  '/js/productos-polar.js',
+  '/js/agent.js',
+  '/js/app.js',
+  '/js/notificaciones.js',
+  '/manifest.json'
 ];
 
 // Instalación: cachear recursos estáticos
 self.addEventListener('install', (event) => {
-  console.log('[SW v2] Instalando...');
+  console.log('[SW v3] Instalando...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    }).catch((err) => {
-      console.warn('[SW v2] Error cacheando estáticos:', err);
+      // Cachear uno por uno para que si uno falla, no rompa todo
+      return Promise.all(
+        STATIC_ASSETS.map((asset) => {
+          return cache.add(asset).catch((err) => {
+            console.warn(`[SW v3] No se pudo cachear ${asset}:`, err.message);
+          });
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -27,12 +42,12 @@ self.addEventListener('install', (event) => {
 
 // Activación: limpiar caches viejas
 self.addEventListener('activate', (event) => {
-  console.log('[SW v2] Activado - limpiando caches viejas');
+  console.log('[SW v3] Activado - limpiando caches viejas');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => {
-          console.log('[SW v2] Eliminando cache vieja:', key);
+          console.log('[SW v3] Eliminando cache vieja:', key);
           return caches.delete(key);
         })
       );
@@ -42,18 +57,24 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: SOLO interceptar solicitudes a la misma aplicación
+// Fetch: manejar solicitudes
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 🔥 CRÍTICO: Solo interceptar solicitudes al mismo origen
+  // 🔥 Solo interceptar solicitudes al mismo origen
   if (url.origin !== self.location.origin) {
-    // Para solicitudes externas (FCM, Google, etc.), NO hacer nada (el navegador las maneja)
     return;
   }
 
-  // === HTML: Network-First (siempre fresco) ===
+  // Ignorar solicitudes de Firebase / Firestore / APIs externas
+  if (url.pathname.includes('firestore') || 
+      url.pathname.includes('identitytoolkit') ||
+      url.pathname.includes('googleapis')) {
+    return;
+  }
+
+  // === HTML: Network-First ===
   if (request.destination === 'document' || url.pathname.endsWith('.html')) {
     event.respondWith(
       fetch(request).then((response) => {
@@ -61,13 +82,15 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         return response;
       }).catch(() => {
-        return caches.match(request);
+        return caches.match(request).then((cached) => {
+          return cached || caches.match('/index.html');
+        });
       })
     );
     return;
   }
 
-  // === CSS y JS: Network-First (siempre fresco) ===
+  // === CSS y JS: Network-First ===
   if (url.pathname.endsWith('.css') || 
       url.pathname.endsWith('.js') ||
       request.destination === 'style' ||
@@ -84,7 +107,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // === Otros recursos estáticos: cache primero ===
+  // === Otros recursos estáticos: Cache-First ===
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {

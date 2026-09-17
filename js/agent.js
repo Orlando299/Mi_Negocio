@@ -3,7 +3,6 @@
 //  Incluye: caché, límite diario, burbujas, historial Firestore, voz, notificaciones
 // ================================================================
 
-let DEEPSEEK_API_KEY = '';
 let recognition = null;
 
 // ── CONFIGURACIÓN DE VOZ ──
@@ -140,15 +139,6 @@ function notificarRespuesta(mensaje) {
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission();
   }
-}
-
-// ── FUNCIÓN PARA ESTABLECER LA CLAVE ──
-function setDeepSeekKey(key) {
-  DEEPSEEK_API_KEY = key;
-  localStorage.setItem('deepseek_api_key', key);
-  console.log('✅ Clave de DeepSeek establecida');
-  showToast('✅ Clave configurada correctamente');
-  return 'Clave establecida.';
 }
 
 // ── SISTEMA DE CACHÉ ──
@@ -344,7 +334,6 @@ async function toggleAgentPanel() {
 }
 
 // ── EXPONER FUNCIONES GLOBALES ──
-window.setDeepSeekKey = setDeepSeekKey;
 window.llamarDeepSeek = llamarDeepSeek;
 window.agentCommand = agentCommand;
 window.sendAgentCommand = sendAgentCommand;

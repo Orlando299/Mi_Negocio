@@ -23,6 +23,22 @@ let saConfig = {
 };
 
 // ================================================================
+//  INDICADOR DE CARGA
+// ================================================================
+
+function saShowLoader(mensaje = 'Cargando...') {
+  const content = document.getElementById('sa-content');
+  if (content) {
+    content.innerHTML = `
+      <div class="sa-loader">
+        <div class="sa-loader-spinner"></div>
+        <div class="sa-loader-text">${saEscape(mensaje)}</div>
+      </div>
+    `;
+  }
+}
+
+// ================================================================
 //  UTILIDADES
 // ================================================================
 
@@ -260,6 +276,7 @@ async function saCargarDatosGlobales() {
 
 async function saRenderDashboard() {
   // Calcular métricas
+  saShowLoader('Cargando dashboard...');
   const totalEmpresas = saEmpresas.length;
   const empresasActivas = saEmpresas.filter(e => e.plan !== 'suspendida').length;
   const empresasSuspendidas = totalEmpresas - empresasActivas;
@@ -419,6 +436,33 @@ function saRenderChartEmpresas() {
     conteos.push(count);
   }
 
+  // Verificar si hay datos
+  const hayDatos = conteos.some(c => c > 0);
+
+  if (!hayDatos) {
+    // Mostrar mensaje de "sin datos"
+    const parent = ctx.parentNode;
+    if (parent) {
+      const oldEmpty = parent.querySelector('.sa-chart-empty');
+      if (oldEmpty) oldEmpty.remove();
+      ctx.style.display = 'none';
+      const empty = document.createElement('div');
+      empty.className = 'sa-chart-empty';
+      empty.innerHTML = `
+        <div class="sa-empty-icon">📊</div>
+        <div>Sin empresas registradas<br>en los últimos 6 meses</div>
+      `;
+      parent.appendChild(empty);
+    }
+    return;
+  }
+
+  // Ocultar mensaje vacío si existe
+  const parent = ctx.parentNode;
+  const emptyEl = parent.querySelector('.sa-chart-empty');
+  if (emptyEl) emptyEl.remove();
+  ctx.style.display = 'block';
+
   saCharts.empresas = new Chart(ctx, {
     type: 'line',
     data: {
@@ -431,18 +475,37 @@ function saRenderChartEmpresas() {
         tension: 0.3,
         fill: true,
         pointBackgroundColor: '#3B82F6',
-        pointRadius: 5
+        pointRadius: 4,
+        pointHoverRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: '#94A3B8' } }
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          titleColor: '#F1F5F9',
+          bodyColor: '#CBD5E1',
+          padding: 10,
+          cornerRadius: 8
+        }
       },
       scales: {
-        x: { ticks: { color: '#64748B' }, grid: { color: '#1E293B' } },
-        y: { ticks: { color: '#64748B' }, grid: { color: '#1E293B' }, beginAtZero: true }
+        x: {
+          ticks: { color: '#64748B', font: { size: 10 } },
+          grid: { color: 'rgba(51, 65, 85, 0.3)' }
+        },
+        y: {
+          ticks: {
+            color: '#64748B',
+            font: { size: 10 },
+            stepSize: 1
+          },
+          grid: { color: 'rgba(51, 65, 85, 0.3)' },
+          beginAtZero: true
+        }
       }
     }
   });
@@ -465,32 +528,79 @@ function saRenderChartTopEmpresas() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
+  // Verificar si hay datos
+  if (top.length === 0) {
+    const parent = ctx.parentNode;
+    if (parent) {
+      const oldEmpty = parent.querySelector('.sa-chart-empty');
+      if (oldEmpty) oldEmpty.remove();
+      ctx.style.display = 'none';
+      const empty = document.createElement('div');
+      empty.className = 'sa-chart-empty';
+      empty.innerHTML = `
+        <div class="sa-empty-icon">🛒</div>
+        <div>Sin ventas registradas<br>en la plataforma aún</div>
+      `;
+      parent.appendChild(empty);
+    }
+    return;
+  }
+
+  // Ocultar mensaje vacío si existe
+  const parent = ctx.parentNode;
+  const emptyEl = parent.querySelector('.sa-chart-empty');
+  if (emptyEl) emptyEl.remove();
+  ctx.style.display = 'block';
+
   const labels = top.map(([empresaId]) => {
     const e = saEmpresas.find(x => x.id === empresaId);
-    return e ? e.nombre : empresaId.slice(0, 8);
+    const nombre = e ? e.nombre : empresaId.slice(0, 8);
+    return nombre.length > 15 ? nombre.slice(0, 15) + '...' : nombre;
   });
   const data = top.map(([, monto]) => monto);
 
   saCharts.topEmpresas = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels.length ? labels : ['Sin datos'],
+      labels: labels,
       datasets: [{
         label: 'Ventas ($)',
-        data: data.length ? data : [0],
+        data: data,
         backgroundColor: '#10B981',
-        borderRadius: 8
+        borderRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      indexAxis: 'y',
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          titleColor: '#F1F5F9',
+          bodyColor: '#CBD5E1',
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => '$' + Number(ctx.raw).toFixed(2)
+          }
+        }
       },
       scales: {
-        x: { ticks: { color: '#64748B' }, grid: { display: false } },
-        y: { ticks: { color: '#64748B' }, grid: { color: '#1E293B' }, beginAtZero: true }
+        x: {
+          ticks: {
+            color: '#64748B',
+            font: { size: 10 },
+            callback: (v) => v >= 1000 ? '$' + (v/1000).toFixed(1) + 'k' : '$' + v
+          },
+          grid: { color: 'rgba(51, 65, 85, 0.3)' },
+          beginAtZero: true
+        },
+        y: {
+          ticks: { color: '#94A3B8', font: { size: 10 } },
+          grid: { display: false }
+        }
       }
     }
   });

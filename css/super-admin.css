@@ -1,5 +1,5 @@
 /* ================================================================
-   SUPER ADMIN - ESTILOS
+   SUPER ADMIN - ESTILOS v2 (OPTIMIZADO PARA MÓVIL)
    ================================================================ */
 
 .sa-body {
@@ -9,6 +9,7 @@
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ==================== PANTALLA DE LOGIN ==================== */
@@ -23,22 +24,19 @@
 
 .sa-login-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   background: #1E293B;
   border-radius: 20px;
-  padding: 40px 32px;
+  padding: 32px 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid #334155;
   text-align: center;
 }
 
-.sa-login-logo {
-  font-size: 56px;
-  margin-bottom: 12px;
-}
+.sa-login-logo { font-size: 48px; margin-bottom: 10px; }
 
 .sa-login-card h1 {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   margin: 0 0 4px;
   color: #F1F5F9;
@@ -47,17 +45,14 @@
 .sa-login-card p {
   font-size: 13px;
   color: #94A3B8;
-  margin: 0 0 28px;
+  margin: 0 0 24px;
 }
 
-.sa-field {
-  text-align: left;
-  margin-bottom: 16px;
-}
+.sa-field { text-align: left; margin-bottom: 14px; }
 
 .sa-field label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #94A3B8;
   margin-bottom: 6px;
@@ -69,7 +64,7 @@
 .sa-field select,
 .sa-field textarea {
   width: 100%;
-  height: 44px;
+  height: 42px;
   padding: 0 14px;
   background: #0F172A;
   border: 1.5px solid #334155;
@@ -82,18 +77,11 @@
   box-sizing: border-box;
 }
 
-.sa-field textarea {
-  height: auto;
-  min-height: 80px;
-  padding: 10px 14px;
-  resize: vertical;
-}
+.sa-field textarea { height: auto; min-height: 80px; padding: 10px 14px; resize: vertical; }
 
 .sa-field input:focus,
 .sa-field select:focus,
-.sa-field textarea:focus {
-  border-color: #3B82F6;
-}
+.sa-field textarea:focus { border-color: #3B82F6; }
 
 .sa-login-error {
   color: #F87171;
@@ -119,48 +107,15 @@
   text-decoration: none;
 }
 
-.sa-btn-primary {
-  background: #3B82F6;
-  color: white;
-  width: 100%;
-}
-
-.sa-btn-primary:hover {
-  background: #2563EB;
-}
-
-.sa-btn-outline {
-  background: transparent;
-  border: 1.5px solid #334155;
-  color: #CBD5E1;
-}
-
-.sa-btn-outline:hover {
-  background: #334155;
-}
-
-.sa-btn-danger {
-  background: #DC2626;
-  color: white;
-}
-
-.sa-btn-danger:hover {
-  background: #B91C1C;
-}
-
-.sa-btn-success {
-  background: #059669;
-  color: white;
-}
-
-.sa-btn-success:hover {
-  background: #047857;
-}
-
-.sa-btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-}
+.sa-btn-primary { background: #3B82F6; color: white; width: 100%; }
+.sa-btn-primary:hover { background: #2563EB; }
+.sa-btn-outline { background: transparent; border: 1.5px solid #334155; color: #CBD5E1; }
+.sa-btn-outline:hover { background: #334155; }
+.sa-btn-danger { background: #DC2626; color: white; }
+.sa-btn-danger:hover { background: #B91C1C; }
+.sa-btn-success { background: #059669; color: white; }
+.sa-btn-success:hover { background: #047857; }
+.sa-btn-sm { padding: 6px 12px; font-size: 12px; }
 
 /* ==================== HEADER ==================== */
 .sa-header {
@@ -168,13 +123,13 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: 54px;
   background: #1E293B;
   border-bottom: 1px solid #334155;
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 12px;
+  gap: 10px;
   z-index: 100;
 }
 
@@ -182,25 +137,25 @@
   background: none;
   border: none;
   color: #CBD5E1;
-  font-size: 22px;
+  font-size: 20px;
   cursor: pointer;
   padding: 6px 10px;
   border-radius: 8px;
   display: none;
 }
 
-.sa-menu-toggle:hover {
-  background: #334155;
-}
+.sa-menu-toggle:hover { background: #334155; }
 
 .sa-header-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #F1F5F9;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sa-header-title small {
@@ -209,26 +164,28 @@
   font-weight: 400;
 }
 
-.sa-header-icon {
-  font-size: 20px;
-}
+.sa-header-icon { font-size: 18px; }
 
 .sa-header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sa-user-email {
-  font-size: 12px;
+  font-size: 11px;
   color: #94A3B8;
   font-family: 'JetBrains Mono', monospace;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ==================== LAYOUT ==================== */
 .sa-layout {
   display: flex;
-  padding-top: 60px;
+  padding-top: 54px;
   min-height: 100vh;
 }
 
@@ -236,12 +193,13 @@
   width: 220px;
   background: #1E293B;
   border-right: 1px solid #334155;
-  padding: 20px 0;
+  padding: 16px 0;
   position: fixed;
-  top: 60px;
+  top: 54px;
   bottom: 0;
   left: 0;
   overflow-y: auto;
+  z-index: 98;
 }
 
 .sa-sidebar nav {
@@ -255,73 +213,63 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
   color: #94A3B8;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.15s;
   cursor: pointer;
 }
 
-.sa-nav-item:hover {
-  background: #334155;
-  color: #F1F5F9;
-}
-
-.sa-nav-item.active {
-  background: #3B82F6;
-  color: white;
-}
-
-.sa-nav-icon {
-  font-size: 18px;
-}
+.sa-nav-item:hover { background: #334155; color: #F1F5F9; }
+.sa-nav-item.active { background: #3B82F6; color: white; }
+.sa-nav-icon { font-size: 16px; }
 
 .sa-content {
   flex: 1;
   margin-left: 220px;
-  padding: 24px;
-  min-height: calc(100vh - 60px);
+  padding: 16px;
+  min-height: calc(100vh - 54px);
 }
 
 /* ==================== TARJETAS DE MÉTRICAS ==================== */
 .sa-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .sa-metric-card {
   background: #1E293B;
   border: 1px solid #334155;
-  border-radius: 14px;
-  padding: 18px;
+  border-radius: 12px;
+  padding: 14px;
   transition: transform 0.15s, border-color 0.15s;
 }
 
-.sa-metric-card:hover {
-  transform: translateY(-2px);
-  border-color: #3B82F6;
-}
+.sa-metric-card:hover { transform: translateY(-2px); border-color: #3B82F6; }
 
 .sa-metric-label {
-  font-size: 11px;
+  font-size: 10px;
   color: #94A3B8;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  line-height: 1.2;
 }
 
 .sa-metric-value {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
   color: #F1F5F9;
   font-family: 'JetBrains Mono', monospace;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  word-break: break-word;
 }
 
 .sa-metric-value.blue { color: #60A5FA; }
@@ -331,9 +279,10 @@
 .sa-metric-value.purple { color: #A78BFA; }
 
 .sa-metric-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: #64748B;
   margin-top: 4px;
+  line-height: 1.3;
 }
 
 /* ==================== SECCIONES ==================== */
@@ -342,19 +291,20 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .sa-section-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #F1F5F9;
   margin: 0;
+  line-height: 1.2;
 }
 
 .sa-section-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: #94A3B8;
   margin-top: 4px;
 }
@@ -363,7 +313,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   align-items: center;
 }
 
@@ -381,59 +331,53 @@
 }
 
 .sa-filters input:focus,
-.sa-filters select:focus {
-  border-color: #3B82F6;
-}
+.sa-filters select:focus { border-color: #3B82F6; }
 
 /* ==================== TABLAS ==================== */
 .sa-table-wrap {
   background: #1E293B;
   border: 1px solid #334155;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sa-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 600px;
+  min-width: 560px;
 }
 
-.sa-table thead {
-  background: #0F172A;
-}
+.sa-table thead { background: #0F172A; }
 
 .sa-table th {
-  padding: 12px 16px;
+  padding: 10px 14px;
   text-align: left;
   font-weight: 600;
   color: #94A3B8;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   border-bottom: 1px solid #334155;
+  white-space: nowrap;
 }
 
 .sa-table td {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid #1E293B;
   color: #E2E8F0;
   vertical-align: middle;
+  font-size: 12px;
 }
 
-.sa-table tbody tr:hover {
-  background: #0F172A;
-}
-
-.sa-table tbody tr:last-child td {
-  border-bottom: none;
-}
+.sa-table tbody tr:hover { background: #0F172A; }
+.sa-table tbody tr:last-child td { border-bottom: none; }
 
 .sa-table-empty {
   text-align: center;
-  padding: 40px 20px;
+  padding: 32px 16px;
   color: #64748B;
   font-size: 13px;
 }
@@ -442,10 +386,11 @@
 .sa-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 3px 9px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .sa-badge-activa { background: #065F46; color: #6EE7B7; }
@@ -457,57 +402,46 @@
 .sa-badge-cliente { background: #065F46; color: #6EE7B7; }
 
 /* ==================== ACCIONES ==================== */
-.sa-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
+.sa-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 
 .sa-action-btn {
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: 6px;
   border: none;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   background: #334155;
   color: #CBD5E1;
   font-weight: 600;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
-.sa-action-btn:hover {
-  background: #475569;
-}
-
-.sa-action-btn.danger:hover {
-  background: #7F1D1D;
-  color: #FCA5A5;
-}
-
-.sa-action-btn.success:hover {
-  background: #065F46;
-  color: #6EE7B7;
-}
+.sa-action-btn:hover { background: #475569; }
+.sa-action-btn.danger:hover { background: #7F1D1D; color: #FCA5A5; }
+.sa-action-btn.success:hover { background: #065F46; color: #6EE7B7; }
 
 /* ==================== GRÁFICOS ==================== */
 .sa-chart-card {
   background: #1E293B;
   border: 1px solid #334155;
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .sa-chart-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #F1F5F9;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  line-height: 1.3;
 }
 
 .sa-chart-container {
   position: relative;
-  height: 260px;
+  height: 220px;
+  width: 100%;
 }
 
 /* ==================== MODAL ==================== */
@@ -518,7 +452,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
 
 .sa-modal-overlay {
@@ -549,16 +483,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 22px;
+  padding: 16px 20px;
   border-bottom: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  background: #1E293B;
+  z-index: 1;
 }
 
-.sa-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #F1F5F9;
-}
+.sa-modal-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: #F1F5F9; }
 
 .sa-modal-close {
   background: none;
@@ -570,26 +503,21 @@
   border-radius: 6px;
 }
 
-.sa-modal-close:hover {
-  background: #334155;
-  color: #F1F5F9;
-}
+.sa-modal-close:hover { background: #334155; color: #F1F5F9; }
 
-.sa-modal-body {
-  padding: 22px;
-}
+.sa-modal-body { padding: 20px; }
 
 /* ==================== TOAST ==================== */
 .sa-toast {
   position: fixed;
-  bottom: 24px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%) translateY(100px);
   background: #1E293B;
   color: #F1F5F9;
-  padding: 12px 24px;
+  padding: 12px 22px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   border: 1px solid #334155;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -599,52 +527,138 @@
   text-align: center;
 }
 
-.sa-toast.show {
-  transform: translateX(-50%) translateY(0);
-}
-
+.sa-toast.show { transform: translateX(-50%) translateY(0); }
 .sa-toast.success { border-color: #059669; }
 .sa-toast.error { border-color: #DC2626; }
 
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 900px) {
-  .sa-menu-toggle { display: block; }
-  
-  .sa-sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s;
-    z-index: 99;
-  }
-  
-  .sa-sidebar.open {
-    transform: translateX(0);
-  }
-  
-  .sa-content {
-    margin-left: 0;
-    padding: 16px;
-  }
-  
-  .sa-header-title small { display: none; }
-  
-  .sa-user-email { display: none; }
-  
-  .sa-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-  
-  .sa-metric-value { font-size: 22px; }
-  
-  .sa-section-title { font-size: 18px; }
+/* ==================== LOADER ==================== */
+.sa-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #64748B;
 }
 
-@media (max-width: 480px) {
+.sa-loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #334155;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: saSpin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes saSpin {
+  to { transform: rotate(360deg); }
+}
+
+.sa-loader-text {
+  font-size: 13px;
+  color: #94A3B8;
+}
+
+/* ==================== RESPONSIVE - TABLET ==================== */
+@media (max-width: 900px) {
+  .sa-menu-toggle { display: block; }
+
+  .sa-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 99;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .sa-sidebar.open { transform: translateX(0); }
+
+  .sa-content {
+    margin-left: 0;
+    padding: 12px;
+  }
+
+  .sa-header-title small { display: none; }
+  .sa-user-email { display: none; }
+  .sa-header-title { font-size: 14px; }
+
+  .sa-section-title { font-size: 18px; }
+  .sa-section-subtitle { font-size: 11px; }
+}
+
+/* ==================== RESPONSIVE - MÓVIL ==================== */
+@media (max-width: 600px) {
+  .sa-header { height: 50px; padding: 0 10px; gap: 8px; }
+  .sa-layout { padding-top: 50px; }
+  .sa-sidebar { top: 50px; }
+
+  .sa-content { padding: 10px; }
+
+  .sa-section-header { gap: 8px; margin-bottom: 12px; }
+  .sa-section-title { font-size: 16px; }
+  .sa-section-subtitle { font-size: 11px; }
+
+  /* Métricas en 2 columnas en móvil */
   .sa-metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
   }
-  
-  .sa-login-card {
-    padding: 28px 20px;
-  }
+
+  .sa-metric-card { padding: 12px 10px; border-radius: 10px; }
+  .sa-metric-label { font-size: 9px; letter-spacing: 0.3px; margin-bottom: 4px; }
+  .sa-metric-value { font-size: 17px; letter-spacing: -0.3px; }
+  .sa-metric-sub { font-size: 9px; margin-top: 3px; }
+
+  /* Gráficos más compactos */
+  .sa-chart-card { padding: 12px; border-radius: 10px; margin-bottom: 12px; }
+  .sa-chart-title { font-size: 13px; margin-bottom: 10px; }
+  .sa-chart-container { height: 180px; }
+
+  /* Filtros más compactos */
+  .sa-filters { gap: 6px; margin-bottom: 12px; }
+  .sa-filters input,
+  .sa-filters select { height: 34px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
+
+  /* Tabla scroll horizontal suave */
+  .sa-table { font-size: 12px; min-width: 500px; }
+  .sa-table th { padding: 8px 10px; font-size: 9px; }
+  .sa-table td { padding: 8px 10px; font-size: 11px; }
+
+  .sa-btn { padding: 9px 16px; font-size: 13px; }
+  .sa-btn-sm { padding: 6px 11px; font-size: 11px; }
+
+  .sa-modal-content { border-radius: 14px; max-height: 90vh; }
+  .sa-modal-header { padding: 14px 16px; }
+  .sa-modal-header h3 { font-size: 14px; }
+  .sa-modal-body { padding: 16px; }
+
+  .sa-badge { font-size: 9px; padding: 2px 7px; }
+  .sa-action-btn { padding: 4px 8px; font-size: 10px; }
+}
+
+/* ==================== RESPONSIVE - MÓVIL PEQUEÑO ==================== */
+@media (max-width: 380px) {
+  .sa-metric-value { font-size: 15px; }
+  .sa-metric-label { font-size: 8px; }
+  .sa-chart-container { height: 160px; }
+  .sa-section-title { font-size: 15px; }
+}
+
+/* ==================== GRÁFICO VACÍO ==================== */
+.sa-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748B;
+  font-size: 12px;
+  text-align: center;
+  gap: 6px;
+}
+
+.sa-chart-empty-icon {
+  font-size: 32px;
+  opacity: 0.5;
 }

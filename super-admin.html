@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Super Admin — MiNegocio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=15">
+  <link rel="stylesheet" href="css/super-admin.css?v=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body class="sa-body">
+
+<!-- ==================== PANTALLA DE ACCESO ==================== -->
+<div id="sa-login-screen" class="sa-login-screen">
+  <div class="sa-login-card">
+    <div class="sa-login-logo">🎯</div>
+    <h1>Super Admin</h1>
+    <p>Acceso restringido al desarrollador</p>
+    
+    <div id="sa-login-step-1">
+      <div class="sa-field">
+        <label>Correo</label>
+        <input type="email" id="sa-email" placeholder="correo@dominio.com" autocomplete="email">
+      </div>
+      <div class="sa-field">
+        <label>Contraseña</label>
+        <input type="password" id="sa-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="sa-btn sa-btn-primary" onclick="saLogin()">🔐 Acceder</button>
+      <div id="sa-login-error" class="sa-login-error"></div>
+    </div>
+
+    <div id="sa-login-step-2" style="display:none;">
+      <p style="font-size:13px;color:#6B7280;margin-bottom:16px;">
+        Ingresa el código de seguridad de 6 dígitos
+      </p>
+      <div class="sa-field">
+        <label>Código de verificación</label>
+        <input type="text" id="sa-2fa-code" maxlength="6" placeholder="000000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:'JetBrains Mono',monospace;">
+      </div>
+      <button class="sa-btn sa-btn-primary" onclick="saVerificarCodigo()">✅ Verificar</button>
+      <button class="sa-btn sa-btn-outline" onclick="saVolverLogin()" style="margin-top:8px;">← Volver</button>
+      <div id="sa-2fa-error" class="sa-login-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PANEL PRINCIPAL ==================== -->
+<div id="sa-app" class="sa-app" style="display:none;">
+
+  <!-- HEADER -->
+  <header class="sa-header">
+    <button class="sa-menu-toggle" onclick="saToggleSidebar()">☰</button>
+    <div class="sa-header-title">
+      <span class="sa-header-icon">🎯</span>
+      <span>Super Admin</span>
+      <small>MiNegocio Polar</small>
+    </div>
+    <div class="sa-header-right">
+      <span id="sa-user-email" class="sa-user-email"></span>
+      <button class="sa-btn sa-btn-outline sa-btn-sm" onclick="saLogout()">🚪 Salir</button>
+    </div>
+  </header>
+
+  <div class="sa-layout">
+
+    <!-- SIDEBAR -->
+    <aside id="sa-sidebar" class="sa-sidebar">
+      <nav>
+        <a href="#" class="sa-nav-item active" data-section="dashboard" onclick="saLoadSection('dashboard', event)">
+          <span class="sa-nav-icon">📊</span><span>Dashboard</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="empresas" onclick="saLoadSection('empresas', event)">
+          <span class="sa-nav-icon">🏢</span><span>Empresas</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="facturacion" onclick="saLoadSection('facturacion', event)">
+          <span class="sa-nav-icon">💰</span><span>Facturación</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="usuarios" onclick="saLoadSection('usuarios', event)">
+          <span class="sa-nav-icon">👥</span><span>Usuarios</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="estadisticas" onclick="saLoadSection('estadisticas', event)">
+          <span class="sa-nav-icon">📈</span><span>Estadísticas</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="configuracion" onclick="saLoadSection('configuracion', event)">
+          <span class="sa-nav-icon">⚙️</span><span>Configuración</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="comunicacion" onclick="saLoadSection('comunicacion', event)">
+          <span class="sa-nav-icon">📢</span><span>Comunicación</span>
+        </a>
+        <a href="#" class="sa-nav-item" data-section="auditoria" onclick="saLoadSection('auditoria', event)">
+          <span class="sa-nav-icon">🔒</span><span>Auditoría</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="sa-content" class="sa-content">
+      <!-- Aquí se carga dinámicamente el contenido de cada sección -->
+    </main>
+
+  </div>
+</div>
+
+<!-- ==================== MODAL GENÉRICO ==================== -->
+<div id="sa-modal" class="sa-modal" style="display:none;">
+  <div class="sa-modal-overlay" onclick="saCloseModal()"></div>
+  <div class="sa-modal-content">
+    <div class="sa-modal-header">
+      <h3 id="sa-modal-title">Título</h3>
+      <button onclick="saCloseModal()" class="sa-modal-close">✕</button>
+    </div>
+    <div id="sa-modal-body" class="sa-modal-body"></div>
+  </div>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div id="sa-toast" class="sa-toast"></div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="js/firebase.js?v=15"></script>
+<script src="js/super-admin.js?v=1"></script>
+
+</body>
+</html>

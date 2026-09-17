@@ -747,6 +747,35 @@
 <!-- ==================== TOAST ==================== -->
 <div class="toast" id="toast"></div>
 
+  <!-- ==================== BOTÓN OCULTO SUPER ADMIN ==================== -->
+<!-- Doble clic en el logo para acceder -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const logo = document.querySelector('.nav-logo');
+    if (logo) {
+      let clickCount = 0;
+      let clickTimer = null;
+      logo.style.userSelect = 'none';
+      logo.addEventListener('click', function() {
+        clickCount++;
+        clearTimeout(clickTimer);
+        if (clickCount === 3) {
+          // Triple clic detectado → verificar si es super admin
+          clickCount = 0;
+          const user = firebase.auth().currentUser;
+          if (user && user.uid === 'lA1Y2nHLlYWFtb6xQ32ZlH1ddb82') { // ⚠️ Reemplazar con tu UID real
+            window.location.href = 'super-admin.html';
+          }
+        } else {
+          clickTimer = setTimeout(() => {
+            clickCount = 0;
+          }, 500);
+        }
+      });
+    }
+  });
+</script>
+
 <!-- ==================== SCRIPTS ==================== -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>

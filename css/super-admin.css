@@ -662,3 +662,55 @@
   font-size: 32px;
   opacity: 0.5;
 }
+
+/* ==================== FIX: DESBORDAMIENTO EN MÓVIL ==================== */
+
+/* Evitar que el contenido se salga del ancho */
+.sa-content {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Asegurar que las métricas ocupen el ancho completo */
+.sa-metrics-grid {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.sa-metric-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Los valores largos no deben desbordarse */
+.sa-metric-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-metric-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Gráficos dentro del contenedor */
+.sa-chart-card {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.sa-chart-container {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.sa-chart-container canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Tablas con scroll suave */
+.sa-table-wrap {
+  max-width: 100%;
+}

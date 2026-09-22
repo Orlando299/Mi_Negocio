@@ -3648,7 +3648,7 @@ async function cargarLiquidacionesCliente() {
 
   const user = firebase.auth().currentUser;
   if (!user) {
-    container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver tus liquidaciones</div></div>';
+    container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver tus premios</div></div>';
     return;
   }
 
@@ -3665,12 +3665,13 @@ async function cargarLiquidacionesCliente() {
       .get();
 
     if (!clienteDoc.exists || !clienteDoc.data().historialLiquidaciones) {
-  container.innerHTML = '<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">Aún no has recibido premios especiales</div></div>';
-  return;
-}
+      container.innerHTML = '<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">Aún no has recibido premios especiales</div></div>';
+      return;
+    }
 
     const liquidaciones = clienteDoc.data().historialLiquidaciones;
-    // Ordenar de más reciente a más antigua (suponiendo que el array tenga timestamp)
+
+    // Ordenar de más reciente a más antigua
     liquidaciones.sort((a, b) => {
       const fechaA = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha);
       const fechaB = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha);
@@ -3678,6 +3679,9 @@ async function cargarLiquidacionesCliente() {
     });
 
     let html = '<div style="margin-bottom:12px; font-weight:600;">🎁 Total de premios recibidos: ' + liquidaciones.reduce((sum, l) => sum + l.cantidad, 0) + ' unidades</div>';
+
+    // ✅ LÍNEA QUE FALTABA:
+    html += liquidaciones.map(l => {
       const fecha = l.fecha?.toDate ? formatDateLocal(l.fecha.toDate()) : (l.fecha || '');
       const producto = l.producto ? `📦 ${escapeHtml(l.producto)}` : '';
       return `
@@ -3687,7 +3691,7 @@ async function cargarLiquidacionesCliente() {
             <span class="sale-status pagado" style="background:var(--primary-soft); color:var(--primary);">${l.cantidad} uds.</span>
           </div>
           ${producto ? `<div style="font-size:14px; margin:4px 0;">${producto}</div>` : ''}
-         <div style="font-size:12px; color:var(--text3);">${escapeHtml(l.observaciones || 'Premio especial entregado')}</div>
+          <div style="font-size:12px; color:var(--text3);">${escapeHtml(l.observaciones || 'Premio especial entregado')}</div>
           <div style="font-size:11px; color:var(--text3); margin-top:4px;">Entregado por: ${escapeHtml(l.entregadoPor || 'admin')}</div>
         </div>
       `;
@@ -3695,6 +3699,12 @@ async function cargarLiquidacionesCliente() {
 
     container.innerHTML = html;
   } catch (error) {
+    console.error('Error cargando liquidaciones:', error);
+    container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar premios</div></div>';
+  }
+} 
+
+catch (error) {
     console.error('Error cargando liquidaciones:', error);
     container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar liquidaciones</div></div>';
   }

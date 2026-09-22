@@ -1362,6 +1362,10 @@ async function updateVentaFromModal(id) {
 function editProducto(nombre) {
   const p = store.inventario.find(item => item.nombre === nombre);
   if (!p) return showToast('Producto no encontrado');
+  
+  // ✅ CAMBIO: Unificar lectura de categoría (cat o categoria)
+  const categoriaActual = p.cat || p.categoria || 'General';
+  
   let precioStr = p.precio;
   if (typeof precioStr !== 'string') {
     precioStr = formatCurrency(Number(precioStr));
@@ -1370,29 +1374,30 @@ function editProducto(nombre) {
     precioStr = '$' + precioStr;
   }
   const precioNum = parseFloat(precioStr.replace('$', '')) || 0;
+  
   const body = `
-    <div class="field"><label>Nombre</label><input type="text" value="${p.nombre}" id="edit-nombre"></div>
+    <div class="field"><label>Nombre</label><input type="text" value="${escapeHtml(p.nombre)}" id="edit-nombre"></div>
     <div class="field"><label>Categoría</label>
       <select id="edit-cat">
-  <option ${p.cat === 'Cervezas Polar' ? 'selected' : ''}>Cervezas Polar</option>
-  <option ${p.cat === 'Alimentos Polar' ? 'selected' : ''}>Alimentos Polar</option>
-  <option ${p.cat === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
-  <option ${p.cat === 'Dulces' ? 'selected' : ''}>Dulces</option>
-  <option ${p.cat === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
-  <option ${p.cat === 'Básicos' ? 'selected' : ''}>Básicos</option>
-  <option ${p.cat === 'Granos' ? 'selected' : ''}>Granos</option>
-  <option ${p.cat === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
-  <option ${p.cat === 'Cocina' ? 'selected' : ''}>Cocina</option>
-  <option ${p.cat === 'Salsas' ? 'selected' : ''}>Salsas</option>
-  <option ${p.cat === 'Harinas' ? 'selected' : ''}>Harinas</option>
-  <option ${p.cat === 'Conservas' ? 'selected' : ''}>Conservas</option>
-</select>
+        <option ${categoriaActual === 'Cervezas Polar' ? 'selected' : ''}>Cervezas Polar</option>
+        <option ${categoriaActual === 'Alimentos Polar' ? 'selected' : ''}>Alimentos Polar</option>
+        <option ${categoriaActual === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
+        <option ${categoriaActual === 'Dulces' ? 'selected' : ''}>Dulces</option>
+        <option ${categoriaActual === 'Endulzantes' ? 'selected' : ''}>Endulzantes</option>
+        <option ${categoriaActual === 'Básicos' ? 'selected' : ''}>Básicos</option>
+        <option ${categoriaActual === 'Granos' ? 'selected' : ''}>Granos</option>
+        <option ${categoriaActual === 'Lácteos' ? 'selected' : ''}>Lácteos</option>
+        <option ${categoriaActual === 'Cocina' ? 'selected' : ''}>Cocina</option>
+        <option ${categoriaActual === 'Salsas' ? 'selected' : ''}>Salsas</option>
+        <option ${categoriaActual === 'Harinas' ? 'selected' : ''}>Harinas</option>
+        <option ${categoriaActual === 'Conservas' ? 'selected' : ''}>Conservas</option>
+      </select>
     </div>
     <div class="row">
       <div class="field"><label>Precio</label><input type="text" value="${precioNum}" id="edit-precio"></div>
       <div class="field"><label>Stock</label><input type="number" value="${p.stock}" id="edit-stock"></div>
     </div>
-    <button class="btn btn-primary" onclick="updateProductoFromModal('${nombre}')">Actualizar producto</button>
+    <button class="btn btn-primary" onclick="updateProductoFromModal('${escapeJsString(nombre)}')">Actualizar producto</button>
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
   `;
   openModalWithContent('Editar producto', body);
@@ -4896,18 +4901,19 @@ async function importarProductosPolar(empresaId) {
       for (const marca of categoria.marcas) {
         for (const prod of marca.productos) {
           const docRef = inventarioRef.doc();
-          batch.set(docRef, {
-            nombre: `${prod.nombre} ${prod.presentacion}`,
-            codigo: prod.codigo,
-            categoria: categoriaFinal,
-            marca: marca.nombre,
-            presentacion: prod.presentacion,
-            icono: getIconoPolar(categoria.nombre),
-            stock: 10,
-            estado: 'ok',
-            precio: '0.00',
-            fecha: firebase.firestore.FieldValue.serverTimestamp()
-          });
+         batch.set(docRef, {
+  nombre: `${prod.nombre} ${prod.presentacion}`,
+  codigo: prod.codigo,
+  cat: categoriaFinal,          // ✅ CAMBIO: cat (unificado con el resto de la app)
+  categoria: categoriaFinal,    // ✅ Se mantiene también para compatibilidad
+  marca: marca.nombre,
+  presentacion: prod.presentacion,
+  icono: getIconoPolar(categoria.nombre),
+  stock: 10,
+  estado: 'ok',
+  precio: '0.00',
+  fecha: firebase.firestore.FieldValue.serverTimestamp()
+});
           count++;
           if (count >= 400) {
             await batch.commit();
@@ -5168,21 +5174,22 @@ async function agregarProductoPolarAlInventario(codigo) {
   // Agregar al inventario
   try {
     await firebase.firestore()
-      .collection('empresas')
-      .doc(empresaId)
-      .collection('inventario')
-      .add({
-        nombre: `${productoEncontrado.nombre} ${productoEncontrado.presentacion}`.trim(),
-        codigo: productoEncontrado.codigo,
-        categoria: categoriaFinal,
-        marca: productoEncontrado.nombre,
-        presentacion: productoEncontrado.presentacion,
-        icono: getIconoPolar(categoriaOriginal),
-        stock: 10,
-        estado: 'ok',
-        precio: '0.00',
-        fecha: firebase.firestore.FieldValue.serverTimestamp()
-      });
+  .collection('empresas')
+  .doc(empresaId)
+  .collection('inventario')
+  .add({
+    nombre: `${productoEncontrado.nombre} ${productoEncontrado.presentacion}`.trim(),
+    codigo: productoEncontrado.codigo,
+    cat: categoriaFinal,          // ✅ CAMBIO: cat (unificado)
+    categoria: categoriaFinal,    // ✅ Se mantiene también
+    marca: productoEncontrado.nombre,
+    presentacion: productoEncontrado.presentacion,
+    icono: getIconoPolar(categoriaOriginal),
+    stock: 10,
+    estado: 'ok',
+    precio: '0.00',
+    fecha: firebase.firestore.FieldValue.serverTimestamp()
+  });
 
     showToast(`✅ ${productoEncontrado.nombre} agregado a tu inventario`);
     renderizarCatalogoMaestro(); // Refrescar la tabla

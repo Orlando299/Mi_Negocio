@@ -2,7 +2,10 @@
 // NOTIFICACIONES PUSH — Firebase Cloud Messaging v4
 // ═══════════════════════════════════════════════════════════════
 
-const FCM_SERVER_KEY = 'BIXCOeyKIITXCMLaf_RaGC2QDRKN-C4d3cD3Ocu9FGCQcz-jVQT-WT6FhJiF9RB1yjLQ3HqZS5HqEdTNJd-TJ1I';
+// ⚠️ SEGURIDAD: La Server Key de FCM NUNCA debe estar en el frontend.
+// Se elimina por seguridad. Cuando se implemente FCM bien, se enviará
+// desde una Cloud Function o Cloudflare Worker.
+// const FCM_SERVER_KEY = '...'; // ELIMINADA
 
 let messaging = null;
 let fcmTokenActual = null;
@@ -131,38 +134,11 @@ function escucharMensajesForeground() {
 }
 
 async function enviarNotificacionPush(destinoToken, titulo, cuerpo, datos = {}) {
-  if (!destinoToken || !FCM_SERVER_KEY || FCM_SERVER_KEY.includes('TU_SERVER_KEY')) {
-    console.warn('[FCM] Server Key no configurada');
-    return false;
-  }
-
-  try {
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'key=' + FCM_SERVER_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: destinoToken,
-        notification: {
-          title: titulo,
-          body: cuerpo,
-          icon: BASE_PATH + 'icon-192x192.png',
-          badge: BASE_PATH + 'icon-72x72.png',
-          click_action: BASE_PATH
-        },
-        data: datos
-      })
-    });
-
-    const result = await response.json();
-    console.log('[FCM] Notificación enviada:', result);
-    return result.success === 1;
-  } catch (e) {
-    console.error('[FCM] Error enviando notificación:', e);
-    return false;
-  }
+  // ⚠️ DESHABILITADO POR SEGURIDAD: El envío directo de FCM desde el frontend
+  // expone la Server Key. Esto debe hacerse desde un backend (Cloud Function
+  // o Cloudflare Worker). Por ahora, solo registramos en consola.
+  console.log('[FCM] Envío deshabilitado (pendiente migrar a backend):', { titulo, cuerpo });
+  return false;
 }
 
 async function notificarAdmins(empresaId, titulo, cuerpo, datos = {}) {

@@ -433,34 +433,47 @@ async function registrarClienteNuevo() {
     empresaData = empresaDoc.data();
     console.log('✅ Empresa encontrada:', empresaId);
 
-    // ============================================================
-    //  PASO: Buscar categoría por código completo (o código de empresa si no hay más)
+      // ============================================================
+    //  PASO: Buscar categoría por código
+    //  El cliente ingresa: [código empresa 6 chars][código categoría]
+    //  Ej: SXP9RJMAYOR14 = SXP9RJ (empresa) + MAYOR14 (categoría)
     // ============================================================
     let categoriaId = null;
     let aporteEspecial = null;
 
-    // Usar el código completo para buscar categoría
-    const codigoCategoria = codigo; // el código completo
-    const categoriasSnapshot = await firebase.firestore()
-      .collection('empresas')
-      .doc(empresaId)
-      .collection('categoriasClientes')
-      .where('codigoInvitacion', '==', codigoCategoria)
-      .limit(1)
-      .get();
+    // Extraer el código de categoría (todo lo que viene después de los 6 primeros caracteres)
+    const codigoCategoria = codigo.substring(6).trim().toUpperCase();
+    console.log('🔍 Código empresa (6 primeros):', codigo.substring(0, 6));
+    console.log('🔍 Código categoría (resto):', codigoCategoria);
 
-    if (!categoriasSnapshot.empty) {
-      const categoriaDoc = categoriasSnapshot.docs[0];
-      const categoriaData = categoriaDoc.data();
-      categoriaId = categoriaDoc.id;
-      aporteEspecial = {
-        tipo: categoriaData.aporteEspecial.tipo,
-        valor: categoriaData.aporteEspecial.valor,
-        aplicaA: categoriaData.aporteEspecial.aplicaA || ['Cervezas Polar']
-      };
-      console.log('✅ Categoría encontrada por código:', categoriaData.nombre);
-    } else {
-      // Si no se encuentra categoría con el código completo, usar la categoría por defecto
+    // Buscar la categoría solo si hay un código de categoría
+    if (codigoCategoria) {
+      const categoriasSnapshot = await firebase.firestore()
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('categoriasClientes')
+        .where('codigoInvitacion', '==', codigoCategoria)
+        .limit(1)
+        .get();
+
+      if (!categoriasSnapshot.empty) {
+        const categoriaDoc = categoriasSnapshot.docs[0];
+        const categoriaData = categoriaDoc.data();
+        categoriaId = categoriaDoc.id;
+        aporteEspecial = {
+          tipo: categoriaData.aporteEspecial?.tipo || 'porcentaje_liquido',
+          valor: categoriaData.aporteEspecial?.valor || 0,
+          aplicaA: categoriaData.aporteEspecial?.aplicaA || ['Cervezas Polar']
+        };
+        console.log('✅ Categoría encontrada:', categoriaData.nombre, 'con', aporteEspecial.valor + '%');
+      } else {
+        console.log('⚠️ Código de categoría no encontrado:', codigoCategoria);
+      }
+    }
+
+    // Si no se encontró categoría, usar la por defecto
+    if (!categoriaId) {
+      console.log('📌 Usando categoría por defecto');
       const empresaDataTemp = empresaDoc.data();
       categoriaId = empresaDataTemp.categoriaPorDefectoId || null;
       if (categoriaId) {
@@ -473,9 +486,9 @@ async function registrarClienteNuevo() {
         if (categoriaDefaultDoc.exists) {
           const defaultData = categoriaDefaultDoc.data();
           aporteEspecial = {
-            tipo: defaultData.aporteEspecial.tipo,
-            valor: defaultData.aporteEspecial.valor || 0,
-            aplicaA: defaultData.aporteEspecial.aplicaA || ['Cervezas Polar']
+            tipo: defaultData.aporteEspecial?.tipo || 'porcentaje_liquido',
+            valor: defaultData.aporteEspecial?.valor || 0,
+            aplicaA: defaultData.aporteEspecial?.aplicaA || ['Cervezas Polar']
           };
           console.log('✅ Usando categoría por defecto:', defaultData.nombre);
         }

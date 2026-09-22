@@ -1042,13 +1042,18 @@ async function goScreen(name) {
   }
 
   // ============================================================
-  //  INVENTARIO: CARGAR TODOS LOS PRODUCTOS SIN PAGINACIÓN
+  //  INVENTARIO: renderizar con datos ya cargados + recargar si están vacíos
   // ============================================================
   if (name === 'inventario') {
     const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
+    
+    // ✅ CAMBIO: Si ya hay datos, solo renderizar. Si no, cargar todos de una vez.
+    if (store.inventario && store.inventario.length > 0) {
+      renderInv('', filtroInv, false);
+      updateKPIs();
+      console.log(`✅ Inventario renderizado (${store.inventario.length} productos en cache)`);
+    } else if (empresaId) {
       try {
-        // 🔽 Cargar TODOS los productos de una sola vez
         const snapshot = await firebase.firestore()
           .collection('empresas')
           .doc(empresaId)
@@ -1065,11 +1070,11 @@ async function goScreen(name) {
         
         store.inventario = items;
         store.lastInventarioDoc = null;
-        store.hasMoreInventario = false; // Desactivar paginación
+        store.hasMoreInventario = false;
         syncGlobals();
         renderInv('', filtroInv, false);
         updateKPIs();
-        console.log(`✅ Inventario cargado: ${items.length} productos`);
+        console.log(`✅ Inventario cargado desde Firestore: ${items.length} productos`);
       } catch (error) {
         console.error('❌ Error cargando inventario completo:', error);
         showToast('⚠️ Error al cargar inventario');

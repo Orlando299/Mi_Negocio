@@ -1421,13 +1421,26 @@ async function updateProductoFromModal(nombreOriginal) {
   const cat = document.getElementById('edit-cat').value;
   const precio = parseFloat(document.getElementById('edit-precio').value) || 0;
   const stock = parseInt(document.getElementById('edit-stock').value) || 0;
+  
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  
   let estado = 'ok';
   if (stock === 0) estado = 'out';
   else if (stock <= 5) estado = 'low';
-  const updates = { nombre, cat, precio: formatCurrency(precio), stock, estado };
+  
+  // ✅ CAMBIO: Guardamos en ambos campos para compatibilidad total
+  const updates = {
+    nombre,
+    cat,               // para filtros y render
+    categoria: cat,    // para compatibilidad con productos existentes
+    precio: formatCurrency(precio),
+    stock,
+    estado
+  };
+  
   const producto = store.inventario.find(p => p.nombre === nombreOriginal);
   if (!producto) { showToast('⚠️ Producto no encontrado'); return; }
+  
   try {
     await store.updateProducto(producto.id, updates);
     syncGlobals();

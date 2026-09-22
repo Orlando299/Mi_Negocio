@@ -102,8 +102,12 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
     list.innerHTML = '';
   }
 
+  // ✅ CAMBIO: Leer categoría desde cat o categoria
   let data = store.inventario.filter(p => {
-    const matchText = !q || (p.nombre && p.nombre.toLowerCase().includes(q)) || (p.cat && p.cat.toLowerCase().includes(q));
+    const catProd = p.cat || p.categoria || '';
+    const matchText = !q || 
+      (p.nombre && p.nombre.toLowerCase().includes(q)) || 
+      (catProd && catProd.toLowerCase().includes(q));
     const matchStock = stockFilter === 'todos' || p.estado === stockFilter;
     return matchText && matchStock;
   });
@@ -116,7 +120,8 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
 
   let html = data.map(p => {
     const nombreEscapado = escapeHtml(p.nombre);
-    const catEscapado = escapeHtml(p.cat);
+    // ✅ CAMBIO: cat o categoria
+    const catEscapado = escapeHtml(p.cat || p.categoria || 'General');
     const precioEscapado = escapeHtml(p.precio);
     const estadoEscapado = escapeHtml(p.estado);
     const icon = p.icon || '📦';

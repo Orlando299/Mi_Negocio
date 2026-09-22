@@ -80,11 +80,11 @@
       <div class="field"><label>Tu nombre</label><input type="text" id="reg-cli-nombre" placeholder="Ej: María González"></div>
       <div class="field"><label>Correo electrónico</label><input type="email" id="reg-cli-email" placeholder="correo@ejemplo.com"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="reg-cli-pass" placeholder="Mínimo 6 caracteres"></div>
-      <div class="field">
-        <label>Código de invitación</label>
-        <input type="text" id="reg-cli-codigo" placeholder="Ej: A3B9K2" maxlength="6" style="text-transform:uppercase;">
-        <small style="color:var(--text3); font-size:11px;">Pídele el código a tu franquiciado</small>
-      </div>
+    <div class="field">
+  <label>Código de invitación</label>
+  <input type="text" id="reg-cli-codigo" placeholder="Ej: ABC123MAYOR14" maxlength="20" style="text-transform:uppercase;">
+  <small style="color:var(--text3); font-size:11px;">Ingresa el código de empresa (6 caracteres) o el código completo con categoría (ej: ABC123MAYOR14)</small>
+</div>
       <button type="button" class="btn btn-primary" onclick="registrarClienteNuevo()">Unirme</button>
       <button type="button" class="btn btn-outline" onclick="cerrarModalRegistroCliente()">Volver</button>
     </div>

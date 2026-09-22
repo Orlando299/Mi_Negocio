@@ -3583,7 +3583,7 @@ async function confirmarLiquidacion(clienteId) {
       fecha: ahora,
       cantidad: cantidad,
       producto: productoNombre || null,
-      observaciones: observaciones || 'Liquidación realizada',
+      observaciones: observaciones || 'Entrega de premio especial',
       entregadoPor: sessionStorage.getItem('userName') || 'admin'
     };
 
@@ -3634,7 +3634,7 @@ async function confirmarLiquidacion(clienteId) {
 
     // 6. Refrescar vistas
     renderClients('', filtroCli, false);
-    showToast(`✅ Liquidación registrada: ${cantidad} unidades entregadas`);
+    showToast(`✅ Premio especial entregado: ${cantidad} unidades`);
 
     cerrarModalLiquidacion();
   } catch (error) {
@@ -3665,9 +3665,9 @@ async function cargarLiquidacionesCliente() {
       .get();
 
     if (!clienteDoc.exists || !clienteDoc.data().historialLiquidaciones) {
-      container.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No hay liquidaciones registradas</div></div>';
-      return;
-    }
+  container.innerHTML = '<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">Aún no has recibido premios especiales</div></div>';
+  return;
+}
 
     const liquidaciones = clienteDoc.data().historialLiquidaciones;
     // Ordenar de más reciente a más antigua (suponiendo que el array tenga timestamp)
@@ -3677,8 +3677,7 @@ async function cargarLiquidacionesCliente() {
       return fechaB - fechaA;
     });
 
-    let html = '<div style="margin-bottom:12px; font-weight:600;">Total entregado: ' + liquidaciones.reduce((sum, l) => sum + l.cantidad, 0) + ' unidades</div>';
-    html += liquidaciones.map(l => {
+    let html = '<div style="margin-bottom:12px; font-weight:600;">🎁 Total de premios recibidos: ' + liquidaciones.reduce((sum, l) => sum + l.cantidad, 0) + ' unidades</div>';
       const fecha = l.fecha?.toDate ? formatDateLocal(l.fecha.toDate()) : (l.fecha || '');
       const producto = l.producto ? `📦 ${escapeHtml(l.producto)}` : '';
       return `
@@ -3688,7 +3687,7 @@ async function cargarLiquidacionesCliente() {
             <span class="sale-status pagado" style="background:var(--primary-soft); color:var(--primary);">${l.cantidad} uds.</span>
           </div>
           ${producto ? `<div style="font-size:14px; margin:4px 0;">${producto}</div>` : ''}
-          <div style="font-size:12px; color:var(--text3);">${escapeHtml(l.observaciones || 'Sin observaciones')}</div>
+         <div style="font-size:12px; color:var(--text3);">${escapeHtml(l.observaciones || 'Premio especial entregado')}</div>
           <div style="font-size:11px; color:var(--text3); margin-top:4px;">Entregado por: ${escapeHtml(l.entregadoPor || 'admin')}</div>
         </div>
       `;

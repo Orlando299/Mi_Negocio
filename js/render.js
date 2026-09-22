@@ -102,7 +102,7 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
     list.innerHTML = '';
   }
 
-  // ✅ CAMBIO: Leer categoría desde cat o categoria
+  // ✅ CAMBIO FASE 1: Leer categoría desde cat o categoria
   let data = store.inventario.filter(p => {
     const catProd = p.cat || p.categoria || '';
     const matchText = !q || 
@@ -120,7 +120,7 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
 
   let html = data.map(p => {
     const nombreEscapado = escapeHtml(p.nombre);
-    // ✅ CAMBIO: cat o categoria
+    // ✅ CAMBIO FASE 1: cat o categoria
     const catEscapado = escapeHtml(p.cat || p.categoria || 'General');
     const precioEscapado = escapeHtml(p.precio);
     const estadoEscapado = escapeHtml(p.estado);
@@ -164,8 +164,8 @@ function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
 }
 
 // ================================================================
-//  RENDERIZAR CLIENTES (con "Cargar más") - MODIFICADO
-//  - Ahora incluye columna "Líquido pendiente" y botón de liquidación
+//  RENDERIZAR CLIENTES (con "Cargar más")
+//  - Incluye columna "Premio especial pendiente" y botón de entrega
 // ================================================================
 
 function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
@@ -201,7 +201,7 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
     const init = c.init || '??';
     const nombreJs = escapeJsString(c.nombre);
 
-    // === NUEVO: líquido pendiente ===
+    // Premio especial pendiente
     const liquidoPendiente = c.liquidoPendiente?.total || 0;
 
     return `
@@ -215,16 +215,16 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
         <div class="client-right">
           <div class="client-spent">${comprasEscapado}</div>
           <div class="client-orders">${c.pedidos} pedidos</div>
-          <!-- NUEVA LÍNEA: Líquido pendiente -->
+          <!-- ✅ CAMBIO FASE 2: Premio especial pendiente -->
           <div class="client-liquido" style="font-size:12px; color:var(--primary); font-weight:600;">
-            📦 ${liquidoPendiente} uds.
+            🎁 ${liquidoPendiente} uds.
           </div>
         </div>
         <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
           <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
           <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
-          <!-- NUEVO BOTÓN: Liquidar líquido -->
-          <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Liquidar líquido">📦</button>
+          <!-- ✅ CAMBIO FASE 2: Botón de entrega de premio especial -->
+          <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Entregar premio especial en líquido">🎁</button>
         </div>
       </div>
     `;

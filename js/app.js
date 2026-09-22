@@ -3485,34 +3485,34 @@ async function abrirModalLiquidacion(clienteId) {
       productosHTML += `<option value="${doc.id}">${escapeHtml(data.nombre)}</option>`;
     });
 
-    const body = `
-      <div class="field">
-        <label>Cliente</label>
-        <input type="text" value="${escapeHtml(cliente.nombre)}" disabled>
-      </div>
-      <div class="field">
-        <label>Líquido pendiente</label>
-        <input type="text" value="${liquidoPendiente} unidades" disabled>
-      </div>
-      <div class="field">
-        <label>Cantidad a entregar *</label>
-        <input type="number" id="liq-cantidad" min="1" max="${liquidoPendiente}" placeholder="Ej: 10">
-        <small style="color:var(--text3); font-size:11px;">Máximo ${liquidoPendiente} unidades</small>
-      </div>
-      <div class="field">
-        <label>Producto (opcional)</label>
-        <select id="liq-producto">
-          ${productosHTML}
-        </select>
-        <small style="color:var(--text3); font-size:11px;">Selecciona el producto a entregar (opcional)</small>
-      </div>
-      <div class="field">
-        <label>Observaciones</label>
-        <textarea id="liq-observaciones" rows="2" placeholder="Motivo de la entrega, notas..."></textarea>
-      </div>
-      <button class="btn btn-primary" onclick="confirmarLiquidacion('${clienteId}')">✅ Confirmar liquidación</button>
-      <button class="btn btn-outline" onclick="cerrarModalLiquidacion()">Cancelar</button>
-    `;
+   const body = `
+  <div class="field">
+    <label>Cliente</label>
+    <input type="text" value="${escapeHtml(cliente.nombre)}" disabled>
+  </div>
+  <div class="field">
+    <label>Premio especial pendiente</label>
+    <input type="text" value="${liquidoPendiente} unidades" disabled>
+  </div>
+  <div class="field">
+    <label>Cantidad a entregar *</label>
+    <input type="number" id="liq-cantidad" min="1" max="${liquidoPendiente}" placeholder="Ej: 10">
+    <small style="color:var(--text3); font-size:11px;">Máximo ${liquidoPendiente} unidades</small>
+  </div>
+  <div class="field">
+    <label>Producto (opcional)</label>
+    <select id="liq-producto">
+      ${productosHTML}
+    </select>
+    <small style="color:var(--text3); font-size:11px;">Selecciona el producto a entregar (opcional)</small>
+  </div>
+  <div class="field">
+    <label>Observaciones</label>
+    <textarea id="liq-observaciones" rows="2" placeholder="Motivo de la entrega, notas..."></textarea>
+  </div>
+  <button class="btn btn-primary" onclick="confirmarLiquidacion('${clienteId}')">✅ Confirmar entrega de premio</button>
+  <button class="btn btn-outline" onclick="cerrarModalLiquidacion()">Cancelar</button>
+`;
 
     document.getElementById('modal-body-liquidacion').innerHTML = body;
     abrirModalId('modal-liquidacion');

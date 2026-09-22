@@ -1314,12 +1314,25 @@ async function guardarCliente() {
 function editVenta(id) {
   const v = store.ventas.find(item => item.id === id);
   if (!v) return showToast('Venta no encontrada');
+  
+  // ✅ CAMBIO: Escapamos todos los valores que vienen del usuario
+  const clienteEscapado = escapeHtml(v.cliente);
+  const productoEscapado = escapeHtml(v.producto || '');
+  const notasEscapadas = escapeHtml(v.notas || '');
+  
+  // ✅ CAMBIO: Precio unitario seguro
+  let precioUnit = 0;
+  if (v.total && v.items) {
+    const totalNum = parseFloat(String(v.total).replace(/[$,]/g, '')) || 0;
+    precioUnit = totalNum / v.items;
+  }
+  
   const body = `
-    <div class="field"><label>Cliente</label><input type="text" value="${v.cliente}" id="edit-cliente"></div>
-    <div class="field"><label>Producto</label><input type="text" value="${v.producto || ''}" id="edit-producto"></div>
+    <div class="field"><label>Cliente</label><input type="text" value="${clienteEscapado}" id="edit-cliente"></div>
+    <div class="field"><label>Producto</label><input type="text" value="${productoEscapado}" id="edit-producto"></div>
     <div class="row">
       <div class="field"><label>Cantidad</label><input type="number" value="${v.items}" id="edit-cantidad"></div>
-      <div class="field"><label>Precio unit.</label><input type="text" value="${(parseFloat(v.total.replace('$','')) / v.items).toFixed(2)}" id="edit-precio"></div>
+      <div class="field"><label>Precio unit.</label><input type="text" value="${precioUnit.toFixed(2)}" id="edit-precio"></div>
     </div>
     <div class="field"><label>Método de pago</label>
       <select id="edit-metodo">
@@ -1329,8 +1342,8 @@ function editVenta(id) {
         <option ${v.metodo === 'Divisas' ? 'selected' : ''}>Divisas</option>
       </select>
     </div>
-    <div class="field"><label>Notas</label><textarea id="edit-notas">${v.notas || ''}</textarea></div>
-    <button class="btn btn-primary" onclick="updateVentaFromModal('${id}')">Actualizar venta</button>
+    <div class="field"><label>Notas</label><textarea id="edit-notas">${notasEscapadas}</textarea></div>
+    <button class="btn btn-primary" onclick="updateVentaFromModal('${escapeJsString(id)}')">Actualizar venta</button>
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
   `;
   openModalWithContent('Editar venta', body);
@@ -1433,6 +1446,10 @@ async function editCliente(nombre) {
   const c = store.clientes.find(item => item.nombre === nombre);
   if (!c) return showToast('Cliente no encontrado');
 
+  // ✅ CAMBIO: Escapamos valores que vienen del usuario
+  const nombreEscapado = escapeHtml(c.nombre);
+  const phoneEscapado = escapeHtml(c.phone || '');
+
   // Cargar categorías activas para el selector
   const empresaId = sessionStorage.getItem('empresaId');
   let categoriasHTML = '<option value="">Sin categoría</option>';
@@ -1448,7 +1465,8 @@ async function editCliente(nombre) {
       snapshot.forEach(doc => {
         const data = doc.data();
         const selected = doc.id === c.categoriaId ? 'selected' : '';
-        categoriasHTML += `<option value="${doc.id}" ${selected}>${escapeHtml(data.nombre)} (${data.aporteEspecial?.valor || 0}%)</option>`;
+        // ✅ CAMBIO: Escapamos el nombre de la categoría y el ID
+        categoriasHTML += `<option value="${escapeHtml(doc.id)}" ${selected}>${escapeHtml(data.nombre)} (${data.aporteEspecial?.valor || 0}%)</option>`;
       });
     } catch (e) {
       console.warn('Error cargando categorías:', e);
@@ -1459,8 +1477,8 @@ async function editCliente(nombre) {
   const liquidoPendiente = c.liquidoPendiente?.total || 0;
 
   const body = `
-    <div class="field"><label>Nombre</label><input type="text" value="${escapeHtml(c.nombre)}" id="edit-nombre"></div>
-    <div class="field"><label>Teléfono</label><input type="text" value="${escapeHtml(c.phone)}" id="edit-phone"></div>
+    <div class="field"><label>Nombre</label><input type="text" value="${nombreEscapado}" id="edit-nombre"></div>
+    <div class="field"><label>Teléfono</label><input type="text" value="${phoneEscapado}" id="edit-phone"></div>
     <div class="field"><label>Etiqueta</label>
       <select id="edit-tag">
         <option ${c.tag === 'vip' ? 'selected' : ''}>vip</option>

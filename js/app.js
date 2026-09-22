@@ -3680,7 +3680,6 @@ async function cargarLiquidacionesCliente() {
 
     let html = '<div style="margin-bottom:12px; font-weight:600;">🎁 Total de premios recibidos: ' + liquidaciones.reduce((sum, l) => sum + l.cantidad, 0) + ' unidades</div>';
 
-    // ✅ LÍNEA QUE FALTABA:
     html += liquidaciones.map(l => {
       const fecha = l.fecha?.toDate ? formatDateLocal(l.fecha.toDate()) : (l.fecha || '');
       const producto = l.producto ? `📦 ${escapeHtml(l.producto)}` : '';
@@ -3697,7 +3696,7 @@ async function cargarLiquidacionesCliente() {
       `;
     }).join('');
 
-        container.innerHTML = html;
+    container.innerHTML = html;
   } catch (error) {
     console.error('Error cargando liquidaciones:', error);
     container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar premios</div></div>';

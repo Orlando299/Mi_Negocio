@@ -4154,7 +4154,7 @@ async function confirmarDespacho(id) {
       await actualizarSaldoEnvases(cliente.id, envasesParaCliente);
     }
 
-    // ============================================================
+        // ============================================================
     //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE
     // ============================================================
     let ventaUpdates = {
@@ -4172,16 +4172,39 @@ async function confirmarDespacho(id) {
 
       if (aporte.valor > 0) {
         let unidadesCerveza = 0;
+        const productosCervezaDetectados = [];
+
         for (const item of productos) {
-          const producto = inventario.find(p => p.nombre === item.nombre);
-          if (producto && producto.cat === 'Cervezas Polar') {
+          // Buscar el producto en el inventario por nombre (case-insensitive)
+          const producto = inventario.find(p => 
+            (p.nombre || '').trim().toLowerCase() === (item.nombre || '').trim().toLowerCase()
+          );
+
+          if (!producto) {
+            console.warn(`⚠️ Producto no encontrado en inventario: "${item.nombre}"`);
+            continue;
+          }
+
+          // ⚠️ FIX: Compatibilidad con ambos campos (categoria y cat)
+          const categoriaProducto = producto.categoria || producto.cat || '';
+          
+          if (categoriaProducto === 'Cervezas Polar') {
             unidadesCerveza += item.cantidad;
+            productosCervezaDetectados.push({
+              nombre: item.nombre,
+              cantidad: item.cantidad
+            });
           }
         }
 
+        console.log(`📌 Productos de cerveza detectados: ${productosCervezaDetectados.length}`);
+        productosCervezaDetectados.forEach(p => {
+          console.log(`   - ${p.nombre} x${p.cantidad}`);
+        });
+
         if (unidadesCerveza > 0) {
           const unidadesExtra = Math.floor(unidadesCerveza * (aporte.valor / 100));
-          console.log(`📌 Unidades vendidas de cerveza: ${unidadesCerveza}, líquido generado: ${unidadesExtra}`);
+          console.log(`📌 Unidades totales de cerveza: ${unidadesCerveza}, líquido generado: ${unidadesExtra} (aporte ${aporte.valor}%)`);
 
           if (unidadesExtra > 0) {
             const clienteRef = firebase.firestore()
@@ -4202,6 +4225,8 @@ async function confirmarDespacho(id) {
                 'liquidoPendiente.total': nuevoTotal,
                 'liquidoPendiente.ultimaLiquidacion': liquidoPendiente.ultimaLiquidacion || null
               });
+
+              console.log(`✅ Líquido acumulado: ${unidadesExtra} unidades (total: ${nuevoTotal})`);
             });
 
             ventaUpdates.aporteGenerado = {
@@ -4209,7 +4234,18 @@ async function confirmarDespacho(id) {
               porcentaje: aporte.valor,
               unidadesExtra: unidadesExtra
             };
-            console.log(`✅ Líquido acumulado: ${unidadesExtra} unidades para ${cliente.nombre}`);
+
+            // Actualizar también el store local si existe
+            const indexLocal = store.clientes?.findIndex(c => c.id === cliente.id);
+            if (indexLocal !== -1 && store.clientes) {
+              const liquidoActual = store.clientes[indexLocal].liquidoPendiente || { total: 0 };
+              store.clientes[indexLocal].liquidoPendiente = {
+                ...liquidoActual,
+                total: (liquidoActual.total || 0) + unidadesExtra
+              };
+            }
+          } else {
+            console.log(`ℹ️ Cálculo: ${unidadesCerveza} × ${aporte.valor}% = ${unidadesCerveza * aporte.valor / 100}, redondeado a 0 unidades extra`);
           }
         } else {
           console.log('ℹ️ No hay productos de cerveza en este pedido, sin líquido acumulado.');

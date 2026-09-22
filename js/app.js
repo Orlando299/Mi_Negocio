@@ -4049,47 +4049,97 @@ async function actualizarSaldoEnvases(clienteId, envases) {
 // ================================================================
 async function obtenerAporteEfectivoCliente(clienteId) {
   try {
+    // ✅ CAMBIO: Primero intentar leer el perfil (clientes registrados desde la app)
     const perfilDoc = await firebase.firestore()
       .collection('userProfiles')
       .doc(clienteId)
       .get();
-    if (!perfilDoc.exists) {
-      console.warn('⚠️ Perfil no encontrado para cliente:', clienteId);
+
+    if (perfilDoc.exists) {
+      const perfil = perfilDoc.data();
+
+      // Prioridad 1: aporte personalizado
+      if (perfil.aportePersonalizado && perfil.aportePersonalizado.valor !== undefined) {
+        console.log('📌 Usando aporte personalizado:', perfil.aportePersonalizado.valor);
+        return {
+          valor: perfil.aportePersonalizado.valor,
+          tipo: 'porcentaje_liquido',
+          aplicaA: ['Cervezas Polar']
+        };
+      }
+
+      // Prioridad 2: categoría del perfil
+      if (perfil.categoriaClienteId) {
+        const catDoc = await firebase.firestore()
+          .collection('empresas')
+          .doc(perfil.empresaId)
+          .collection('categoriasClientes')
+          .doc(perfil.categoriaClienteId)
+          .get();
+        if (catDoc.exists) {
+          const catData = catDoc.data();
+          console.log('📌 Usando aporte de categoría:', catData.nombre, '=', catData.aporteEspecial?.valor || 0);
+          return {
+            valor: catData.aporteEspecial?.valor || 0,
+            tipo: catData.aporteEspecial?.tipo || 'porcentaje_liquido',
+            aplicaA: catData.aporteEspecial?.aplicaA || ['Cervezas Polar']
+          };
+        }
+      }
+    }
+
+    // ✅ CAMBIO: Fallback para clientes manuales (sin perfil en userProfiles)
+    console.log('📌 Cliente sin perfil en userProfiles, buscando en subcolección clientes...');
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (!empresaId) {
       return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
     }
-    const perfil = perfilDoc.data();
 
-    if (perfil.aportePersonalizado && perfil.aportePersonalizado.valor !== undefined) {
-      console.log('📌 Usando aporte personalizado:', perfil.aportePersonalizado.valor);
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas')
+      .doc(empresaId)
+      .collection('clientes')
+      .doc(clienteId)
+      .get();
+
+    if (!clienteDoc.exists) {
+      console.warn('⚠️ Cliente no encontrado en ninguna colección:', clienteId);
+      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+    }
+
+    const clienteData = clienteDoc.data();
+
+    // Prioridad 3: aporteEspecial embebido en el cliente (clientes manuales)
+    if (clienteData.aporteEspecial && clienteData.aporteEspecial.valor !== undefined && clienteData.aporteEspecial.valor !== null) {
+      console.log('📌 Usando aporte embebido en cliente manual:', clienteData.aporteEspecial.valor);
       return {
-        valor: perfil.aportePersonalizado.valor,
-        tipo: 'porcentaje_liquido',
-        aplicaA: ['Cervezas Polar']
+        valor: clienteData.aporteEspecial.valor,
+        tipo: clienteData.aporteEspecial.tipo || 'porcentaje_liquido',
+        aplicaA: clienteData.aporteEspecial.aplicaA || ['Cervezas Polar']
       };
     }
 
-    if (!perfil.categoriaClienteId) {
-      console.warn('⚠️ Cliente sin categoría, usando 0%');
-      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
+    // Prioridad 4: categoría embebida en el cliente manual
+    if (clienteData.categoriaId) {
+      const catDoc = await firebase.firestore()
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('categoriasClientes')
+        .doc(clienteData.categoriaId)
+        .get();
+      if (catDoc.exists) {
+        const catData = catDoc.data();
+        console.log('📌 Usando categoría de cliente manual:', catData.nombre);
+        return {
+          valor: catData.aporteEspecial?.valor || 0,
+          tipo: catData.aporteEspecial?.tipo || 'porcentaje_liquido',
+          aplicaA: catData.aporteEspecial?.aplicaA || ['Cervezas Polar']
+        };
+      }
     }
 
-    const empresaId = perfil.empresaId;
-    const catDoc = await firebase.firestore()
-      .collection('empresas')
-      .doc(empresaId)
-      .collection('categoriasClientes')
-      .doc(perfil.categoriaClienteId)
-      .get();
-    if (!catDoc.exists) {
-      console.warn('⚠️ Categoría no encontrada, usando 0%');
-      return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
-    }
-    const catData = catDoc.data();
-    return {
-      valor: catData.aporteEspecial?.valor || 0,
-      tipo: catData.aporteEspecial?.tipo || 'porcentaje_liquido',
-      aplicaA: catData.aporteEspecial?.aplicaA || ['Cervezas Polar']
-    };
+    console.log('ℹ️ Cliente sin aporte configurado, usando 0%');
+    return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };
   } catch (error) {
     console.error('❌ Error obteniendo aporte del cliente:', error);
     return { valor: 0, tipo: 'porcentaje_liquido', aplicaA: ['Cervezas Polar'] };

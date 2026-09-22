@@ -3697,16 +3697,10 @@ async function cargarLiquidacionesCliente() {
       `;
     }).join('');
 
-    container.innerHTML = html;
+        container.innerHTML = html;
   } catch (error) {
     console.error('Error cargando liquidaciones:', error);
     container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar premios</div></div>';
-  }
-} 
-
-catch (error) {
-    console.error('Error cargando liquidaciones:', error);
-    container.innerHTML = '<div class="empty"><div class="empty-text">Error al cargar liquidaciones</div></div>';
   }
 }
 

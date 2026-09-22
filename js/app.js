@@ -4177,7 +4177,7 @@ async function confirmarDespacho(id) {
       await actualizarSaldoEnvases(cliente.id, envasesParaCliente);
     }
 
-        // ============================================================
+    // ============================================================
     //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE
     // ============================================================
     let ventaUpdates = {
@@ -4194,23 +4194,38 @@ async function confirmarDespacho(id) {
       console.log('📌 Aporte del cliente:', aporte.valor + '%');
 
       if (aporte.valor > 0) {
+        // ✅ CAMBIO: Función de normalización robusta para comparar nombres
+        // - trim: quita espacios al inicio/final
+        // - toLowerCase: ignora mayúsculas/minúsculas
+        // - normalize('NFD'): descompone tildes
+        // - replace(/[\u0300-\u036f]/g, ''): quita tildes
+        // - replace(/\s+/g, ' '): colapsa espacios múltiples
+        const normalizar = (str) => (str || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ');
+
         let unidadesCerveza = 0;
         const productosCervezaDetectados = [];
+        const productosNoEncontrados = [];
 
         for (const item of productos) {
-          // Buscar el producto en el inventario por nombre (case-insensitive)
-          const producto = inventario.find(p => 
-            (p.nombre || '').trim().toLowerCase() === (item.nombre || '').trim().toLowerCase()
-          );
+          const nombreItemNorm = normalizar(item.nombre);
+
+          // ✅ CAMBIO: Comparación normalizada
+          const producto = inventario.find(p => normalizar(p.nombre) === nombreItemNorm);
 
           if (!producto) {
             console.warn(`⚠️ Producto no encontrado en inventario: "${item.nombre}"`);
+            productosNoEncontrados.push(item.nombre);
             continue;
           }
 
-          // ⚠️ FIX: Compatibilidad con ambos campos (categoria y cat)
-          const categoriaProducto = producto.categoria || producto.cat || '';
-          
+          // ✅ CAMBIO: Leer categoría desde cat o categoria (orden unificado)
+          const categoriaProducto = producto.cat || producto.categoria || '';
+
           if (categoriaProducto === 'Cervezas Polar') {
             unidadesCerveza += item.cantidad;
             productosCervezaDetectados.push({
@@ -4224,6 +4239,10 @@ async function confirmarDespacho(id) {
         productosCervezaDetectados.forEach(p => {
           console.log(`   - ${p.nombre} x${p.cantidad}`);
         });
+
+        if (productosNoEncontrados.length > 0) {
+          console.warn(`⚠️ Productos no encontrados en inventario (no suman premio):`, productosNoEncontrados);
+        }
 
         if (unidadesCerveza > 0) {
           const unidadesExtra = Math.floor(unidadesCerveza * (aporte.valor / 100));

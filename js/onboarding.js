@@ -419,11 +419,16 @@ async function obMostrarChecklist() {
 //  NAVEGACIÓN DESDE EL CHECKLIST
 // ────────────────────────────────────────────────────────────────
 async function obIrAProductos() {
+  // ✅ Marcar que venimos del onboarding
+  sessionStorage.setItem('ob_volver_al_onboarding', 'true');
+  
   obCerrarOnboarding();
+  
   setTimeout(() => {
     if (typeof abrirCargarPrecios === 'function') {
       abrirCargarPrecios();
     } else {
+      // Fallback si la función no existe
       goScreen('configuracion');
       cambiarTabConfiguracion('catalogo-polar');
     }

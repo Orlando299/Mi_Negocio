@@ -1,6 +1,6 @@
 // ── VARIABLES GLOBALES ──
 let currentScreen = 'dashboard';
-const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion'];
+const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion', 'cargar-precios'];
 let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';
@@ -5347,6 +5347,50 @@ async function recargarCatalogoMaestro() {
 // Función auxiliar para importar desde la consola (debug)
 window.importarProductosPolar = importarProductosPolar;
 
+// ================================================================
+//  MÓDULO: CARGAR PRECIOS (BLOQUE C)
+//  Puente entre la pantalla y el módulo js/cargar-precios.js
+// ================================================================
+
+function abrirCargarPrecios() {
+  const userRol = sessionStorage.getItem('userRol');
+  if (userRol !== 'admin') {
+    showToast('⚠️ Solo el admin puede cargar precios');
+    return;
+  }
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  // Ir a la pantalla
+  goScreen('cargar-precios');
+
+  // Inicializar módulo (definido en js/cargar-precios.js)
+  if (typeof cpIniciar === 'function') {
+    cpIniciar(empresaId);
+  } else {
+    console.warn('⚠️ Módulo cargar-precios.js no cargado');
+    showToast('❌ Error: módulo no disponible');
+  }
+}
+
+function cerrarCargarPrecios() {
+  // Si hay cambios pendientes, avisar
+  if (typeof cpHayCambiosPendientes === 'function' && cpHayCambiosPendientes()) {
+    if (!confirm('Tienes cambios sin guardar. ¿Salir de todos modos?')) {
+      return;
+    }
+  }
+  goScreen('configuracion');
+  cambiarTabConfiguracion('catalogo-polar');
+}
+
+// Exponer globalmente
+window.abrirCargarPrecios = abrirCargarPrecios;
+window.cerrarCargarPrecios = cerrarCargarPrecios;
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -5398,7 +5442,10 @@ const funcionesGlobales = {
   cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar,
   agregarProductoPolar, subirCatalogoPolar,renderizarCatalogoMaestro,
   agregarProductoPolarAlInventario,
-  recargarCatalogoMaestro, quitarProductoPolarDelInventario
+  recargarCatalogoMaestro, quitarProductoPolarDelInventario,
+  // Módulo Cargar Precios (Bloque C)
+  abrirCargarPrecios,
+  cerrarCargarPrecios
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

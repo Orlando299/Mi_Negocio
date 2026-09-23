@@ -1215,3 +1215,39 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
     font-size: 18px;
   }
 }
+
+/* ============================================================
+   PANTALLA: CARGAR PRECIOS (BLOQUE C)
+   ============================================================ */
+
+/* Cuando estamos en la pantalla cargar-precios, ocultar bottom-nav y FAB */
+body.cp-activo .bottom-nav,
+body.cp-activo .fab {
+  display: none !important;
+}
+
+/* Barra fija de guardado */
+#cp-barra-fija {
+  z-index: 150;
+}
+
+/* Cuando cp-activo, la barra fija ocupa todo el ancho */
+body.cp-activo #cp-barra-fija {
+  bottom: 0;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+}
+
+/* Padding extra al final de la lista para que no tape la barra fija */
+#cp-lista {
+  padding-bottom: 100px;
+}
+
+/* Inputs de precio/stock más compactos en móvil */
+#screen-cargar-precios input[type="number"] {
+  -moz-appearance: textfield;
+}
+#screen-cargar-precios input[type="number"]::-webkit-outer-spin-button,
+#screen-cargar-precios input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

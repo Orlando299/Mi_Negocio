@@ -385,27 +385,48 @@ async function renderReportes(periodo = 'semana') {
   const cancelados = ventasPeriodo.filter(v => v.status === 'cancelado').length;
   const ticketPromedio = totalPedidos > 0 ? totalIngresos / totalPedidos : 0;
 
-  const rows = document.querySelectorAll('.stat-row');
-  if (rows.length >= 4) {
-    rows[0].querySelector('.stat-value').textContent = formatCurrency(totalIngresos);
-    rows[1].querySelector('.stat-value').textContent = totalPedidos;
-    rows[2].querySelector('.stat-value').textContent = formatCurrency(ticketPromedio);
-    rows[3].querySelector('.stat-value').textContent = cancelados;
+  // ✅ NUEVO: Actualizar por IDs en lugar de por posición
+  const setEl = (id, valor) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
+  };
+
+  setEl('reporte-total-ingresos', formatCurrency(totalIngresos));
+  setEl('reporte-total-pedidos', totalPedidos);
+  setEl('reporte-ticket-promedio', formatCurrency(ticketPromedio));
+  setEl('reporte-cancelados', cancelados);
+
+  // ✅ NUEVO: Nuevos clientes del período
+  try {
+    const cliSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').get();
+    let nuevosClientes = 0;
+    cliSnap.forEach(doc => {
+      const data = doc.data();
+      const fechaCreacion = data.fecha?.toDate ? data.fecha.toDate() : (data.creado?.toDate ? data.creado.toDate() : null);
+      if (fechaCreacion && fechaCreacion >= inicio && fechaCreacion <= fin) {
+        nuevosClientes++;
+      }
+    });
+    setEl('reporte-nuevos-clientes', '+' + nuevosClientes);
+  } catch (e) {
+    console.warn('Error calculando nuevos clientes:', e);
+    setEl('reporte-nuevos-clientes', '+0');
   }
 
+  // ✅ NUEVO: Top productos con datos reales
   const topProductos = await store.obtenerProductosMasVendidos(empresaId, 5);
-  const topContainer = document.querySelector('.card .top-product');
-  if (topContainer) {
-    const parent = topContainer.parentElement;
-    parent.innerHTML = `<div class="section-title" style="margin-bottom:12px">Productos más vendidos</div>`;
+  const topProdContainer = document.getElementById('reporte-top-productos');
+  if (topProdContainer) {
     if (topProductos.length === 0) {
-      parent.innerHTML += '<div class="empty"><div class="empty-text">Sin datos</div></div>';
+      topProdContainer.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin ventas en este período</div></div>';
     } else {
       const maxVentas = topProductos[0]?.cantidad || 1;
-      topProductos.forEach((p, i) => {
+      topProdContainer.innerHTML = topProductos.map((p, i) => {
         const pct = Math.round((p.cantidad / maxVentas) * 100);
         const nombreProducto = escapeHtml(p.nombre);
-        parent.innerHTML += `
+        return `
           <div class="top-product">
             <div class="top-rank">#${i+1}</div>
             <div class="top-name">${nombreProducto}</div>
@@ -413,9 +434,41 @@ async function renderReportes(periodo = 'semana') {
             <div class="top-val">${formatCurrency(p.total)}</div>
           </div>
         `;
-      });
+      }).join('');
     }
   }
+
+  // ✅ NUEVO: Top clientes con datos reales
+  const clientesTop = await obtenerClientesTop(empresaId, ventasPeriodo, 5);
+  const clientesContainer = document.getElementById('reporte-clientes-top');
+  if (clientesContainer) {
+    if (clientesTop.length === 0) {
+      clientesContainer.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Sin clientes con compras en este período</div></div>';
+    } else {
+      clientesContainer.innerHTML = clientesTop.map(c => `
+        <div class="stat-row">
+          <span class="stat-label">${escapeHtml(c.nombre)}</span>
+          <span class="stat-value up">${formatCurrency(c.total)}</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+// ✅ NUEVA: Función auxiliar para calcular clientes top
+async function obtenerClientesTop(empresaId, ventasPeriodo, limite = 5) {
+  const porCliente = {};
+  ventasPeriodo.forEach(v => {
+    if (v.status !== 'pagado') return;
+    const nombre = v.cliente || 'Sin nombre';
+    const total = parseCurrency(v.total);
+    if (!porCliente[nombre]) porCliente[nombre] = 0;
+    porCliente[nombre] += total;
+  });
+  return Object.entries(porCliente)
+    .map(([nombre, total]) => ({ nombre, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limite);
 }
 
 // ================================================================

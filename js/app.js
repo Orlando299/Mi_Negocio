@@ -5411,10 +5411,27 @@ function cerrarCargarPrecios() {
       return;
     }
   }
+
   // ✅ Restaurar bottom-nav y FAB
   document.body.classList.remove('cp-activo');
-  goScreen('configuracion');
-  cambiarTabConfiguracion('catalogo-polar');
+
+  // ✅ Detectar si venimos del onboarding
+  const volverAlOnboarding = sessionStorage.getItem('ob_volver_al_onboarding') === 'true';
+  sessionStorage.removeItem('ob_volver_al_onboarding');
+
+  if (volverAlOnboarding) {
+    // Volver al Dashboard y reabrir onboarding
+    goScreen('dashboard');
+    setTimeout(() => {
+      if (typeof abrirOnboarding === 'function') {
+        abrirOnboarding();
+      }
+    }, 300);
+  } else {
+    // Comportamiento normal: volver a Configuración → Catálogo Polar
+    goScreen('configuracion');
+    cambiarTabConfiguracion('catalogo-polar');
+  }
 }
 
 // ================================================================

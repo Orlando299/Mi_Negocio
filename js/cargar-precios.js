@@ -350,7 +350,6 @@ async function cpGuardarCambios() {
 
       // CASO 1: Eliminar
       if (cambio.accion === 'eliminar') {
-        // Buscar el doc en Firestore
         const invOriginal = cpInventarioEmpresa.find(i => i.codigo === codigo);
         if (invOriginal && invOriginal.id) {
           batch.delete(inventarioRef.doc(invOriginal.id));
@@ -418,6 +417,19 @@ async function cpGuardarCambios() {
       }
     }
 
+    // ✅ NUEVO: Si venimos del onboarding, reabrirlo
+    if (sessionStorage.getItem('ob_volver_al_onboarding') === 'true') {
+      sessionStorage.removeItem('ob_volver_al_onboarding');
+      setTimeout(() => {
+        document.body.classList.remove('cp-activo');
+        goScreen('dashboard');
+        // Reabrir onboarding
+        if (typeof abrirOnboarding === 'function') {
+          setTimeout(() => abrirOnboarding(), 300);
+        }
+      }, 1200);
+    }
+
   } catch (error) {
     console.error('❌ Error guardando cambios:', error);
     showToast('❌ Error al guardar: ' + error.message);
@@ -428,14 +440,34 @@ async function cpGuardarCambios() {
 //  DESCARTAR CAMBIOS
 // ────────────────────────────────────────────────────────────────
 function cpDescartarCambios() {
+  // Si no hay cambios, simplemente volver
   if (Object.keys(cpCambios).length === 0) {
-    showToast('ℹ️ No hay cambios pendientes');
+    // ✅ Si venimos del onboarding, volver al onboarding
+    if (sessionStorage.getItem('ob_volver_al_onboarding') === 'true') {
+      if (typeof cerrarCargarPrecios === 'function') {
+        cerrarCargarPrecios();
+      }
+    } else {
+      showToast('ℹ️ No hay cambios pendientes');
+    }
     return;
   }
+
+  // Confirmar descarte
   if (!confirm('¿Descartar todos los cambios sin guardar?')) return;
+
   cpCambios = {};
   cpIniciar(cpEmpresaId);
   showToast('↩️ Cambios descartados');
+
+  // ✅ Si venimos del onboarding, volver al onboarding después de descartar
+  if (sessionStorage.getItem('ob_volver_al_onboarding') === 'true') {
+    setTimeout(() => {
+      if (typeof cerrarCargarPrecios === 'function') {
+        cerrarCargarPrecios();
+      }
+    }, 800);
+  }
 }
 
 // ────────────────────────────────────────────────────────────────

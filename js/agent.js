@@ -132,9 +132,13 @@ function appendMessage(rol, texto) {
 function notificarRespuesta(mensaje) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    new Notification('🤖 PolarBot', {
+    // ✅ Usar el nombre personalizado del agente
+    const nombreAgente = (typeof obtenerNombreAgente === 'function') 
+      ? obtenerNombreAgente() 
+      : 'PolarBot';
+    new Notification('🤖 ' + nombreAgente, {
       body: mensaje,
-      icon: 'https://orlando299.github.io/Mi_Negocio/favicon.ico'
+      icon: 'https://minegociopolar.com/favicon.ico'
     });
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission();
@@ -317,6 +321,14 @@ async function toggleAgentPanel() {
   
   if (!isOpen) {
     panel.style.display = 'flex';
+    
+    // ✅ Aplicar el nombre personalizado al header
+    const nombreAgente = (typeof obtenerNombreAgente === 'function') 
+      ? obtenerNombreAgente() 
+      : 'PolarBot';
+    const displayEl = document.getElementById('agent-name-display');
+    if (displayEl) displayEl.textContent = nombreAgente;
+    
     // Limpiar mensajes actuales y cargar historial
     const container = document.getElementById('chat-messages');
     if (container) container.innerHTML = '';
@@ -326,7 +338,7 @@ async function toggleAgentPanel() {
     }
     // Si no hay historial, mostrar mensaje de bienvenida
     if (container && container.children.length === 0) {
-      appendMessage('agente', '👋 Hola, soy PolarBot. Escribe "ayuda" para ver qué puedo hacer.');
+      appendMessage('agente', `👋 Hola, soy ${nombreAgente}. Escribe "ayuda" para ver qué puedo hacer.`);
     }
   } else {
     panel.style.display = 'none';

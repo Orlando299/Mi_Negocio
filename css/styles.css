@@ -1251,3 +1251,49 @@ body.cp-activo #cp-barra-fija {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* ============================================================
+   ONBOARDING (BLOQUE E)
+   ============================================================ */
+
+#modal-onboarding .modal-sheet {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#onboarding-body {
+  padding-bottom: 8px;
+}
+
+/* Animación de entrada del modal */
+#modal-onboarding.open .modal-sheet {
+  animation: slideUp 0.3s ease;
+}
+
+/* Scroll suave dentro del checklist */
+#onboarding-body > div > div::-webkit-scrollbar {
+  width: 4px;
+}
+
+#onboarding-body > div > div::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Botones del onboarding más grandes */
+#onboarding-body .btn {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+/* Estilos específicos para móvil */
+@media (max-width: 500px) {
+  #modal-onboarding .modal-sheet {
+    padding: 20px 16px 28px;
+  }
+  
+  #onboarding-body h2 {
+    font-size: 18px !important;
+  }
+}
+

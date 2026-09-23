@@ -4659,13 +4659,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ocultarPantallaBienvenida();
 
-           if (rol === 'admin') {
+                 if (rol === 'admin') {
         actualizarAdminUI(nombre);
         // 🔽 Cargar datos desde Firestore
         await store.cargarDatosEmpresa(empresaId);
         syncGlobals();
-        // ✅ NUEVO: Cargar nombre personalizado del agente
+        // ✅ Cargar nombre personalizado del agente
         await cargarNombreAgente();
+        // ✅ NUEVO: Verificar onboarding (solo para dueños)
+        try {
+          const empresaDoc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+          if (empresaDoc.exists) {
+            await verificarOnboarding(empresaId, empresaDoc.data());
+          }
+        } catch (e) {
+          console.warn('⚠️ Error verificando onboarding:', e);
+        }
         goScreen('dashboard');
         // Forzar actualización de KPIs y gráfico después de cargar
         setTimeout(() => {
@@ -5626,12 +5635,28 @@ const funcionesGlobales = {
   // Módulo Cargar Precios (Bloque C)
   abrirCargarPrecios,
   cerrarCargarPrecios,
-  // Nombre personalizable del agente (Bloque D)
+   // Nombre personalizable del agente (Bloque D)
   cargarNombreAgente,
   guardarNombreAgente,
   restaurarNombreAgenteDefault,
   obtenerNombreAgente,
-  aplicarNombreAgente
+  aplicarNombreAgente,
+  // Onboarding (Bloque E)
+  verificarOnboarding,
+  abrirOnboarding,
+  obIniciarTour,
+  obSlideAnterior,
+  obSlideSiguiente,
+  obTerminarTour,
+  obSaltarTour,
+  obMostrarChecklist,
+  obIrAProductos,
+  obIrAPagos,
+  obIrACodigo,
+  obIrACategorias,
+  obIrAAgente,
+  obFinalizarOnboarding,
+  obCerrarOnboarding
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

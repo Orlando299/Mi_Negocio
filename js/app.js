@@ -2854,47 +2854,53 @@ async function renderizarTablaVentas() {
 // ================================================================
 //  ACTUALIZAR RESUMEN EN CONFIGURACIÓN (con contador de empleados)
 // ================================================================
-function actualizarResumenConfiguracion() {
-  const productos = window.inventario || [];
-  const clientes = window.clientes || [];
-  const ventas = window.ventas || [];
-  const totalVentas = ventas.reduce((sum, v) => sum + parseCurrency(v.total), 0);
-  
-  document.getElementById('resumen-productos').textContent = productos.length;
-  document.getElementById('resumen-clientes').textContent = clientes.length;
-  document.getElementById('resumen-ventas').textContent = ventas.length;
-  document.getElementById('resumen-total-ventas').textContent = formatCurrency(totalVentas);
-  
+async function actualizarResumenConfiguracion() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  // ✅ CAMBIO: Cargar conteos directamente de Firestore para evitar inconsistencias
+  try {
+    const [invSnap, cliSnap, venSnap, empDoc] = await Promise.all([
+      firebase.firestore().collection('empresas').doc(empresaId).collection('inventario').get(),
+      firebase.firestore().collection('empresas').doc(empresaId).collection('clientes').get(),
+      firebase.firestore().collection('empresas').doc(empresaId).collection('ventas').get(),
+      firebase.firestore().collection('empresas').doc(empresaId).get()
+    ]);
+
+    const totalProductos = invSnap.size;
+    const totalClientes = cliSnap.size;
+    const totalVentas = venSnap.size;
+    let montoTotal = 0;
+    venSnap.forEach(doc => {
+      montoTotal += parseCurrency(doc.data().total);
+    });
+
+    document.getElementById('resumen-productos').textContent = totalProductos;
+    document.getElementById('resumen-clientes').textContent = totalClientes;
+    document.getElementById('resumen-ventas').textContent = totalVentas;
+    document.getElementById('resumen-total-ventas').textContent = formatCurrency(montoTotal);
+    document.getElementById('resumen-empleados').textContent = empDoc.exists ? (empDoc.data().totalEmpleados || 0) : 0;
+
+  } catch (error) {
+    console.warn('⚠️ Error actualizando resumen:', error);
+    // Fallback a los datos locales
+    const productos = window.inventario || [];
+    const clientes = window.clientes || [];
+    const ventas = window.ventas || [];
+    document.getElementById('resumen-productos').textContent = productos.length;
+    document.getElementById('resumen-clientes').textContent = clientes.length;
+    document.getElementById('resumen-ventas').textContent = ventas.length;
+  }
+
+  // Empresa y usuario
   const empresaEl = document.getElementById('config-empresa-nombre');
   const usuarioEl = document.getElementById('config-usuario-nombre');
   if (empresaEl) {
-    const empresaId = sessionStorage.getItem('empresaId');
-    empresaEl.textContent = empresaId ? empresaId.replace(/-/g, ' ').toUpperCase() : 'MI EMPRESA';
+    empresaEl.textContent = empresaId.replace(/-/g, ' ').toUpperCase();
   }
   if (usuarioEl) {
     const nombre = sessionStorage.getItem('userName') || sessionStorage.getItem('userEmail') || 'Usuario';
     usuarioEl.textContent = `👤 ${nombre}`;
-  }
-
-  // 🔽 NUEVO: Mostrar total de empleados
-  const empleadosEl = document.getElementById('resumen-empleados');
-  if (empleadosEl) {
-    const empresaId = sessionStorage.getItem('empresaId');
-    if (empresaId) {
-      firebase.firestore()
-        .collection('empresas')
-        .doc(empresaId)
-        .get()
-        .then(doc => {
-          if (doc.exists) {
-            const data = doc.data();
-            empleadosEl.textContent = data.totalEmpleados || 0;
-          }
-        })
-        .catch(() => {
-          empleadosEl.textContent = '?';
-        });
-    }
   }
 }
 

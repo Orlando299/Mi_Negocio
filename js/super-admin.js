@@ -109,6 +109,7 @@ function saLoadSection(section, event) {
     case 'facturacion':    saRenderFacturacion(); break;
     case 'usuarios':       saRenderUsuarios(); break;
     case 'estadisticas':   saRenderEstadisticas(); break;
+    case 'catalogo':       saRenderCatalogo(); break;
     case 'configuracion':  saRenderConfiguracion(); break;
     case 'comunicacion':   saRenderComunicacion(); break;
     case 'auditoria':      saRenderAuditoria(); break;
@@ -1429,6 +1430,706 @@ async function saRenderAuditoria() {
     </div>
   `;
   document.getElementById('sa-content').innerHTML = html;
+}
+
+// ================================================================
+//  SECCIÓN: CATÁLOGO POLAR (BLOQUE B)
+//  Gestión completa del catálogo maestro productosPolar
+// ================================================================
+
+// Variables globales de la sección
+let saCatalogoProductos = [];
+let saCatalogoProductosOriginales = [];
+let saCatalogoFiltroCategoria = 'todas';
+let saCatalogoFiltroMarca = 'todas';
+let saCatalogoFiltroEstado = 'todos';
+let saCatalogoBusqueda = '';
+let saCatalogoEditandoCodigo = null;
+
+// ────────────────────────────────────────────────────────────────
+//  RENDERIZAR SECCIÓN PRINCIPAL
+// ────────────────────────────────────────────────────────────────
+async function saRenderCatalogo() {
+  saShowLoader('Cargando catálogo Polar...');
+
+  try {
+    const snapshot = await firebase.firestore().collection('productosPolar').get();
+    
+    saCatalogoProductos = [];
+    snapshot.forEach(doc => {
+      saCatalogoProductos.push({ codigo: doc.id, ...doc.data() });
+    });
+
+    saCatalogoProductos.sort((a, b) => (a.codigo || '').localeCompare(b.codigo || ''));
+    saCatalogoProductosOriginales = JSON.parse(JSON.stringify(saCatalogoProductos));
+
+    const categorias = [...new Set(saCatalogoProductos.map(p => p.categoria).filter(Boolean))].sort();
+    const marcas = [...new Set(saCatalogoProductos.map(p => p.marca).filter(Boolean))].sort();
+
+    const totalActivos = saCatalogoProductos.filter(p => p.activo !== false).length;
+    const totalInactivos = saCatalogoProductos.length - totalActivos;
+
+    const html = `
+      <div class="sa-section-header">
+        <div>
+          <h2 class="sa-section-title">📦 Catálogo Maestro Polar</h2>
+          <p class="sa-section-subtitle">Gestiona los productos disponibles para todas las franquicias</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="sa-btn sa-btn-outline sa-btn-sm" onclick="saCatalogoImportar()">📥 Importar</button>
+          <button class="sa-btn sa-btn-outline sa-btn-sm" onclick="saCatalogoExportar('json')">📤 JSON</button>
+          <button class="sa-btn sa-btn-outline sa-btn-sm" onclick="saCatalogoExportar('csv')">📤 CSV</button>
+          <button class="sa-btn sa-btn-primary sa-btn-sm" onclick="saCatalogoAbrirModalCrear()">+ Agregar producto</button>
+        </div>
+      </div>
+
+      <div class="sa-metrics-grid" style="margin-bottom:20px;">
+        <div class="sa-metric-card">
+          <div class="sa-metric-label">Total</div>
+          <div class="sa-metric-value blue">${saCatalogoProductos.length}</div>
+        </div>
+        <div class="sa-metric-card">
+          <div class="sa-metric-label">Activos</div>
+          <div class="sa-metric-value green">${totalActivos}</div>
+        </div>
+        <div class="sa-metric-card">
+          <div class="sa-metric-label">Inactivos</div>
+          <div class="sa-metric-value red">${totalInactivos}</div>
+        </div>
+        <div class="sa-metric-card">
+          <div class="sa-metric-label">Categorías</div>
+          <div class="sa-metric-value purple">${categorias.length}</div>
+        </div>
+      </div>
+
+      <div class="sa-filters" style="margin-bottom:16px;">
+        <input type="text" id="sa-cat-search" placeholder="🔍 Buscar por código, nombre o presentación..." 
+               oninput="saCatalogoBuscar(this.value)" 
+               style="flex:1;min-width:220px;" value="${saEscape(saCatalogoBusqueda)}">
+        <select id="sa-cat-filter-categoria" onchange="saCatalogoCambiarFiltro('categoria', this.value)">
+          <option value="todas">Todas las categorías</option>
+          ${categorias.map(c => `<option value="${saEscape(c)}" ${saCatalogoFiltroCategoria === c ? 'selected' : ''}>${saEscape(c)}</option>`).join('')}
+        </select>
+        <select id="sa-cat-filter-marca" onchange="saCatalogoCambiarFiltro('marca', this.value)">
+          <option value="todas">Todas las marcas</option>
+          ${marcas.map(m => `<option value="${saEscape(m)}" ${saCatalogoFiltroMarca === m ? 'selected' : ''}>${saEscape(m)}</option>`).join('')}
+        </select>
+        <select id="sa-cat-filter-estado" onchange="saCatalogoCambiarFiltro('estado', this.value)">
+          <option value="todos" ${saCatalogoFiltroEstado === 'todos' ? 'selected' : ''}>Todos los estados</option>
+          <option value="activos" ${saCatalogoFiltroEstado === 'activos' ? 'selected' : ''}>Solo activos</option>
+          <option value="inactivos" ${saCatalogoFiltroEstado === 'inactivos' ? 'selected' : ''}>Solo inactivos</option>
+        </select>
+      </div>
+
+      <div id="sa-cat-tabla-container">
+        ${saCatalogoRenderTabla()}
+      </div>
+    `;
+
+    document.getElementById('sa-content').innerHTML = html;
+
+  } catch (error) {
+    console.error('Error cargando catálogo:', error);
+    document.getElementById('sa-content').innerHTML = `
+      <div class="sa-section-header">
+        <h2 class="sa-section-title">📦 Catálogo Maestro Polar</h2>
+      </div>
+      <div style="background:#7F1D1D;color:#FCA5A5;padding:16px;border-radius:12px;">
+        ❌ Error al cargar el catálogo: ${saEscape(error.message)}
+      </div>
+    `;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  RENDERIZAR TABLA
+// ────────────────────────────────────────────────────────────────
+function saCatalogoRenderTabla() {
+  const filtrados = saCatalogoAplicarFiltros();
+
+  if (filtrados.length === 0) {
+    return `
+      <div class="sa-table-wrap">
+        <table class="sa-table">
+          <thead><tr><th>Código</th><th>Producto</th><th>Presentación</th><th>Categoría</th><th>Marca</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody>
+            <tr><td colspan="7" class="sa-table-empty">No se encontraron productos con esos filtros</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="sa-table-wrap">
+      <table class="sa-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Producto</th>
+            <th>Presentación</th>
+            <th>Categoría</th>
+            <th>Marca</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtrados.map(p => {
+            const activo = p.activo !== false;
+            return `
+              <tr>
+                <td><code style="font-family:'JetBrains Mono',monospace;color:#60A5FA;font-size:11px;">${saEscape(p.codigo)}</code></td>
+                <td><strong>${saEscape(p.nombre || '—')}</strong></td>
+                <td style="font-size:11px;color:#94A3B8;">${saEscape(p.presentacion || '—')}</td>
+                <td><span class="sa-badge sa-badge-aldia">${saEscape(p.categoria || '—')}</span></td>
+                <td style="font-size:11px;">${saEscape(p.marca || '—')}</td>
+                <td>
+                  ${activo 
+                    ? '<span class="sa-badge sa-badge-activa">✅ Activo</span>' 
+                    : '<span class="sa-badge sa-badge-suspendida">⛔ Inactivo</span>'}
+                </td>
+                <td>
+                  <div class="sa-actions">
+                    <button class="sa-action-btn" onclick="saCatalogoAbrirModalEditar('${saEscape(p.codigo)}')">✏️ Editar</button>
+                    <button class="sa-action-btn ${activo ? 'danger' : 'success'}" onclick="saCatalogoToggleActivo('${saEscape(p.codigo)}')">
+                      ${activo ? '⛔ Desactivar' : '✅ Activar'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#64748B;text-align:center;">
+      Mostrando ${filtrados.length} de ${saCatalogoProductos.length} productos
+    </div>
+  `;
+}
+
+// ────────────────────────────────────────────────────────────────
+//  APLICAR FILTROS
+// ────────────────────────────────────────────────────────────────
+function saCatalogoAplicarFiltros() {
+  const q = (saCatalogoBusqueda || '').toLowerCase().trim();
+  return saCatalogoProductos.filter(p => {
+    if (q) {
+      const matchQ = 
+        (p.codigo || '').toLowerCase().includes(q) ||
+        (p.nombre || '').toLowerCase().includes(q) ||
+        (p.presentacion || '').toLowerCase().includes(q);
+      if (!matchQ) return false;
+    }
+    if (saCatalogoFiltroCategoria !== 'todas' && p.categoria !== saCatalogoFiltroCategoria) return false;
+    if (saCatalogoFiltroMarca !== 'todas' && p.marca !== saCatalogoFiltroMarca) return false;
+    if (saCatalogoFiltroEstado === 'activos' && p.activo === false) return false;
+    if (saCatalogoFiltroEstado === 'inactivos' && p.activo !== false) return false;
+    return true;
+  });
+}
+
+// ────────────────────────────────────────────────────────────────
+//  MANEJADORES DE FILTROS
+// ────────────────────────────────────────────────────────────────
+function saCatalogoBuscar(valor) {
+  saCatalogoBusqueda = valor;
+  document.getElementById('sa-cat-tabla-container').innerHTML = saCatalogoRenderTabla();
+}
+
+function saCatalogoCambiarFiltro(tipo, valor) {
+  if (tipo === 'categoria') saCatalogoFiltroCategoria = valor;
+  if (tipo === 'marca') saCatalogoFiltroMarca = valor;
+  if (tipo === 'estado') saCatalogoFiltroEstado = valor;
+  document.getElementById('sa-cat-tabla-container').innerHTML = saCatalogoRenderTabla();
+}
+
+// ────────────────────────────────────────────────────────────────
+//  MODAL: CREAR PRODUCTO
+// ────────────────────────────────────────────────────────────────
+function saCatalogoAbrirModalCrear() {
+  saCatalogoEditandoCodigo = null;
+  const categorias = [...new Set(saCatalogoProductos.map(p => p.categoria).filter(Boolean))].sort();
+  const marcas = [...new Set(saCatalogoProductos.map(p => p.marca).filter(Boolean))].sort();
+
+  const html = `
+    <div class="sa-field">
+      <label>Código * <small style="color:#64748B;font-weight:400;">(ej: F01001)</small></label>
+      <input type="text" id="sa-cat-form-codigo" placeholder="F01001" maxlength="20" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase;">
+    </div>
+    <div class="sa-field">
+      <label>Nombre *</label>
+      <input type="text" id="sa-cat-form-nombre" placeholder="Ej: Polar Pilsen">
+    </div>
+    <div class="sa-field">
+      <label>Presentación *</label>
+      <input type="text" id="sa-cat-form-presentacion" placeholder="Ej: RET 222MLX6UN">
+    </div>
+    <div class="sa-field">
+      <label>Categoría *</label>
+      <select id="sa-cat-form-categoria">
+        ${categorias.map(c => `<option value="${saEscape(c)}">${saEscape(c)}</option>`).join('')}
+        <option value="__otra__">+ Otra categoría...</option>
+      </select>
+      <input type="text" id="sa-cat-form-categoria-otra" placeholder="Escribe la nueva categoría" style="margin-top:8px;display:none;">
+    </div>
+    <div class="sa-field">
+      <label>Marca *</label>
+      <select id="sa-cat-form-marca">
+        ${marcas.map(m => `<option value="${saEscape(m)}">${saEscape(m)}</option>`).join('')}
+        <option value="__otra__">+ Otra marca...</option>
+      </select>
+      <input type="text" id="sa-cat-form-marca-otra" placeholder="Escribe la nueva marca" style="margin-top:8px;display:none;">
+    </div>
+    <div class="sa-field">
+      <label>Precio sugerido ($) <small style="color:#64748B;font-weight:400;">(opcional)</small></label>
+      <input type="number" id="sa-cat-form-precio" placeholder="0.00" step="0.01" min="0">
+    </div>
+    <div class="sa-field">
+      <label>Stock mínimo sugerido <small style="color:#64748B;font-weight:400;">(opcional)</small></label>
+      <input type="number" id="sa-cat-form-stockmin" placeholder="5" step="1" min="0">
+    </div>
+    <div class="sa-field">
+      <label>Estado</label>
+      <select id="sa-cat-form-activo">
+        <option value="true">✅ Activo</option>
+        <option value="false">⛔ Inactivo</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="sa-btn sa-btn-outline" onclick="saCloseModal()">Cancelar</button>
+      <button class="sa-btn sa-btn-primary" onclick="saCatalogoGuardar()">💾 Crear producto</button>
+    </div>
+  `;
+
+  saOpenModal('➕ Agregar producto al catálogo', html);
+
+  setTimeout(() => {
+    const selCat = document.getElementById('sa-cat-form-categoria');
+    const inputCat = document.getElementById('sa-cat-form-categoria-otra');
+    selCat.addEventListener('change', () => {
+      inputCat.style.display = selCat.value === '__otra__' ? 'block' : 'none';
+      if (selCat.value === '__otra__') inputCat.focus();
+    });
+
+    const selMarca = document.getElementById('sa-cat-form-marca');
+    const inputMarca = document.getElementById('sa-cat-form-marca-otra');
+    selMarca.addEventListener('change', () => {
+      inputMarca.style.display = selMarca.value === '__otra__' ? 'block' : 'none';
+      if (selMarca.value === '__otra__') inputMarca.focus();
+    });
+  }, 100);
+}
+
+// ────────────────────────────────────────────────────────────────
+//  MODAL: EDITAR PRODUCTO
+// ────────────────────────────────────────────────────────────────
+function saCatalogoAbrirModalEditar(codigo) {
+  const p = saCatalogoProductos.find(x => x.codigo === codigo);
+  if (!p) {
+    saToast('Producto no encontrado', 'error');
+    return;
+  }
+
+  saCatalogoEditandoCodigo = codigo;
+  const categorias = [...new Set(saCatalogoProductos.map(x => x.categoria).filter(Boolean))].sort();
+  const marcas = [...new Set(saCatalogoProductos.map(x => x.marca).filter(Boolean))].sort();
+
+  const html = `
+    <div class="sa-field">
+      <label>Código <small style="color:#64748B;font-weight:400;">(no editable)</small></label>
+      <input type="text" value="${saEscape(p.codigo)}" disabled style="font-family:'JetBrains Mono',monospace;opacity:0.6;">
+    </div>
+    <div class="sa-field">
+      <label>Nombre *</label>
+      <input type="text" id="sa-cat-form-nombre" value="${saEscape(p.nombre || '')}">
+    </div>
+    <div class="sa-field">
+      <label>Presentación *</label>
+      <input type="text" id="sa-cat-form-presentacion" value="${saEscape(p.presentacion || '')}">
+    </div>
+    <div class="sa-field">
+      <label>Categoría *</label>
+      <select id="sa-cat-form-categoria">
+        ${categorias.map(c => `<option value="${saEscape(c)}" ${p.categoria === c ? 'selected' : ''}>${saEscape(c)}</option>`).join('')}
+        <option value="__otra__">+ Otra categoría...</option>
+      </select>
+      <input type="text" id="sa-cat-form-categoria-otra" placeholder="Escribe la nueva categoría" style="margin-top:8px;display:none;">
+    </div>
+    <div class="sa-field">
+      <label>Marca *</label>
+      <select id="sa-cat-form-marca">
+        ${marcas.map(m => `<option value="${saEscape(m)}" ${p.marca === m ? 'selected' : ''}>${saEscape(m)}</option>`).join('')}
+        <option value="__otra__">+ Otra marca...</option>
+      </select>
+      <input type="text" id="sa-cat-form-marca-otra" placeholder="Escribe la nueva marca" style="margin-top:8px;display:none;">
+    </div>
+    <div class="sa-field">
+      <label>Precio sugerido ($) <small style="color:#64748B;font-weight:400;">(opcional)</small></label>
+      <input type="number" id="sa-cat-form-precio" value="${p.precioSugerido || ''}" step="0.01" min="0">
+    </div>
+    <div class="sa-field">
+      <label>Stock mínimo sugerido <small style="color:#64748B;font-weight:400;">(opcional)</small></label>
+      <input type="number" id="sa-cat-form-stockmin" value="${p.stockMinimoSugerido || ''}" step="1" min="0">
+    </div>
+    <div class="sa-field">
+      <label>Estado</label>
+      <select id="sa-cat-form-activo">
+        <option value="true" ${p.activo !== false ? 'selected' : ''}>✅ Activo</option>
+        <option value="false" ${p.activo === false ? 'selected' : ''}>⛔ Inactivo</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="sa-btn sa-btn-outline" onclick="saCloseModal()">Cancelar</button>
+      <button class="sa-btn sa-btn-primary" onclick="saCatalogoGuardar()">💾 Guardar cambios</button>
+    </div>
+  `;
+
+  saOpenModal('✏️ Editar producto del catálogo', html);
+
+  setTimeout(() => {
+    const selCat = document.getElementById('sa-cat-form-categoria');
+    const inputCat = document.getElementById('sa-cat-form-categoria-otra');
+    selCat.addEventListener('change', () => {
+      inputCat.style.display = selCat.value === '__otra__' ? 'block' : 'none';
+      if (selCat.value === '__otra__') inputCat.focus();
+    });
+
+    const selMarca = document.getElementById('sa-cat-form-marca');
+    const inputMarca = document.getElementById('sa-cat-form-marca-otra');
+    selMarca.addEventListener('change', () => {
+      inputMarca.style.display = selMarca.value === '__otra__' ? 'block' : 'none';
+      if (selMarca.value === '__otra__') inputMarca.focus();
+    });
+  }, 100);
+}
+
+// ────────────────────────────────────────────────────────────────
+//  GUARDAR (crear o actualizar)
+// ────────────────────────────────────────────────────────────────
+async function saCatalogoGuardar() {
+  const esCreacion = saCatalogoEditandoCodigo === null;
+
+  let codigo = null;
+  if (esCreacion) {
+    codigo = (document.getElementById('sa-cat-form-codigo').value || '').trim().toUpperCase();
+    if (!codigo) return saToast('El código es obligatorio', 'error');
+    if (!/^[A-Z0-9_-]{2,20}$/.test(codigo)) {
+      return saToast('El código debe tener 2-20 caracteres (A-Z, 0-9, guion)', 'error');
+    }
+    if (saCatalogoProductos.some(p => p.codigo === codigo)) {
+      return saToast('Ya existe un producto con ese código', 'error');
+    }
+  } else {
+    codigo = saCatalogoEditandoCodigo;
+  }
+
+  const nombre = (document.getElementById('sa-cat-form-nombre').value || '').trim();
+  const presentacion = (document.getElementById('sa-cat-form-presentacion').value || '').trim();
+  
+  let categoria = document.getElementById('sa-cat-form-categoria').value;
+  if (categoria === '__otra__') {
+    categoria = (document.getElementById('sa-cat-form-categoria-otra').value || '').trim();
+    if (!categoria) return saToast('Escribe la nueva categoría', 'error');
+  }
+
+  let marca = document.getElementById('sa-cat-form-marca').value;
+  if (marca === '__otra__') {
+    marca = (document.getElementById('sa-cat-form-marca-otra').value || '').trim();
+    if (!marca) return saToast('Escribe la nueva marca', 'error');
+  }
+
+  const precioSugerido = parseFloat(document.getElementById('sa-cat-form-precio').value) || null;
+  const stockMinimoSugerido = parseInt(document.getElementById('sa-cat-form-stockmin').value) || null;
+  const activo = document.getElementById('sa-cat-form-activo').value === 'true';
+
+  if (!nombre) return saToast('El nombre es obligatorio', 'error');
+  if (!presentacion) return saToast('La presentación es obligatoria', 'error');
+
+  const iconoMap = { 'Cerveza': '🍺', 'Maltín': '🍻', 'Sangría': '🍷', 'Vinos': '🍇' };
+  const icono = iconoMap[categoria] || '📦';
+
+  const datos = {
+    codigo,
+    nombre,
+    presentacion,
+    categoria,
+    marca,
+    icono,
+    activo,
+    precioSugerido,
+    stockMinimoSugerido,
+    fechaModificacion: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    await firebase.firestore().collection('productosPolar').doc(codigo).set(datos, { merge: true });
+    
+    saToast(esCreacion ? '✅ Producto creado' : '✅ Producto actualizado', 'success');
+    saCloseModal();
+    
+    await saRenderCatalogo();
+  } catch (error) {
+    console.error('Error guardando producto:', error);
+    saToast('Error al guardar: ' + error.message, 'error');
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  TOGGLE ACTIVO/INACTIVO
+// ────────────────────────────────────────────────────────────────
+async function saCatalogoToggleActivo(codigo) {
+  const p = saCatalogoProductos.find(x => x.codigo === codigo);
+  if (!p) return;
+  const nuevoEstado = p.activo === false;
+  if (!confirm(`¿${nuevoEstado ? 'Activar' : 'Desactivar'} "${p.nombre}"?\n\nLos franquiciados ${nuevoEstado ? 'podrán' : 'ya no podrán'} importarlo desde el catálogo.`)) return;
+
+  try {
+    await firebase.firestore().collection('productosPolar').doc(codigo).update({
+      activo: nuevoEstado,
+      fechaModificacion: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    saToast(nuevoEstado ? '✅ Producto activado' : '⛔ Producto desactivado', 'success');
+    await saRenderCatalogo();
+  } catch (error) {
+    saToast('Error: ' + error.message, 'error');
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  EXPORTAR (JSON / CSV)
+// ────────────────────────────────────────────────────────────────
+function saCatalogoExportar(formato) {
+  if (saCatalogoProductos.length === 0) {
+    return saToast('No hay productos para exportar', 'error');
+  }
+
+  if (formato === 'json') {
+    const datos = saCatalogoProductos.map(p => ({
+      codigo: p.codigo,
+      nombre: p.nombre,
+      presentacion: p.presentacion,
+      categoria: p.categoria,
+      marca: p.marca,
+      icono: p.icono,
+      activo: p.activo !== false,
+      precioSugerido: p.precioSugerido || null,
+      stockMinimoSugerido: p.stockMinimoSugerido || null
+    }));
+    const json = JSON.stringify({ total: datos.length, productos: datos }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `catalogo_polar_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    saToast('✅ JSON exportado', 'success');
+    return;
+  }
+
+  if (formato === 'csv') {
+    const headers = ['codigo', 'nombre', 'presentacion', 'categoria', 'marca', 'activo', 'precioSugerido', 'stockMinimoSugerido'];
+    const filas = saCatalogoProductos.map(p => headers.map(h => {
+      const val = h === 'activo' ? (p.activo !== false) : p[h];
+      const str = val === null || val === undefined ? '' : String(val);
+      return '"' + str.replace(/"/g, '""') + '"';
+    }).join(','));
+    const csv = headers.join(',') + '\n' + filas.join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `catalogo_polar_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    saToast('✅ CSV exportado', 'success');
+    return;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  IMPORTAR (JSON texto / JSON archivo / CSV archivo)
+// ────────────────────────────────────────────────────────────────
+function saCatalogoImportar() {
+  const html = `
+    <p style="color:#94A3B8;font-size:13px;margin-bottom:12px;">
+      Los productos se agregan o actualizan por código. Si ya existe, se sobrescribe.
+    </p>
+    
+    <div class="sa-field">
+      <label>Método</label>
+      <select id="sa-cat-import-metodo" onchange="saCatalogoImportarCambiarMetodo(this.value)">
+        <option value="json-texto">📝 Pegar JSON</option>
+        <option value="json-archivo">📁 Subir archivo JSON</option>
+        <option value="csv-archivo">📁 Subir archivo CSV</option>
+      </select>
+    </div>
+
+    <div id="sa-cat-import-json-texto">
+      <div class="sa-field">
+        <label>Pega el JSON aquí</label>
+        <textarea id="sa-cat-import-texto" placeholder='{"productos": [{"codigo": "F01001", "nombre": "...", ...}]}' style="min-height:180px;font-family:'JetBrains Mono',monospace;font-size:11px;"></textarea>
+      </div>
+    </div>
+
+    <div id="sa-cat-import-json-archivo" style="display:none;">
+      <div class="sa-field">
+        <label>Archivo JSON</label>
+        <input type="file" id="sa-cat-import-file-json" accept=".json">
+      </div>
+    </div>
+
+    <div id="sa-cat-import-csv-archivo" style="display:none;">
+      <div class="sa-field">
+        <label>Archivo CSV</label>
+        <input type="file" id="sa-cat-import-file-csv" accept=".csv">
+        <small style="color:#64748B;font-size:11px;">Columnas: codigo, nombre, presentacion, categoria, marca, activo, precioSugerido, stockMinimoSugerido</small>
+      </div>
+    </div>
+
+    <div style="background:#7F1D1D;color:#FCA5A5;padding:10px;border-radius:8px;font-size:12px;margin-top:12px;">
+      ⚠️ Los productos importados se agregan/actualizan. No se borran los existentes.
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="sa-btn sa-btn-outline" onclick="saCloseModal()">Cancelar</button>
+      <button class="sa-btn sa-btn-primary" onclick="saCatalogoImportarEjecutar()">📥 Importar</button>
+    </div>
+  `;
+  saOpenModal('📥 Importar productos', html);
+}
+
+function saCatalogoImportarCambiarMetodo(metodo) {
+  document.getElementById('sa-cat-import-json-texto').style.display = metodo === 'json-texto' ? 'block' : 'none';
+  document.getElementById('sa-cat-import-json-archivo').style.display = metodo === 'json-archivo' ? 'block' : 'none';
+  document.getElementById('sa-cat-import-csv-archivo').style.display = metodo === 'csv-archivo' ? 'block' : 'none';
+}
+
+async function saCatalogoImportarEjecutar() {
+  const metodo = document.getElementById('sa-cat-import-metodo').value;
+  let productos = [];
+
+  try {
+    if (metodo === 'json-texto') {
+      const texto = document.getElementById('sa-cat-import-texto').value.trim();
+      if (!texto) return saToast('Pega el JSON primero', 'error');
+      const parsed = JSON.parse(texto);
+      productos = Array.isArray(parsed) ? parsed : (parsed.productos || []);
+    } else if (metodo === 'json-archivo') {
+      const file = document.getElementById('sa-cat-import-file-json').files[0];
+      if (!file) return saToast('Selecciona un archivo', 'error');
+      const texto = await file.text();
+      const parsed = JSON.parse(texto);
+      productos = Array.isArray(parsed) ? parsed : (parsed.productos || []);
+    } else if (metodo === 'csv-archivo') {
+      const file = document.getElementById('sa-cat-import-file-csv').files[0];
+      if (!file) return saToast('Selecciona un archivo', 'error');
+      const texto = await file.text();
+      productos = saCatalogoParsearCSV(texto);
+    }
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return saToast('No se encontraron productos válidos', 'error');
+    }
+
+    // Validar y normalizar
+    const validos = [];
+    for (const p of productos) {
+      if (!p.codigo || !p.nombre || !p.presentacion || !p.categoria || !p.marca) continue;
+      const iconoMap = { 'Cerveza': '🍺', 'Maltín': '🍻', 'Sangría': '🍷', 'Vinos': '🍇' };
+      validos.push({
+        codigo: String(p.codigo).trim().toUpperCase(),
+        nombre: String(p.nombre).trim(),
+        presentacion: String(p.presentacion).trim(),
+        categoria: String(p.categoria).trim(),
+        marca: String(p.marca).trim(),
+        icono: p.icono || iconoMap[p.categoria] || '📦',
+        activo: p.activo !== false && p.activo !== 'false',
+        precioSugerido: p.precioSugerido ? parseFloat(p.precioSugerido) : null,
+        stockMinimoSugerido: p.stockMinimoSugerido ? parseInt(p.stockMinimoSugerido) : null
+      });
+    }
+
+    if (validos.length === 0) {
+      return saToast('Ningún producto tiene todos los campos requeridos', 'error');
+    }
+
+    if (!confirm(`¿Importar ${validos.length} productos?\n\nSe agregarán o actualizarán por código.`)) return;
+
+    // Batch commit
+    const BATCH_SIZE = 400;
+    let importados = 0;
+    for (let i = 0; i < validos.length; i += BATCH_SIZE) {
+      const lote = validos.slice(i, i + BATCH_SIZE);
+      const batch = firebase.firestore().batch();
+      for (const prod of lote) {
+        const ref = firebase.firestore().collection('productosPolar').doc(prod.codigo);
+        batch.set(ref, {
+          ...prod,
+          fechaModificacion: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+      await batch.commit();
+      importados += lote.length;
+    }
+
+    saToast(`✅ ${importados} productos importados`, 'success');
+    saCloseModal();
+    await saRenderCatalogo();
+
+  } catch (error) {
+    console.error('Error importando:', error);
+    saToast('Error al importar: ' + error.message, 'error');
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  PARSEAR CSV
+// ────────────────────────────────────────────────────────────────
+function saCatalogoParsearCSV(texto) {
+  const lineas = texto.split(/\r?\n/).filter(l => l.trim());
+  if (lineas.length < 2) return [];
+
+  const headers = saCatalogoParsearLineaCSV(lineas[0]);
+  const productos = [];
+
+  for (let i = 1; i < lineas.length; i++) {
+    const valores = saCatalogoParsearLineaCSV(lineas[i]);
+    if (valores.length !== headers.length) continue;
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h.trim()] = valores[idx];
+    });
+    productos.push(obj);
+  }
+
+  return productos;
+}
+
+function saCatalogoParsearLineaCSV(linea) {
+  const resultado = [];
+  let actual = '';
+  let enComillas = false;
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    if (c === '"') {
+      if (enComillas && linea[i+1] === '"') {
+        actual += '"';
+        i++;
+      } else {
+        enComillas = !enComillas;
+      }
+    } else if (c === ',' && !enComillas) {
+      resultado.push(actual);
+      actual = '';
+    } else {
+      actual += c;
+    }
+  }
+  resultado.push(actual);
+  return resultado;
 }
 
 // ================================================================

@@ -637,6 +637,7 @@ async function saRenderEmpresas() {
             <th>Nombre</th>
             <th>Dueño</th>
             <th>Código</th>
+            <th>🤖 Agente</th>
             <th>Plan</th>
             <th>Usuarios</th>
             <th>Ventas</th>
@@ -668,7 +669,7 @@ function saFiltrarEmpresas() {
   if (!tbody) return;
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="sa-table-empty">No se encontraron empresas</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="sa-table-empty">No se encontraron empresas</td></tr>';
     return;
   }
 
@@ -681,11 +682,15 @@ function saFiltrarEmpresas() {
       return sum + monto;
     }, 0);
 
+    // ✅ NUEVO: Nombre del agente personalizado
+    const agentName = e.agentName || 'PolarBot';
+
     return `
       <tr>
         <td><strong>${saEscape(e.nombre || 'Sin nombre')}</strong></td>
         <td style="font-size:11px;color:#94A3B8;">${saEscape(e.creadoPor || '—')}</td>
         <td><code style="font-family:'JetBrains Mono',monospace;color:#60A5FA;">${saEscape(e.codigoAcceso || '—')}</code></td>
+        <td><span class="sa-badge sa-badge-aldia" style="font-size:10px;">🤖 ${saEscape(agentName)}</span></td>
         <td>${saEscape(e.plan || 'basico')}</td>
         <td>${usuariosEmp.length}</td>
         <td>${saFormatCurrency(totalVentas)}</td>

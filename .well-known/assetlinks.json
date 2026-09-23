@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.minegociopolar.twa",
+    "sha256_cert_fingerprints": ["84:5C:A6:89:85:C2:1B:1B:CA:90:02:4D:40:73:39:9A:C0:F2:DA:70:7F:D6:51:63:EF:59:31:A8:FD:35:14:0B"]
+  }
+}]

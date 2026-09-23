@@ -2647,7 +2647,20 @@ function cambiarTabConfiguracion(tabId) {
   if (tabId === 'ventas') renderizarTablaVentas();
   if (tabId === 'categorias') cargarCategorias();
   if (tabId === 'usuarios') cargarUsuariosEmpresa();
-  if (tabId === 'agente') cargarEstadisticasAgente();
+    if (tabId === 'agente') {
+    cargarEstadisticasAgente();
+    // ✅ NUEVO: Cargar nombre actual en el input
+    const empresaId = sessionStorage.getItem('empresaId');
+    if (empresaId) {
+      firebase.firestore().collection('empresas').doc(empresaId).get().then(doc => {
+        if (doc.exists) {
+          const agentName = doc.data().agentName || AGENT_DEFAULT_NAME;
+          const input = document.getElementById('agente-nombre-personalizado');
+          if (input) input.value = agentName === AGENT_DEFAULT_NAME ? '' : agentName;
+        }
+      }).catch(() => {});
+    }
+  }
   if (tabId === 'catalogo-polar' || tabId === 'polar') renderizarCatalogoMaestro();
 }
 
@@ -4646,11 +4659,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ocultarPantallaBienvenida();
 
-      if (rol === 'admin') {
+           if (rol === 'admin') {
         actualizarAdminUI(nombre);
-        // 🔽 Cargar datos desde Firestore (esto es lo que faltaba)
+        // 🔽 Cargar datos desde Firestore
         await store.cargarDatosEmpresa(empresaId);
         syncGlobals();
+        // ✅ NUEVO: Cargar nombre personalizado del agente
+        await cargarNombreAgente();
         goScreen('dashboard');
         // Forzar actualización de KPIs y gráfico después de cargar
         setTimeout(() => {
@@ -5393,6 +5408,165 @@ function cerrarCargarPrecios() {
   cambiarTabConfiguracion('catalogo-polar');
 }
 
+// ================================================================
+//  MÓDULO: NOMBRE PERSONALIZABLE DEL AGENTE (BLOQUE D)
+// ================================================================
+
+const AGENT_DEFAULT_NAME = 'PolarBot';
+
+/**
+ * Carga el nombre del agente desde Firestore y lo aplica a la UI.
+ * Se llama al iniciar sesión.
+ */
+async function cargarNombreAgente() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    const doc = await firebase.firestore().collection('empresas').doc(empresaId).get();
+    if (!doc.exists) return;
+
+    const data = doc.data();
+    const nombre = data.agentName || AGENT_DEFAULT_NAME;
+    
+    // Guardar en sessionStorage para acceso rápido
+    sessionStorage.setItem('agentName', nombre);
+    
+    // Aplicar en la UI
+    aplicarNombreAgente(nombre);
+    
+    // Rellenar el input de configuración (si está en pantalla)
+    const input = document.getElementById('agente-nombre-personalizado');
+    if (input) input.value = nombre === AGENT_DEFAULT_NAME ? '' : nombre;
+
+    console.log(`🤖 Nombre del agente: ${nombre}`);
+  } catch (error) {
+    console.warn('⚠️ Error cargando nombre del agente:', error);
+    aplicarNombreAgente(AGENT_DEFAULT_NAME);
+  }
+}
+
+/**
+ * Aplica el nombre del agente a todos los elementos visuales.
+ */
+function aplicarNombreAgente(nombre) {
+  if (!nombre) nombre = AGENT_DEFAULT_NAME;
+  
+  // 1. Header del panel flotante
+  const displayEl = document.getElementById('agent-name-display');
+  if (displayEl) displayEl.textContent = nombre;
+
+  // 2. Título del documento (opcional)
+  // (No lo tocamos para no confundir con el título general)
+}
+
+/**
+ * Guarda el nombre del agente desde el panel de Configuración.
+ */
+async function guardarNombreAgente() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const input = document.getElementById('agente-nombre-personalizado');
+  const msgEl = document.getElementById('agente-nombre-mensaje');
+  if (!input) return;
+
+  let nombre = (input.value || '').trim();
+
+  // Validaciones
+  if (nombre === '') {
+    // Vacío = volver al default
+    nombre = AGENT_DEFAULT_NAME;
+  }
+
+  if (nombre.length < 2) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:var(--red);">❌ El nombre debe tener al menos 2 caracteres</span>';
+    return;
+  }
+
+  if (nombre.length > 20) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:var(--red);">❌ El nombre no puede tener más de 20 caracteres</span>';
+    return;
+  }
+
+  // Solo letras, números, espacios, guiones, puntos y guiones bajos
+  if (!/^[\w\s\.\-áéíóúÁÉÍÓÚñÑ]{2,20}$/.test(nombre)) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:var(--red);">❌ El nombre solo puede tener letras, números, espacios, puntos, guiones y guiones bajos</span>';
+    return;
+  }
+
+  try {
+    await firebase.firestore().collection('empresas').doc(empresaId).update({
+      agentName: nombre,
+      agentNameUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Actualizar sessionStorage
+    sessionStorage.setItem('agentName', nombre);
+    
+    // Aplicar en la UI
+    aplicarNombreAgente(nombre);
+
+    // Feedback
+    if (msgEl) msgEl.innerHTML = `<span style="color:var(--green);">✅ Nombre guardado: "${nombre}"</span>`;
+    showToast(`✅ Nombre del asistente actualizado: ${nombre}`);
+
+    console.log(`✅ Nombre del agente guardado: ${nombre}`);
+  } catch (error) {
+    console.error('❌ Error guardando nombre:', error);
+    if (msgEl) msgEl.innerHTML = `<span style="color:var(--red);">❌ Error: ${escapeHtml(error.message)}</span>`;
+    showToast('❌ Error al guardar el nombre');
+  }
+}
+
+/**
+ * Restaura el nombre por defecto "PolarBot".
+ */
+async function restaurarNombreAgenteDefault() {
+  if (!confirm('¿Restaurar el nombre por defecto "PolarBot"?')) return;
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    await firebase.firestore().collection('empresas').doc(empresaId).update({
+      agentName: AGENT_DEFAULT_NAME,
+      agentNameUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    sessionStorage.setItem('agentName', AGENT_DEFAULT_NAME);
+    aplicarNombreAgente(AGENT_DEFAULT_NAME);
+
+    const input = document.getElementById('agente-nombre-personalizado');
+    if (input) input.value = '';
+
+    const msgEl = document.getElementById('agente-nombre-mensaje');
+    if (msgEl) msgEl.innerHTML = '<span style="color:var(--green);">✅ Restaurado a "PolarBot"</span>';
+
+    showToast('✅ Nombre restaurado');
+  } catch (error) {
+    console.error('❌ Error restaurando nombre:', error);
+    showToast('❌ Error al restaurar');
+  }
+}
+
+/**
+ * Devuelve el nombre actual del agente (o el default).
+ */
+function obtenerNombreAgente() {
+  return sessionStorage.getItem('agentName') || AGENT_DEFAULT_NAME;
+}
+
+// Exponer globalmente
+window.cargarNombreAgente = cargarNombreAgente;
+window.guardarNombreAgente = guardarNombreAgente;
+window.restaurarNombreAgenteDefault = restaurarNombreAgenteDefault;
+window.obtenerNombreAgente = obtenerNombreAgente;
+window.aplicarNombreAgente = aplicarNombreAgente;
+
 // Exponer globalmente
 window.abrirCargarPrecios = abrirCargarPrecios;
 window.cerrarCargarPrecios = cerrarCargarPrecios;
@@ -5451,7 +5625,13 @@ const funcionesGlobales = {
   recargarCatalogoMaestro, quitarProductoPolarDelInventario,
   // Módulo Cargar Precios (Bloque C)
   abrirCargarPrecios,
-  cerrarCargarPrecios
+  cerrarCargarPrecios,
+  // Nombre personalizable del agente (Bloque D)
+  cargarNombreAgente,
+  guardarNombreAgente,
+  restaurarNombreAgenteDefault,
+  obtenerNombreAgente,
+  aplicarNombreAgente
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

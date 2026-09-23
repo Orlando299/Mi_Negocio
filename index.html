@@ -173,6 +173,7 @@
         </div>
         <div onclick="event.stopPropagation(); mostrarCodigoInvitacion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">🎟️ Código de invitación</div>
         <div onclick="event.stopPropagation(); goScreen('dashboard'); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📊 Panel de control</div>
+        <div onclick="event.stopPropagation(); abrirOnboarding(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer;">📋 Guía de inicio</div>
         <div onclick="event.stopPropagation(); cerrarSesion(); closeAdminMenu();" style="padding:10px 16px; cursor:pointer; color:var(--danger);">🚪 Cerrar sesión</div>
       </div>
     </div>
@@ -828,6 +829,16 @@
     <div class="sheet-handle"></div>
     <div class="sheet-title">📦 Despachar pedido</div>
     <div id="modal-body-despacho">
+      <!-- Contenido dinámico -->
+    </div>
+  </div>
+</div>
+
+  <!-- ==================== MODAL: ONBOARDING ==================== -->
+<div class="modal-overlay" id="modal-onboarding" onclick="if(event.target === this) obCerrarOnboarding()">
+  <div class="modal-sheet" style="max-height: 90vh;">
+    <div class="sheet-handle"></div>
+    <div id="onboarding-body">
       <!-- Contenido dinámico -->
     </div>
   </div>

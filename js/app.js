@@ -992,13 +992,14 @@ async function goScreen(name) {
   });
   currentScreen = name;
 
-  const bottomNav = document.getElementById('bottom-nav');
+    const bottomNav = document.getElementById('bottom-nav');
   const fabBtn = document.getElementById('fab-btn');
   if (userRol === 'cliente') {
     if (bottomNav) bottomNav.style.display = 'none';
     if (fabBtn) fabBtn.style.display = 'none';
   } else {
-    if (name === 'cliente') {
+    // ✅ CAMBIO: ocultar bottom-nav también en "cargar-precios"
+    if (name === 'cliente' || name === 'cargar-precios') {
       if (bottomNav) bottomNav.style.display = 'none';
       if (fabBtn) fabBtn.style.display = 'none';
     } else {
@@ -5364,10 +5365,13 @@ function abrirCargarPrecios() {
     return;
   }
 
-  // Ir a la pantalla
+  // ✅ Ocultar bottom-nav y FAB con clase body
+  document.body.classList.add('cp-activo');
+
+  // Ir a la pantalla (goScreen también ocultará bottom-nav con el FIX 1)
   goScreen('cargar-precios');
 
-  // Inicializar módulo (definido en js/cargar-precios.js)
+  // Inicializar módulo
   if (typeof cpIniciar === 'function') {
     cpIniciar(empresaId);
   } else {
@@ -5383,6 +5387,8 @@ function cerrarCargarPrecios() {
       return;
     }
   }
+  // ✅ Restaurar bottom-nav y FAB
+  document.body.classList.remove('cp-activo');
   goScreen('configuracion');
   cambiarTabConfiguracion('catalogo-polar');
 }

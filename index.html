@@ -403,10 +403,38 @@
       </div>
     </div>
 
-    <!-- ===== PANEL: AGENTE ===== -->
+        <!-- ===== PANEL: AGENTE ===== -->
     <div class="config-panel" id="panel-agente">
       <div class="config-toolbar">
-        <h3>🤖 Estadísticas del Agente</h3>
+        <h3>🤖 Configuración del Agente</h3>
+      </div>
+      
+      <!-- ✅ NUEVO: Nombre personalizable del agente -->
+      <div class="config-json-section" style="margin-bottom:16px;">
+        <h4 style="margin:0 0 8px;">✏️ Nombre del asistente</h4>
+        <p class="config-hint">Personaliza el nombre de tu asistente IA. Aparecerá en el chat, notificaciones y mensajes.</p>
+        <div class="field" style="margin-bottom:8px;">
+          <input type="text" id="agente-nombre-personalizado" 
+                 placeholder="Ej: PolarBot, MiAsistente, ElCervecero..." 
+                 maxlength="20"
+                 style="width:100%; height:44px; padding:0 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text);">
+          <small style="color:var(--text3); font-size:11px; display:block; margin-top:4px;">
+            Entre 2 y 20 caracteres. Se permiten letras, números, espacios, guiones y puntos.
+          </small>
+        </div>
+        <button class="btn btn-primary" onclick="guardarNombreAgente()" style="width:auto; padding:10px 20px;">
+          💾 Guardar nombre
+        </button>
+        <button class="btn btn-outline" onclick="restaurarNombreAgenteDefault()" style="width:auto; padding:10px 20px; margin-left:8px;">
+          🔄 Restaurar "PolarBot"
+        </button>
+        <div id="agente-nombre-mensaje" style="margin-top:10px; font-size:13px;"></div>
+      </div>
+
+      <div style="border-top:1px solid var(--border); margin:16px 0;"></div>
+
+      <div class="config-toolbar">
+        <h4 style="margin:0;">📊 Estadísticas de uso</h4>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
         <div class="config-card" style="padding:12px;">
@@ -895,7 +923,7 @@
 <div id="agent-panel" class="agent-panel">
   <!-- Header arrastrable -->
   <div id="agent-header" class="agent-header">
-    <strong style="font-size:14px;">🤖 PolarBot</strong>
+    <strong style="font-size:14px;">🤖 <span id="agent-name-display">PolarBot</span></strong>
     <button onclick="toggleAgentPanel()" style="background:none; border:none; font-size:16px; cursor:pointer; color:white; padding:0 4px;">✕</button>
   </div>
   

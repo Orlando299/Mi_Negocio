@@ -22,7 +22,7 @@ class DataStore {
   // CARGA INICIAL Y PAGINACIÓN
   // ================================================================
 
-  async cargarDatosEmpresa(empresaId, limite = 20) {
+  async cargarDatosEmpresa(empresaId, limite = 1000) {
   console.log('📦 Cargando datos para empresa:', empresaId);
   try {
     // Resetear estados de paginación

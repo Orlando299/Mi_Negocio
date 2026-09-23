@@ -82,19 +82,17 @@ async function abrirOnboarding() {
   // Calcular estado de los pasos
   await obCalcularEstadoPasos();
 
-  // Si ya está todo completo, mostrar felicitación y no volver a mostrar
-  if (obEstadoPasos.productos && obEstadoPasos.pagos) {
-    // Si no se ha mostrado la felicitación, mostrarla
-    if (obOnboarding.completado !== true) {
-      obMostrarFelicitacion();
-    }
+  // ✅ CAMBIO: Si ya está completado (el usuario finalizó manualmente), no mostrar
+  if (obOnboarding.completado === true) {
+    console.log('ℹ️ Onboarding: ya completado');
     return;
   }
 
-  // Si el tour ya se vio, ir directo al checklist
+  // ✅ CAMBIO: Si el tour ya se vio, mostrar el checklist SIEMPRE
   if (obOnboarding.tourVisto === true) {
     obMostrarChecklist();
   } else {
+    // Primera vez: mostrar bienvenida → tour → checklist
     obMostrarBienvenida();
   }
 }

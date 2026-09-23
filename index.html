@@ -505,13 +505,13 @@
       </div>
     </div>
 
-    <!-- ===== PANEL: CATÁLOGO POLAR ===== -->
+       <!-- ===== PANEL: CATÁLOGO POLAR ===== -->
     <div class="config-panel" id="panel-catalogo-polar">
       <div class="config-toolbar">
         <h3>📦 Catálogo Maestro Polar</h3>
         <div>
           <button class="btn btn-outline" onclick="recargarCatalogoMaestro()">🔄 Recargar</button>
-          <button class="btn btn-primary" onclick="importarProductosPolar(sessionStorage.getItem('empresaId'))" style="width:auto; padding:8px 16px;">📥 Importar todos</button>
+          <button class="btn btn-primary" onclick="abrirCargarPrecios()" style="width:auto; padding:8px 16px; background:var(--green); border-color:var(--green);">💰 Cargar precios</button>
         </div>
       </div>
       <p class="config-hint">Aquí puedes ver el catálogo completo de productos Polar. Haz clic en "Agregar" para añadir productos a tu inventario, o usa "Importar todos" para cargar el catálogo completo de una vez.</p>
@@ -654,6 +654,67 @@
         <div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">Aún no has recibido premios especiales</div></div>
       </div>
     </div>
+  </div>
+</div>
+
+  <!-- ==================== SCREEN: CARGAR PRECIOS ==================== -->
+<div class="screen" id="screen-cargar-precios">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+    <div>
+      <h2 style="font-size:20px; font-weight:700; margin:0;">💰 Cargar Precios y Stock</h2>
+      <p style="font-size:13px; color:var(--text2); margin-top:2px;">Selecciona productos Polar y define sus precios y stock</p>
+    </div>
+    <button class="btn btn-outline" style="width:auto; padding:8px 14px; font-size:13px;" onclick="cerrarCargarPrecios()">
+      ← Volver
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="search-bar" style="margin-bottom:12px;">
+    <input class="search-input" placeholder="🔍  Buscar código, nombre o presentación..." id="cp-search" oninput="cpFiltrar()">
+  </div>
+
+  <div class="chips" style="margin-bottom:12px;">
+    <div class="chip active" data-cp-filter="todas" onclick="cpCambiarFiltroCategoria('todas', this)">Todas</div>
+    <div class="chip" data-cp-filter="cervezas" onclick="cpCambiarFiltroCategoria('cervezas', this)">🍺 Cervezas</div>
+    <div class="chip" data-cp-filter="importados" onclick="cpCambiarFiltroEstado('importados', this)">✅ Importados</div>
+    <div class="chip" data-cp-filter="no-importados" onclick="cpCambiarFiltroEstado('no-importados', this)">➕ Sin importar</div>
+  </div>
+
+  <!-- Resumen -->
+  <div class="card" style="margin-bottom:12px; padding:12px 14px;">
+    <div id="cp-resumen" style="font-size:13px; color:var(--text2);">
+      Cargando productos...
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div id="cp-lista" style="margin-bottom:100px;">
+    <div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Cargando catálogo...</div></div>
+  </div>
+
+  <!-- Barra fija inferior con botones -->
+  <div id="cp-barra-fija" style="
+    position:fixed;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:100%;
+    max-width:430px;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding:12px 16px;
+    display:flex;
+    gap:8px;
+    z-index:98;
+    box-shadow:0 -4px 12px rgba(0,0,0,0.08);
+  ">
+    <button class="btn btn-outline" style="flex:1; margin-top:0;" onclick="cpDescartarCambios()">
+      ↩️ Descartar
+    </button>
+    <button class="btn btn-primary" style="flex:2;" onclick="cpGuardarCambios()">
+      💾 Guardar cambios
+    </button>
   </div>
 </div>
 

@@ -5950,7 +5950,6 @@ window.cerrarCargarPrecios = cerrarCargarPrecios;
 // ================================================================
 //  FILTRO POR EXCLUSIVIDAD EN LA PANTALLA CLIENTES
 // ================================================================
-let filtroCliExclusividad = 'todas';
 
 function filtrarClientesPorExclusividad(valor, el) {
   filtroCliExclusividad = valor;

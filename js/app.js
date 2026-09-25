@@ -6527,7 +6527,11 @@ const funcionesGlobales = {
     // Fase 4 - Confirmar pago
   abrirModalConfirmarPago,
   cerrarModalConfirmarPago,
-  confirmarPagoConMonto
+  confirmarPagoConMonto,
+    // Fase 6 - Estado de cuenta
+  abrirEstadoCuenta,
+  cerrarModalEstadoCuenta,
+  abrirModalRegistrarPago
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

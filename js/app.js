@@ -5,6 +5,7 @@ let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';
 let filtroCatalogo = 'todas';
+let filtroCliExclusividad = 'todas';  // ✅ NUEVO
 
 // Bandera para evitar que onAuthStateChanged interfiera durante registro
 let _registrando = false;

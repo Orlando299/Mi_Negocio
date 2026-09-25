@@ -701,6 +701,188 @@ function renderChartVentas() {
 }
 
 // ================================================================
+//  RENDERIZAR CUENTAS POR COBRAR (FASE 5)
+// ================================================================
+
+let filtroCuentasTipo = 'todas';
+let filtroCuentasBusqueda = '';
+
+async function renderCuentasPorCobrar() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  const listaEl = document.getElementById('cuentas-lista');
+  const resumenEl = document.getElementById('cuentas-resumen');
+
+  if (listaEl) {
+    listaEl.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando cuentas...</div></div>';
+  }
+
+  try {
+    // Cargar TODOS los clientes desde Firestore
+    const snap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').get();
+
+    const clientes = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      clientes.push({
+        id: doc.id,
+        nombre: data.nombre || 'Sin nombre',
+        phone: data.phone || '',
+        saldo: data.saldo?.actual || 0,
+        ultimoMovimiento: data.saldo?.ultimoMovimiento || null,
+        ultimoMovimientoTipo: data.saldo?.ultimoMovimientoTipo || null,
+        exclusividad: data.exclusividad || null,
+        tag: data.tag || 'regular',
+        init: data.init || '??',
+        color: data.color || '#7C3AED'
+      });
+    });
+
+    // Ordenar por saldo (mayor deuda primero)
+    clientes.sort((a, b) => b.saldo - a.saldo);
+
+    // Calcular resumen
+    let totalPorCobrar = 0;
+    let totalAFavor = 0;
+    let clientesConDeuda = 0;
+    let clientesAlDia = 0;
+
+    clientes.forEach(c => {
+      if (c.saldo > 0) {
+        totalPorCobrar += c.saldo;
+        clientesConDeuda++;
+      } else if (c.saldo < 0) {
+        totalAFavor += Math.abs(c.saldo);
+      } else {
+        clientesAlDia++;
+      }
+    });
+
+    // Renderizar resumen
+    if (resumenEl) {
+      resumenEl.innerHTML = `
+        <div class="card" style="padding:14px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="border-left:3px solid var(--red); padding-left:10px;">
+              <div style="font-size:10px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Por cobrar</div>
+              <div style="font-size:22px; font-weight:800; color:var(--red); margin-top:2px; font-family:'JetBrains Mono',monospace;">${formatCurrency(totalPorCobrar)}</div>
+            </div>
+            <div style="border-left:3px solid var(--green); padding-left:10px;">
+              <div style="font-size:10px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">A favor</div>
+              <div style="font-size:22px; font-weight:800; color:var(--green); margin-top:2px; font-family:'JetBrains Mono',monospace;">${formatCurrency(totalAFavor)}</div>
+            </div>
+            <div style="border-left:3px solid var(--amber); padding-left:10px;">
+              <div style="font-size:10px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Con deuda</div>
+              <div style="font-size:22px; font-weight:800; color:var(--amber); margin-top:2px; font-family:'JetBrains Mono',monospace;">${clientesConDeuda}</div>
+            </div>
+            <div style="border-left:3px solid var(--text3); padding-left:10px;">
+              <div style="font-size:10px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Al día</div>
+              <div style="font-size:22px; font-weight:800; color:var(--text3); margin-top:2px; font-family:'JetBrains Mono',monospace;">${clientesAlDia}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Aplicar filtros
+    const filtrados = clientes.filter(c => {
+      const q = (filtroCuentasBusqueda || '').toLowerCase().trim();
+      if (q) {
+        const matchQ = 
+          (c.nombre || '').toLowerCase().includes(q) ||
+          (c.phone || '').includes(q);
+        if (!matchQ) return false;
+      }
+
+      if (filtroCuentasTipo === 'deuda' && c.saldo <= 0) return false;
+      if (filtroCuentasTipo === 'favor' && c.saldo >= 0) return false;
+      if (filtroCuentasTipo === 'aldia' && c.saldo !== 0) return false;
+
+      return true;
+    });
+
+    // Renderizar lista
+    if (!listaEl) return;
+
+    if (filtrados.length === 0) {
+      listaEl.innerHTML = `<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">No se encontraron clientes con esos filtros</div></div>`;
+      return;
+    }
+
+    listaEl.innerHTML = filtrados.map(c => {
+      const saldoActual = c.saldo;
+      const saldoColor = saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text3)';
+      const saldoTexto = saldoActual > 0 
+        ? `$${saldoActual.toFixed(2)}` 
+        : saldoActual < 0 
+        ? `-$${Math.abs(saldoActual).toFixed(2)}` 
+        : '$0.00';
+      const saldoLabel = saldoActual > 0 ? 'Debe' : saldoActual < 0 ? 'A favor' : 'Al día';
+
+      let ultimoMovTexto = 'Sin movimientos';
+      if (c.ultimoMovimiento) {
+        try {
+          const fecha = new Date(c.ultimoMovimiento);
+          const diffDias = Math.floor((Date.now() - fecha.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDias === 0) ultimoMovTexto = 'Hoy';
+          else if (diffDias === 1) ultimoMovTexto = 'Ayer';
+          else if (diffDias < 7) ultimoMovTexto = `Hace ${diffDias} días`;
+          else if (diffDias < 30) ultimoMovTexto = `Hace ${Math.floor(diffDias / 7)} sem.`;
+          else ultimoMovTexto = `Hace ${Math.floor(diffDias / 30)} mes(es)`;
+        } catch (e) {}
+      }
+
+      const tipoIcono = c.ultimoMovimientoTipo === 'pedido' ? '🛒' : c.ultimoMovimientoTipo === 'pago' ? '💵' : '';
+
+      return `
+        <div class="card" style="padding:12px; margin-bottom:8px; display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="abrirEstadoCuenta('${escapeJsString(c.id)}')">
+          <div class="client-avatar" style="background:${c.color}; width:40px; height:40px; font-size:13px; flex-shrink:0;">${escapeHtml(c.init)}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              ${escapeHtml(c.nombre)}
+            </div>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">
+              ${ultimoMovTexto} ${tipoIcono ? '· ' + tipoIcono : ''}
+            </div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div style="font-size:16px; font-weight:800; color:${saldoColor}; font-family:'JetBrains Mono',monospace;">
+              ${saldoTexto}
+            </div>
+            <div style="font-size:10px; color:var(--text3); font-weight:600; text-transform:uppercase;">
+              ${saldoLabel}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    console.log(`✅ Cuentas por cobrar renderizadas: ${filtrados.length} clientes`);
+
+  } catch (error) {
+    console.error('❌ Error renderizando cuentas:', error);
+    if (listaEl) {
+      listaEl.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">Error: ${escapeHtml(error.message)}</div></div>`;
+    }
+  }
+}
+
+function filtrarCuentasPorTipo(tipo, el) {
+  filtroCuentasTipo = tipo;
+  document.querySelectorAll('[data-cuentas-filter]').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderCuentasPorCobrar();
+}
+
+function filtrarCuentas() {
+  filtroCuentasBusqueda = document.getElementById('cuentas-search')?.value || '';
+  renderCuentasPorCobrar();
+}
+
+// ================================================================
 //  EXPOSICIÓN GLOBAL
 // ================================================================
 

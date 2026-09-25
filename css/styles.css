@@ -1327,23 +1327,46 @@ body.cp-activo #cp-barra-fija {
 }
 
 /* ============================================================
-   FASE 9: Tab-bar del cliente con 6 pestañas
+   FASE 9: Tab-bar del cliente en 2 filas de 3
    ============================================================ */
 
 #screen-cliente .config-tabs {
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-#screen-cliente .config-tabs::-webkit-scrollbar {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  overflow: visible;
 }
 
 #screen-cliente .config-tab {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  padding: 10px 12px;
+  flex: unset;
+  white-space: normal;
+  padding: 10px 6px;
   font-size: 12px;
+  text-align: center;
+  line-height: 1.2;
+  border-radius: 10px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-direction: column;
 }
 
+#screen-cliente .config-tab .tab-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+#screen-cliente .config-tab .tab-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Estado activo */
+#screen-cliente .config-tab.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,51,141,0.25);
+}

@@ -1326,3 +1326,24 @@ body.cp-activo #cp-barra-fija {
   }
 }
 
+/* ============================================================
+   FASE 9: Tab-bar del cliente con 6 pestañas
+   ============================================================ */
+
+#screen-cliente .config-tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#screen-cliente .config-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+#screen-cliente .config-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+

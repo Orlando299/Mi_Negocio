@@ -993,13 +993,12 @@ async function goScreen(name) {
   });
   currentScreen = name;
 
-    const bottomNav = document.getElementById('bottom-nav');
+  const bottomNav = document.getElementById('bottom-nav');
   const fabBtn = document.getElementById('fab-btn');
   if (userRol === 'cliente') {
     if (bottomNav) bottomNav.style.display = 'none';
     if (fabBtn) fabBtn.style.display = 'none';
   } else {
-    // ✅ CAMBIO: ocultar bottom-nav también en "cargar-precios"
     if (name === 'cliente' || name === 'cargar-precios') {
       if (bottomNav) bottomNav.style.display = 'none';
       if (fabBtn) fabBtn.style.display = 'none';
@@ -1014,6 +1013,7 @@ async function goScreen(name) {
     ventas: '＋',
     inventario: '＋',
     clientes: '＋',
+    cuentas: '＋',
     reportes: '⬇',
     configuracion: '⚙️'
   };
@@ -1049,7 +1049,6 @@ async function goScreen(name) {
   if (name === 'inventario') {
     const empresaId = sessionStorage.getItem('empresaId');
     
-    // ✅ CAMBIO: Si ya hay datos, solo renderizar. Si no, cargar todos de una vez.
     if (store.inventario && store.inventario.length > 0) {
       renderInv('', filtroInv, false);
       updateKPIs();
@@ -1096,6 +1095,17 @@ async function goScreen(name) {
   }
 
   // ============================================================
+  //  CUENTAS POR COBRAR (FASE 5)
+  // ============================================================
+  if (name === 'cuentas') {
+    if (typeof renderCuentasPorCobrar === 'function') {
+      renderCuentasPorCobrar();
+    } else {
+      console.warn('⚠️ renderCuentasPorCobrar no disponible');
+    }
+  }
+
+  // ============================================================
   //  REPORTES
   // ============================================================
   if (name === 'reportes') {
@@ -1126,7 +1136,6 @@ async function goScreen(name) {
     const userRol = sessionStorage.getItem('userRol');
 
     if (empresaId && userRol === 'admin') {
-      // Si los datos ya están cargados, solo actualizar KPIs y gráfico
       if (store.clientes.length > 0 && store.ventas.length > 0) {
         console.log('📊 Datos ya cargados, actualizando KPIs y gráfico');
         updateKPIs();
@@ -1136,7 +1145,6 @@ async function goScreen(name) {
         return;
       }
 
-      // Si no hay datos, cargarlos desde Firestore
       console.log('🔄 Cargando datos para dashboard...');
       try {
         await store.cargarDatosEmpresa(empresaId);
@@ -1145,7 +1153,6 @@ async function goScreen(name) {
         if (typeof renderChartVentas === 'function') {
           setTimeout(() => renderChartVentas(), 300);
         }
-        // Refrescar listas internas
         renderVentas('', filtroVentas, false);
         renderInv('', filtroInv, false);
         renderClients('', filtroCli, false);
@@ -1153,7 +1160,6 @@ async function goScreen(name) {
         console.warn('Error cargando datos del dashboard:', error);
       }
     } else {
-      // Si no es admin, solo actualizar KPIs con los datos existentes
       setTimeout(() => {
         updateKPIs();
         if (typeof renderChartVentas === 'function') renderChartVentas();

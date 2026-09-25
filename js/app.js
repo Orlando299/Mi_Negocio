@@ -6263,7 +6263,11 @@ const funcionesGlobales = {
   // ✅ NUEVO: Fase 2 - Registro completo de cliente
   filtrarClientesPorExclusividad,
   cargarCategoriasEnModal,
-  toggleMontoSaldoInicial
+  toggleMontoSaldoInicial,
+    // Fase 4 - Confirmar pago
+  abrirModalConfirmarPago,
+  cerrarModalConfirmarPago,
+  confirmarPagoConMonto
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

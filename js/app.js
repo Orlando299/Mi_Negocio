@@ -4566,6 +4566,59 @@ async function confirmarDespacho(id) {
       await actualizarSaldoEnvases(cliente.id, envasesParaCliente);
     }
 
+    // ✅ NUEVO: Sumar el total del pedido al saldo del cliente
+    try {
+      const montoPedido = parseCurrency(venta.total);
+      if (montoPedido > 0) {
+        const clienteRef = firebase.firestore()
+          .collection('empresas').doc(empresaId)
+          .collection('clientes').doc(cliente.id);
+
+        await firebase.firestore().runTransaction(async (transaction) => {
+          const doc = await transaction.get(clienteRef);
+          if (!doc.exists) return;
+
+          const data = doc.data();
+          const saldoActual = data.saldo || {
+            actual: 0,
+            totalPedidos: 0,
+            totalPagos: 0,
+            saldoInicial: 0,
+            ultimoMovimiento: null,
+            ultimoMovimientoTipo: null
+          };
+
+          const nuevoSaldo = {
+            actual: (saldoActual.actual || 0) + montoPedido,
+            totalPedidos: (saldoActual.totalPedidos || 0) + montoPedido,
+            totalPagos: saldoActual.totalPagos || 0,
+            saldoInicial: saldoActual.saldoInicial || 0,
+            ultimoMovimiento: new Date().toISOString(),
+            ultimoMovimientoTipo: 'pedido'
+          };
+
+          transaction.update(clienteRef, { saldo: nuevoSaldo });
+          console.log(`💰 Saldo del cliente actualizado: +$${montoPedido.toFixed(2)} → saldo actual: $${nuevoSaldo.actual.toFixed(2)}`);
+        });
+
+        // Actualizar también el store local si existe
+        const indexLocal = store.clientes?.findIndex(c => c.id === cliente.id);
+        if (indexLocal !== -1 && store.clientes) {
+          const saldoLocal = store.clientes[indexLocal].saldo || { actual: 0, totalPedidos: 0, totalPagos: 0, saldoInicial: 0 };
+          store.clientes[indexLocal].saldo = {
+            actual: (saldoLocal.actual || 0) + montoPedido,
+            totalPedidos: (saldoLocal.totalPedidos || 0) + montoPedido,
+            totalPagos: saldoLocal.totalPagos || 0,
+            saldoInicial: saldoLocal.saldoInicial || 0,
+            ultimoMovimiento: new Date().toISOString(),
+            ultimoMovimientoTipo: 'pedido'
+          };
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sumando al saldo del cliente:', error);
+    }
+
     // ============================================================
     //  ACUMULAR LÍQUIDO SEGÚN APORTE DEL CLIENTE
     // ============================================================
@@ -4583,12 +4636,7 @@ async function confirmarDespacho(id) {
       console.log('📌 Aporte del cliente:', aporte.valor + '%');
 
       if (aporte.valor > 0) {
-        // ✅ CAMBIO: Función de normalización robusta para comparar nombres
-        // - trim: quita espacios al inicio/final
-        // - toLowerCase: ignora mayúsculas/minúsculas
-        // - normalize('NFD'): descompone tildes
-        // - replace(/[\u0300-\u036f]/g, ''): quita tildes
-        // - replace(/\s+/g, ' '): colapsa espacios múltiples
+        // Función de normalización robusta para comparar nombres
         const normalizar = (str) => (str || '')
           .trim()
           .toLowerCase()
@@ -4602,8 +4650,6 @@ async function confirmarDespacho(id) {
 
         for (const item of productos) {
           const nombreItemNorm = normalizar(item.nombre);
-
-          // ✅ CAMBIO: Comparación normalizada
           const producto = inventario.find(p => normalizar(p.nombre) === nombreItemNorm);
 
           if (!producto) {
@@ -4612,7 +4658,6 @@ async function confirmarDespacho(id) {
             continue;
           }
 
-          // ✅ CAMBIO: Leer categoría desde cat o categoria (orden unificado)
           const categoriaProducto = producto.cat || producto.categoria || '';
 
           if (categoriaProducto === 'Cervezas Polar') {

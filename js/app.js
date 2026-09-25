@@ -1747,17 +1747,80 @@ const modals = {
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     `
   },
-  clientes: {
+   clientes: {
     title: 'Nuevo cliente',
     body: `
       <div class="row">
-        <div class="field"><label>Nombre</label><input type="text" placeholder="Nombre" id="input-cliente-nombre"></div>
+        <div class="field"><label>Nombre *</label><input type="text" placeholder="Nombre" id="input-cliente-nombre"></div>
         <div class="field"><label>Apellido</label><input type="text" placeholder="Apellido" id="input-cliente-apellido"></div>
       </div>
       <div class="field"><label>Teléfono</label><input type="tel" placeholder="+58 412 000 0000" id="input-cliente-telefono"></div>
       <div class="field"><label>Correo electrónico</label><input type="email" placeholder="correo@ejemplo.com" id="input-cliente-email"></div>
       <div class="field"><label>Dirección</label><input type="text" placeholder="Dirección (opcional)" id="input-cliente-direccion"></div>
-      <div class="field"><label>Notas</label><textarea placeholder="Preferencias, detalles..." id="input-cliente-notas"></textarea></div>
+
+      <div style="border-top:1px solid var(--border); margin:16px 0; padding-top:12px;">
+        <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">🏷️ Clasificación</h4>
+        
+        <div class="field">
+          <label>Etiqueta</label>
+          <select id="input-cliente-tag">
+            <option value="regular">Regular</option>
+            <option value="vip">VIP</option>
+            <option value="nuevo" selected>Nuevo</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Categoría</label>
+          <select id="input-cliente-categoria">
+            <option value="">Cargando categorías...</option>
+          </select>
+          <small style="color:var(--text3); font-size:11px;">Define el porcentaje de premio especial</small>
+        </div>
+
+        <div class="field">
+          <label>Premio especial personalizado (%)</label>
+          <input type="number" id="input-cliente-aporte" placeholder="Dejar vacío para usar el de la categoría" min="0" max="100" step="0.1">
+          <small style="color:var(--text3); font-size:11px;">Si lo llenas, prevalece sobre el de la categoría</small>
+        </div>
+
+        <div class="field">
+          <label>Exclusividad con Polar</label>
+          <select id="input-cliente-exclusividad">
+            <option value="">Sin clasificar</option>
+            <option value="exclusivo_polar">🎯 Exclusivo de Polar</option>
+            <option value="mixto">🔄 Cliente mixto (Polar + otras)</option>
+            <option value="competencia">⚠️ Mayormente competencia</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border); margin:16px 0; padding-top:12px;">
+        <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">💰 Saldo inicial</h4>
+        <p style="font-size:12px; color:var(--text3); margin-bottom:10px;">Si el cliente ya tiene un saldo con tu negocio, indícalo aquí.</p>
+        
+        <div class="field">
+          <label>Tipo de saldo</label>
+          <select id="input-cliente-saldo-tipo" onchange="toggleMontoSaldoInicial()">
+            <option value="aldia">✅ Al día ($0.00)</option>
+            <option value="debe">💰 El cliente debe</option>
+            <option value="favor">📈 A favor del cliente</option>
+          </select>
+        </div>
+
+        <div class="field" id="input-cliente-saldo-monto-wrapper" style="display:none;">
+          <label>Monto ($)</label>
+          <input type="number" id="input-cliente-saldo-monto" placeholder="0.00" min="0" step="0.01">
+        </div>
+
+        <div class="field" id="input-cliente-saldo-notas-wrapper" style="display:none;">
+          <label>Notas del saldo</label>
+          <input type="text" id="input-cliente-saldo-notas" placeholder="Ej: Deuda migrada del sistema anterior">
+        </div>
+      </div>
+
+      <div class="field"><label>Notas generales</label><textarea placeholder="Preferencias, detalles..." id="input-cliente-notas"></textarea></div>
+      
       <button class="btn btn-primary" onclick="guardarCliente()">Guardar cliente</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     `

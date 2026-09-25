@@ -6422,7 +6422,10 @@ async function abrirEstadoCuenta(clienteId) {
         ${historialHTML}
       </div>
 
-      <div style="margin-top:16px; display:flex; gap:8px;">
+           <div style="margin-top:16px; display:flex; gap:8px;">
+        <button class="btn btn-outline" onclick="generarEstadoCuentaPDF('${escapeJsString(clienteId)}')" style="flex:1;">
+          📄 Descargar PDF
+        </button>
         <button class="btn btn-outline" onclick="cerrarModalEstadoCuenta()" style="flex:1;">Cerrar</button>
       </div>
     `;
@@ -6882,13 +6885,16 @@ function renderMiCuenta(container, datos) {
       </div>
     </div>
 
-    <!-- Botones de acción -->
-    <div style="display:flex; gap:8px; margin-bottom:16px;">
-      <button class="btn btn-outline" onclick="abrirMiHistorialCompleto()" style="flex:1; font-size:12px; padding:10px;">
-        📊 Ver historial completo
+       <!-- Botones de acción -->
+    <div style="display:flex; gap:6px; margin-bottom:16px;">
+      <button class="btn btn-outline" onclick="abrirMiHistorialCompleto()" style="flex:1; font-size:11px; padding:8px 4px;">
+        📊 Historial
       </button>
-      <button class="btn btn-outline" onclick="abrirMetodosPago()" style="flex:1; font-size:12px; padding:10px;">
-        💳 Métodos de pago
+      <button class="btn btn-outline" onclick="abrirMetodosPago()" style="flex:1; font-size:11px; padding:8px 4px;">
+        💳 Pagos
+      </button>
+      <button class="btn btn-outline" onclick="descargarMiEstadoCuenta()" style="flex:1; font-size:11px; padding:8px 4px;">
+        📄 PDF
       </button>
     </div>
 
@@ -6997,6 +7003,438 @@ function abrirMetodosPago() {
     });
 }
 
+// ================================================================
+//  MÓDULO: EXPORTAR ESTADO DE CUENTA A PDF (FASE 10)
+// ================================================================
+
+async function generarEstadoCuentaPDF(clienteId) {
+  if (!clienteId) {
+    showToast('⚠️ Cliente no especificado');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  showToast('⏳ Generando PDF...');
+
+  try {
+    // 1. Leer datos de la empresa
+    const empresaDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .get();
+
+    if (!empresaDoc.exists) {
+      showToast('❌ Empresa no encontrada');
+      return;
+    }
+
+    const empresaData = empresaDoc.data();
+    const empresaNombre = empresaData.nombre || 'Mi Negocio';
+    const empresaCodigo = empresaData.codigoAcceso || '';
+    const datosPago = empresaData.datosPago || {};
+
+    // 2. Leer datos del cliente
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .get();
+
+    if (!clienteDoc.exists) {
+      showToast('❌ Cliente no encontrado');
+      return;
+    }
+
+    const cliente = clienteDoc.data();
+    const saldoActual = cliente.saldo?.actual || 0;
+
+    // 3. Leer categoría
+    let categoriaNombre = 'Sin categoría';
+    let categoriaAporte = 0;
+    if (cliente.categoriaId) {
+      try {
+        const catDoc = await firebase.firestore()
+          .collection('empresas').doc(empresaId)
+          .collection('categoriasClientes').doc(cliente.categoriaId)
+          .get();
+        if (catDoc.exists) {
+          const catData = catDoc.data();
+          categoriaNombre = catData.nombre || 'Sin nombre';
+          categoriaAporte = catData.aporteEspecial?.valor || 0;
+        }
+      } catch (e) {}
+    }
+
+    // 4. Leer ventas del cliente
+    const ventasSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('ventas')
+      .where('cliente', '==', cliente.nombre)
+      .get();
+
+    const ventas = [];
+    ventasSnap.forEach(doc => {
+      const data = doc.data();
+      ventas.push({
+        tipo: 'pedido',
+        fecha: data.fechaDespacho || data.fecha || null,
+        monto: parseCurrency(data.total),
+        metodo: data.metodo || '',
+        numeroFactura: data.numeroFactura || null,
+        notas: data.notas || ''
+      });
+    });
+
+    // 5. Leer pagos
+    const pagosSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .collection('pagos')
+      .get();
+
+    const pagos = [];
+    pagosSnap.forEach(doc => {
+      const data = doc.data();
+      pagos.push({
+        tipo: data.tipo === 'saldo_inicial' ? 'saldo_inicial' : 'pago',
+        fecha: data.fecha?.toDate ? data.fecha.toDate().toISOString() : (data.fecha || null),
+        monto: data.monto || 0,
+        metodo: data.metodo || '',
+        notas: data.notas || ''
+      });
+    });
+
+    // 6. Combinar y ordenar por fecha ascendente
+    const movimientos = [...ventas, ...pagos].sort((a, b) => {
+      const fechaA = a.fecha ? new Date(a.fecha).getTime() : 0;
+      const fechaB = b.fecha ? new Date(b.fecha).getTime() : 0;
+      return fechaA - fechaB;
+    });
+
+    // 7. Calcular saldo acumulado
+    let saldoAcumulado = 0;
+    const movimientosConSaldo = movimientos.map(m => {
+      if (m.tipo === 'pedido') {
+        saldoAcumulado += m.monto;
+      } else if (m.tipo === 'pago') {
+        saldoAcumulado -= m.monto;
+      } else if (m.tipo === 'saldo_inicial') {
+        saldoAcumulado += m.monto;
+      }
+      return { ...m, saldoDespues: saldoAcumulado };
+    });
+
+    // 8. Calcular totales
+    const totalPedidos = ventas.reduce((sum, v) => sum + v.monto, 0);
+    const totalPagos = pagos.filter(p => p.tipo === 'pago').reduce((sum, p) => sum + p.monto, 0);
+
+    // 9. Generar PDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = margin;
+
+    // ── ENCABEZADO ──
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 51, 141);
+    doc.text('ESTADO DE CUENTA', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+
+    doc.setDrawColor(0, 51, 141);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // ── DATOS DE LA EMPRESA ──
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(empresaNombre, margin, y);
+    y += 5;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    if (empresaCodigo) {
+      doc.text(`Código: ${empresaCodigo}`, margin, y);
+      y += 4;
+    }
+
+    // Datos de pago (si están configurados)
+    if (datosPago.pagoMovil?.telefono) {
+      doc.text(`Pago Móvil: ${datosPago.pagoMovil.telefono} (${datosPago.pagoMovil.banco || 'N/A'})`, margin, y);
+      y += 4;
+    }
+    if (datosPago.zelle?.email) {
+      doc.text(`Zelle: ${datosPago.zelle.email}`, margin, y);
+      y += 4;
+    }
+    if (datosPago.transferencia?.cuenta) {
+      doc.text(`Transferencia: ${datosPago.transferencia.cuenta}`, margin, y);
+      y += 4;
+    }
+
+    y += 4;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // ── DATOS DEL CLIENTE ──
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Datos del Cliente', margin, y);
+    y += 6;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Nombre: ${cliente.nombre || 'Sin nombre'}`, margin, y);
+    y += 5;
+
+    if (cliente.phone) {
+      doc.text(`Teléfono: ${cliente.phone}`, margin, y);
+      y += 5;
+    }
+    if (cliente.email) {
+      doc.text(`Email: ${cliente.email}`, margin, y);
+      y += 5;
+    }
+
+    doc.text(`Categoría: ${categoriaNombre}${categoriaAporte > 0 ? ` (${categoriaAporte}%)` : ''}`, margin, y);
+    y += 5;
+
+    const exclusividadLabel = 
+      cliente.exclusividad === 'exclusivo_polar' ? 'Exclusivo de Polar' :
+      cliente.exclusividad === 'mixto' ? 'Cliente mixto' :
+      cliente.exclusividad === 'competencia' ? 'Mayormente competencia' :
+      'Sin clasificar';
+    doc.text(`Exclusividad: ${exclusividadLabel}`, margin, y);
+    y += 6;
+
+    const fechaReporte = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Fecha del reporte: ${fechaReporte}`, margin, y);
+    y += 8;
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // ── SALDO ACTUAL ──
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Saldo Actual', margin, y);
+    y += 6;
+
+    // Caja de saldo
+    const saldoBoxX = margin;
+    const saldoBoxY = y;
+    const saldoBoxW = pageWidth - 2 * margin;
+    const saldoBoxH = 18;
+
+    if (saldoActual > 0) {
+      doc.setFillColor(254, 226, 226); // Rojo claro
+    } else if (saldoActual < 0) {
+      doc.setFillColor(209, 250, 229); // Verde claro
+    } else {
+      doc.setFillColor(240, 242, 245); // Gris claro
+    }
+    doc.roundedRect(saldoBoxX, saldoBoxY, saldoBoxW, saldoBoxH, 2, 2, 'F');
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    if (saldoActual > 0) {
+      doc.setTextColor(153, 27, 27);
+    } else if (saldoActual < 0) {
+      doc.setTextColor(6, 95, 70);
+    } else {
+      doc.setTextColor(80, 80, 80);
+    }
+
+    const saldoTexto = `$${Math.abs(saldoActual).toFixed(2)}`;
+    const saldoTipo = saldoActual > 0 ? 'DEBE' : saldoActual < 0 ? 'A FAVOR' : 'AL DÍA';
+    doc.text(saldoTexto, pageWidth / 2, saldoBoxY + 8, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(saldoTipo, pageWidth / 2, saldoBoxY + 14, { align: 'center' });
+
+    y = saldoBoxY + saldoBoxH + 8;
+
+    // ── HISTORIAL DE MOVIMIENTOS ──
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Historial de Movimientos', margin, y);
+    y += 6;
+
+    if (movimientosConSaldo.length === 0) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(120, 120, 120);
+      doc.text('Sin movimientos registrados', margin, y);
+      y += 8;
+    } else {
+      // Tabla con autoTable
+      const tableData = movimientosConSaldo.map(m => {
+        let fecha = 'Sin fecha';
+        if (m.fecha) {
+          try {
+            fecha = new Date(m.fecha).toLocaleDateString('es-ES', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            });
+          } catch (e) {}
+        }
+
+        let concepto = '';
+        if (m.tipo === 'pedido') {
+          concepto = `Pedido${m.numeroFactura ? ` #${m.numeroFactura}` : ''}`;
+        } else if (m.tipo === 'pago') {
+          concepto = `Pago${m.metodo ? ` (${m.metodo})` : ''}`;
+        } else if (m.tipo === 'saldo_inicial') {
+          concepto = 'Saldo inicial';
+        }
+
+        let montoStr = '';
+        if (m.tipo === 'pedido') {
+          montoStr = `+$${m.monto.toFixed(2)}`;
+        } else if (m.tipo === 'pago') {
+          montoStr = `-$${m.monto.toFixed(2)}`;
+        } else if (m.tipo === 'saldo_inicial') {
+          montoStr = `${m.monto >= 0 ? '+' : '-'}$${Math.abs(m.monto).toFixed(2)}`;
+        }
+
+        return [
+          fecha,
+          concepto,
+          montoStr,
+          `$${Math.abs(m.saldoDespues).toFixed(2)}`
+        ];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head: [['Fecha', 'Concepto', 'Monto', 'Saldo']],
+        body: tableData,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: {
+          fillColor: [0, 51, 141],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 25, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 35, halign: 'right' },
+          3: { cellWidth: 35, halign: 'right' }
+        },
+        margin: { left: margin, right: margin },
+        didParseCell: function(data) {
+          if (data.section === 'body' && data.column.index === 2) {
+            const cellText = data.cell.raw;
+            if (typeof cellText === 'string' && cellText.startsWith('+')) {
+              data.cell.styles.textColor = [153, 27, 27];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (typeof cellText === 'string' && cellText.startsWith('-')) {
+              data.cell.styles.textColor = [6, 95, 70];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        }
+      });
+
+      y = doc.lastAutoTable.finalY + 8;
+    }
+
+    // ── TOTALES ──
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total en pedidos:`, margin, y);
+    doc.text(`$${totalPedidos.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 5;
+
+    doc.text(`Total en pagos:`, margin, y);
+    doc.text(`$${totalPagos.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Saldo final:`, margin, y);
+    doc.text(`$${Math.abs(saldoActual).toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 10;
+
+    // ── PIE DE PÁGINA ──
+    const pieY = doc.internal.pageSize.getHeight() - 20;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(120, 120, 120);
+    doc.text('¡Gracias por su preferencia!', pageWidth / 2, pieY, { align: 'center' });
+    doc.text('Este documento es un estado de cuenta informativo.', pageWidth / 2, pieY + 4, { align: 'center' });
+
+    // Numeración de página
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Página ${i} de ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 8,
+        { align: 'center' }
+      );
+    }
+
+    // ── GUARDAR ──
+    const nombreArchivo = `estado_cuenta_${(cliente.nombre || 'cliente').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(nombreArchivo);
+
+    showToast('✅ PDF generado');
+
+  } catch (error) {
+    console.error('❌ Error generando PDF:', error);
+    showToast('❌ Error al generar PDF: ' + error.message);
+  }
+}
+
+// ================================================================
+//  DESCARGAR MI ESTADO DE CUENTA (CLIENTE)
+// ================================================================
+function descargarMiEstadoCuenta() {
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showToast('⚠️ Inicia sesión primero');
+    return;
+  }
+
+  if (typeof generarEstadoCuentaPDF === 'function') {
+    generarEstadoCuentaPDF(user.uid);
+  } else {
+    showToast('❌ Función no disponible');
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -7094,7 +7532,10 @@ const funcionesGlobales = {
   cargarMiCuenta,
   renderMiCuenta,
   abrirMiHistorialCompleto,
-  abrirMetodosPago
+  abrirMetodosPago,
+    // Fase 10 - Exportar PDF
+  generarEstadoCuentaPDF,
+  descargarMiEstadoCuenta
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

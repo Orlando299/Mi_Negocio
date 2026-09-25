@@ -1296,18 +1296,203 @@ async function guardarProducto() {
   }
 }
 
+// ================================================================
+//  CARGAR CATEGORÍAS EN EL MODAL DE NUEVO CLIENTE
+// ================================================================
+async function cargarCategoriasEnModal() {
+  const select = document.getElementById('input-cliente-categoria');
+  if (!select) return;
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) return;
+
+  try {
+    const snapshot = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('categoriasClientes')
+      .where('activa', '==', true)
+      .orderBy('nombre')
+      .get();
+
+    let html = '<option value="">Sin categoría</option>';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      html += `<option value="${escapeHtml(doc.id)}">${escapeHtml(data.nombre)} (${data.aporteEspecial?.valor || 0}%)</option>`;
+    });
+    select.innerHTML = html;
+  } catch (e) {
+    console.warn('Error cargando categorías:', e);
+    select.innerHTML = '<option value="">Error al cargar</option>';
+  }
+}
+
+// ================================================================
+//  TOGGLE MONTO DE SALDO INICIAL
+// ================================================================
+function toggleMontoSaldoInicial() {
+  const tipo = document.getElementById('input-cliente-saldo-tipo')?.value || 'aldia';
+  const montoWrapper = document.getElementById('input-cliente-saldo-monto-wrapper');
+  const notasWrapper = document.getElementById('input-cliente-saldo-notas-wrapper');
+
+  if (tipo === 'debe' || tipo === 'favor') {
+    if (montoWrapper) montoWrapper.style.display = 'block';
+    if (notasWrapper) notasWrapper.style.display = 'block';
+  } else {
+    if (montoWrapper) montoWrapper.style.display = 'none';
+    if (notasWrapper) notasWrapper.style.display = 'none';
+    const monto = document.getElementById('input-cliente-saldo-monto');
+    const notas = document.getElementById('input-cliente-saldo-notas');
+    if (monto) monto.value = '';
+    if (notas) notas.value = '';
+  }
+}
+
 async function guardarCliente() {
   const nombre = document.getElementById('input-cliente-nombre')?.value?.trim() || '';
   const apellido = document.getElementById('input-cliente-apellido')?.value?.trim() || '';
   const telefono = document.getElementById('input-cliente-telefono')?.value?.trim() || '';
+  const email = document.getElementById('input-cliente-email')?.value?.trim() || '';
+  const direccion = document.getElementById('input-cliente-direccion')?.value?.trim() || '';
+  const notas = document.getElementById('input-cliente-notas')?.value?.trim() || '';
+  const tag = document.getElementById('input-cliente-tag')?.value || 'nuevo';
+  const categoriaId = document.getElementById('input-cliente-categoria')?.value || '';
+  const aportePersonalizadoStr = document.getElementById('input-cliente-aporte')?.value?.trim() || '';
+  const exclusividadValue = document.getElementById('input-cliente-exclusividad')?.value || '';
+  const saldoTipo = document.getElementById('input-cliente-saldo-tipo')?.value || 'aldia';
+  const saldoMontoStr = document.getElementById('input-cliente-saldo-monto')?.value?.trim() || '';
+  const saldoNotas = document.getElementById('input-cliente-saldo-notas')?.value?.trim() || '';
+
   const nombreCompleto = (nombre + ' ' + apellido).trim();
-  if (!nombreCompleto) { showToast('⚠️ El nombre es obligatorio'); return; }
-  const init = nombreCompleto.split(' ').map(p => p.charAt(0).toUpperCase()).join('');
+  if (!nombreCompleto) {
+    showToast('⚠️ El nombre es obligatorio');
+    return;
+  }
+
+  // Validar aporte personalizado
+  let aportePersonalizado = null;
+  if (aportePersonalizadoStr !== '') {
+    const val = parseFloat(aportePersonalizadoStr);
+    if (isNaN(val) || val < 0 || val > 100) {
+      showToast('⚠️ Ingresa un porcentaje válido (0-100)');
+      return;
+    }
+    aportePersonalizado = val;
+  }
+
+  // Validar saldo inicial
+  let saldoInicialMonto = 0;
+  if (saldoTipo === 'debe' || saldoTipo === 'favor') {
+    const monto = parseFloat(saldoMontoStr);
+    if (isNaN(monto) || monto <= 0) {
+      showToast('⚠️ Ingresa un monto mayor a 0');
+      return;
+    }
+    saldoInicialMonto = saldoTipo === 'debe' ? monto : -monto;
+  }
+
+  // Exclusividad: "" → null
+  const exclusividad = exclusividadValue === '' ? null : exclusividadValue;
+
+  // Calcular aporte especial heredado
+  let aporteEspecial = null;
+  if (categoriaId) {
+    try {
+      const empresaId = sessionStorage.getItem('empresaId');
+      const catDoc = await firebase.firestore()
+        .collection('empresas').doc(empresaId)
+        .collection('categoriasClientes').doc(categoriaId)
+        .get();
+      if (catDoc.exists) {
+        const catData = catDoc.data();
+        aporteEspecial = {
+          tipo: 'porcentaje_liquido',
+          valor: aportePersonalizado !== null ? aportePersonalizado : (catData.aporteEspecial?.valor || 0),
+          aplicaA: ['Cervezas Polar']
+        };
+      }
+    } catch (e) {
+      console.warn('Error leyendo categoría:', e);
+    }
+  } else if (aportePersonalizado !== null) {
+    aporteEspecial = {
+      tipo: 'porcentaje_liquido',
+      valor: aportePersonalizado,
+      aplicaA: ['Cervezas Polar']
+    };
+  } else {
+    aporteEspecial = {
+      tipo: 'porcentaje_liquido',
+      valor: 0,
+      aplicaA: ['Cervezas Polar']
+    };
+  }
+
+  // Color e iniciales para el avatar
+  const init = nombreCompleto.split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
   const colores = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#9333EA', '#E11D48'];
   const color = colores[Math.floor(Math.random() * colores.length)];
-  const nuevoCliente = { nombre: nombreCompleto, phone: telefono, compras: '$0.00', pedidos: 0, tag: 'nuevo', color, init };
+
+  // Objeto del cliente
+  const nuevoCliente = {
+    nombre: nombreCompleto,
+    apellido: apellido,
+    phone: telefono,
+    email: email,
+    direccion: direccion,
+    compras: '$0.00',
+    pedidos: 0,
+    tag: tag,
+    color: color,
+    init: init,
+    categoriaId: categoriaId || null,
+    aporteEspecial: aporteEspecial,
+    exclusividad: exclusividad,
+    saldo: {
+      actual: saldoInicialMonto,
+      totalPedidos: 0,
+      totalPagos: 0,
+      saldoInicial: saldoInicialMonto,
+      ultimoMovimiento: saldoInicialMonto !== 0 ? new Date().toISOString() : null,
+      ultimoMovimientoTipo: saldoInicialMonto !== 0 ? 'saldo_inicial' : null
+    },
+    historialCambios: [
+      {
+        fecha: new Date().toISOString(),
+        categoriaId: categoriaId || null,
+        aporteValor: aporteEspecial.valor,
+        motivo: 'Registro inicial'
+      }
+    ],
+    liquidoPendiente: {
+      total: 0,
+      ultimaLiquidacion: null
+    }
+  };
+
   try {
-    await store.addCliente(nuevoCliente);
+    const clienteCreado = await store.addCliente(nuevoCliente);
+
+    // Registrar movimiento de saldo inicial si aplica
+    if (saldoInicialMonto !== 0 && clienteCreado && clienteCreado.id) {
+      try {
+        const empresaId = sessionStorage.getItem('empresaId');
+        await firebase.firestore()
+          .collection('empresas').doc(empresaId)
+          .collection('clientes').doc(clienteCreado.id)
+          .collection('pagos').add({
+            monto: Math.abs(saldoInicialMonto),
+            metodo: 'Saldo inicial',
+            notas: saldoNotas || 'Saldo inicial al crear el cliente',
+            tipo: 'saldo_inicial',
+            fecha: firebase.firestore.FieldValue.serverTimestamp(),
+            registradoPor: sessionStorage.getItem('userName') || 'Admin',
+            registradoPorUid: firebase.auth().currentUser?.uid || ''
+          });
+      } catch (e) {
+        console.warn('Error registrando movimiento de saldo inicial:', e);
+      }
+    }
+
     syncGlobals();
     renderClients('', filtroCli, 1);
     closeModal();
@@ -1465,11 +1650,14 @@ async function editCliente(nombre) {
   const c = store.clientes.find(item => item.nombre === nombre);
   if (!c) return showToast('Cliente no encontrado');
 
-  // ✅ CAMBIO: Escapamos valores que vienen del usuario
+  // Escapamos valores
   const nombreEscapado = escapeHtml(c.nombre);
   const phoneEscapado = escapeHtml(c.phone || '');
+  const emailEscapado = escapeHtml(c.email || '');
+  const direccionEscapada = escapeHtml(c.direccion || '');
+  const notasEscapadas = escapeHtml(c.notas || '');
 
-  // Cargar categorías activas para el selector
+  // Cargar categorías
   const empresaId = sessionStorage.getItem('empresaId');
   let categoriasHTML = '<option value="">Sin categoría</option>';
   if (empresaId) {
@@ -1484,7 +1672,6 @@ async function editCliente(nombre) {
       snapshot.forEach(doc => {
         const data = doc.data();
         const selected = doc.id === c.categoriaId ? 'selected' : '';
-        // ✅ CAMBIO: Escapamos el nombre de la categoría y el ID
         categoriasHTML += `<option value="${escapeHtml(doc.id)}" ${selected}>${escapeHtml(data.nombre)} (${data.aporteEspecial?.valor || 0}%)</option>`;
       });
     } catch (e) {
@@ -1494,32 +1681,63 @@ async function editCliente(nombre) {
 
   const aportePersonalizado = c.aporteEspecial?.valor || '';
   const liquidoPendiente = c.liquidoPendiente?.total || 0;
+  const saldoActual = c.saldo?.actual || 0;
 
   const body = `
-    <div class="field"><label>Nombre</label><input type="text" value="${nombreEscapado}" id="edit-nombre"></div>
-    <div class="field"><label>Teléfono</label><input type="text" value="${phoneEscapado}" id="edit-phone"></div>
-    <div class="field"><label>Etiqueta</label>
-      <select id="edit-tag">
-        <option ${c.tag === 'vip' ? 'selected' : ''}>vip</option>
-        <option ${c.tag === 'regular' ? 'selected' : ''}>regular</option>
-        <option ${c.tag === 'nuevo' ? 'selected' : ''}>nuevo</option>
-      </select>
+    <div class="row">
+      <div class="field"><label>Nombre</label><input type="text" value="${nombreEscapado}" id="edit-nombre"></div>
+      <div class="field"><label>Teléfono</label><input type="text" value="${phoneEscapado}" id="edit-phone"></div>
     </div>
-    <div class="field">
-      <label>Categoría</label>
-      <select id="edit-categoria">
-        ${categoriasHTML}
-      </select>
-      <small style="color:var(--text3); font-size:11px;">Selecciona una categoría para definir el aporte especial</small>
+    <div class="field"><label>Correo electrónico</label><input type="email" value="${emailEscapado}" id="edit-email"></div>
+    <div class="field"><label>Dirección</label><input type="text" value="${direccionEscapada}" id="edit-direccion"></div>
+
+    <div style="border-top:1px solid var(--border); margin:16px 0; padding-top:12px;">
+      <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">🏷️ Clasificación</h4>
+      
+      <div class="field"><label>Etiqueta</label>
+        <select id="edit-tag">
+          <option value="vip" ${c.tag === 'vip' ? 'selected' : ''}>VIP</option>
+          <option value="regular" ${c.tag === 'regular' ? 'selected' : ''}>Regular</option>
+          <option value="nuevo" ${c.tag === 'nuevo' ? 'selected' : ''}>Nuevo</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Categoría</label>
+        <select id="edit-categoria">${categoriasHTML}</select>
+      </div>
+
+      <div class="field">
+        <label>Premio especial personalizado (%)</label>
+        <input type="number" id="edit-aporte-personalizado" value="${aportePersonalizado}" min="0" max="100" step="0.1" placeholder="Dejar vacío para usar el de la categoría">
+      </div>
+
+      <div class="field">
+        <label>Exclusividad con Polar</label>
+        <select id="edit-exclusividad">
+          <option value="" ${!c.exclusividad ? 'selected' : ''}>Sin clasificar</option>
+          <option value="exclusivo_polar" ${c.exclusividad === 'exclusivo_polar' ? 'selected' : ''}>🎯 Exclusivo de Polar</option>
+          <option value="mixto" ${c.exclusividad === 'mixto' ? 'selected' : ''}>🔄 Cliente mixto (Polar + otras)</option>
+          <option value="competencia" ${c.exclusividad === 'competencia' ? 'selected' : ''}>⚠️ Mayormente competencia</option>
+        </select>
+      </div>
     </div>
-    <div class="field">
-      <label>Aporte personalizado (%)</label>
-      <input type="number" id="edit-aporte-personalizado" value="${aportePersonalizado}" min="0" max="100" placeholder="Dejar vacío para usar el de la categoría">
-      <small style="color:var(--text3); font-size:11px;">Si se llena, prevalece sobre el porcentaje de la categoría</small>
+
+    <div style="background:var(--surface2); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <strong>💰 Saldo actual:</strong>
+        <span style="color:${saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text2)'}; font-weight:700;">
+          $${Math.abs(saldoActual).toFixed(2)} ${saldoActual > 0 ? '(debe)' : saldoActual < 0 ? '(a favor)' : '(al día)'}
+        </span>
+      </div>
+      <div style="font-size:12px; color:var(--text3);">
+        <strong>📦 Premio pendiente:</strong> ${liquidoPendiente} uds.
+      </div>
+      <small style="color:var(--text3); font-size:11px;">Para ajustar el saldo, usa el módulo de Cuentas por Cobrar.</small>
     </div>
-    <div style="background:var(--surface2); padding:10px; border-radius:var(--radius-sm); margin-bottom:12px;">
-      <strong>📦 Líquido pendiente:</strong> ${liquidoPendiente} unidades
-    </div>
+
+    <div class="field"><label>Notas generales</label><textarea id="edit-notas">${notasEscapadas}</textarea></div>
+    
     <button class="btn btn-primary" onclick="updateClienteFromModal('${escapeJsString(c.nombre)}')">Actualizar cliente</button>
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
   `;
@@ -1533,117 +1751,126 @@ async function editCliente(nombre) {
 async function updateClienteFromModal(nombreOriginal) {
   const nombre = document.getElementById('edit-nombre').value.trim();
   const phone = document.getElementById('edit-phone').value.trim();
+  const email = document.getElementById('edit-email').value.trim();
+  const direccion = document.getElementById('edit-direccion').value.trim();
+  const notas = document.getElementById('edit-notas').value.trim();
   const tag = document.getElementById('edit-tag').value;
   const categoriaId = document.getElementById('edit-categoria').value || null;
-  const aportePersonalizado = document.getElementById('edit-aporte-personalizado').value.trim();
+  const aportePersonalizadoStr = document.getElementById('edit-aporte-personalizado').value.trim();
+  const exclusividadValue = document.getElementById('edit-exclusividad').value || '';
 
   if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
 
   const cliente = store.clientes.find(c => c.nombre === nombreOriginal);
   if (!cliente) { showToast('⚠️ Cliente no encontrado'); return; }
 
-  // Construir objeto de actualización
-  const updates = { nombre, phone, tag };
-
-  // Si cambió la categoría o el aporte personalizado, registrar historial
-  let categoriaCambio = false;
-  let historialEntry = null;
-
-  // Obtener datos actuales del cliente
-  const perfilDoc = await firebase.firestore()
-    .collection('userProfiles')
-    .doc(cliente.id)
-    .get();
-  const perfil = perfilDoc.data();
-
-  const categoriaAnterior = cliente.categoriaId || null;
-  const aporteAnterior = cliente.aporteEspecial?.valor || null;
-  const aportePersonalizadoAnterior = perfil?.aportePersonalizado?.valor || null;
-
-  // Determinar nuevo aporte efectivo
+  // Validar aporte personalizado
   let nuevoAporteValor = null;
-  if (aportePersonalizado !== '') {
-    const val = parseFloat(aportePersonalizado);
-    if (!isNaN(val) && val >= 0 && val <= 100) {
-      nuevoAporteValor = val;
-    } else {
-      showToast('⚠️ Ingresa un porcentaje válido (0-100) o déjalo vacío');
+  if (aportePersonalizadoStr !== '') {
+    const val = parseFloat(aportePersonalizadoStr);
+    if (isNaN(val) || val < 0 || val > 100) {
+      showToast('⚠️ Ingresa un porcentaje válido (0-100)');
       return;
     }
+    nuevoAporteValor = val;
   }
 
-  // Si hay cambio de categoría o aporte personalizado, registrar historial
-  if (categoriaId !== categoriaAnterior || nuevoAporteValor !== aportePersonalizadoAnterior) {
-    categoriaCambio = true;
-    // Obtener nombre de la nueva categoría (si existe)
-    let nuevoNombreCategoria = null;
-    if (categoriaId) {
+  // Exclusividad: "" → null
+  const exclusividad = exclusividadValue === '' ? null : exclusividadValue;
+
+  // Calcular aporte especial
+  let aporteEspecial = {
+    tipo: 'porcentaje_liquido',
+    valor: nuevoAporteValor !== null ? nuevoAporteValor : 0,
+    aplicaA: ['Cervezas Polar']
+  };
+
+  if (categoriaId && nuevoAporteValor === null) {
+    try {
       const catDoc = await firebase.firestore()
         .collection('empresas').doc(sessionStorage.getItem('empresaId'))
         .collection('categoriasClientes').doc(categoriaId)
         .get();
-      if (catDoc.exists) nuevoNombreCategoria = catDoc.data().nombre;
+      if (catDoc.exists) {
+        aporteEspecial.valor = catDoc.data().aporteEspecial?.valor || 0;
+      }
+    } catch (e) {}
+  }
+
+  // Registrar historial de cambio
+  const categoriaAnterior = cliente.categoriaId || null;
+  const aporteAnterior = cliente.aporteEspecial?.valor || null;
+  const exclusividadAnterior = cliente.exclusividad || null;
+
+  let historialEntry = null;
+  if (categoriaId !== categoriaAnterior || nuevoAporteValor !== aporteAnterior || exclusividad !== exclusividadAnterior) {
+    let nuevoNombreCategoria = null;
+    if (categoriaId) {
+      try {
+        const catDoc = await firebase.firestore()
+          .collection('empresas').doc(sessionStorage.getItem('empresaId'))
+          .collection('categoriasClientes').doc(categoriaId)
+          .get();
+        if (catDoc.exists) nuevoNombreCategoria = catDoc.data().nombre;
+      } catch (e) {}
     }
 
     historialEntry = {
-      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      fecha: new Date().toISOString(),
       categoriaId: categoriaId,
       categoriaNombre: nuevoNombreCategoria || 'Sin categoría',
-      aporteValor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0),
+      aporteValor: aporteEspecial.valor,
+      exclusividad: exclusividad,
       motivo: 'Cambio manual por administrador'
     };
   }
 
-  // Actualizar cliente en Firestore
+  const updates = {
+    nombre,
+    phone,
+    email,
+    direccion,
+    notas,
+    tag,
+    categoriaId: categoriaId,
+    aporteEspecial: aporteEspecial,
+    exclusividad: exclusividad
+  };
+
   try {
-    // 1. Actualizar cliente (subcolección)
-    await store.updateCliente(cliente.id, {
-      nombre,
-      phone,
-      tag,
-      categoriaId: categoriaId,
-      // Si se especifica aporte personalizado, guardarlo; si no, mantener el de la categoría o null
-      aporteEspecial: {
-        tipo: 'porcentaje_liquido',
-        valor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0),
-        aplicaA: ['Cervezas Polar']
-      }
-    });
+    await store.updateCliente(cliente.id, updates);
 
-    // 2. Actualizar userProfiles
-    const userUpdates = {
-      categoriaClienteId: categoriaId,
-      fechaAsignacionCategoria: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (nuevoAporteValor !== null) {
-      userUpdates.aportePersonalizado = {
-        valor: nuevoAporteValor,
-        modificadoPor: sessionStorage.getItem('userName') || 'admin',
-        fecha: firebase.firestore.FieldValue.serverTimestamp()
-      };
-    } else {
-      // Si se dejó vacío, eliminar el aporte personalizado
-      userUpdates.aportePersonalizado = null;
-    }
-    await firebase.firestore()
-      .collection('userProfiles')
-      .doc(cliente.id)
-      .update(userUpdates);
-
-    // 3. Registrar historial si hubo cambio
-    if (categoriaCambio && historialEntry) {
-      await firebase.firestore()
-        .collection('empresas').doc(sessionStorage.getItem('empresaId'))
-        .collection('clientes').doc(cliente.id)
-        .update({
-          historialCambios: firebase.firestore.FieldValue.arrayUnion(historialEntry)
+    // Actualizar userProfiles si aplica
+    try {
+      const perfilRef = firebase.firestore().collection('userProfiles').doc(cliente.id);
+      const perfilDoc = await perfilRef.get();
+      if (perfilDoc.exists) {
+        await perfilRef.update({
+          nombre: nombre,
+          categoriaClienteId: categoriaId,
+          aportePersonalizado: nuevoAporteValor !== null ? { valor: nuevoAporteValor, modificadoPor: sessionStorage.getItem('userName') || 'admin', fecha: new Date().toISOString() } : null
         });
+      }
+    } catch (e) {
+      console.warn('Error actualizando userProfiles:', e);
     }
 
-    // 4. Actualizar store local
+    // Registrar historial
+    if (historialEntry) {
+      try {
+        await firebase.firestore()
+          .collection('empresas').doc(sessionStorage.getItem('empresaId'))
+          .collection('clientes').doc(cliente.id)
+          .update({
+            historialCambios: firebase.firestore.FieldValue.arrayUnion(historialEntry)
+          });
+      } catch (e) {}
+    }
+
+    // Actualizar store local
     const index = store.clientes.findIndex(c => c.id === cliente.id);
     if (index !== -1) {
-      store.clientes[index] = { ...store.clientes[index], ...updates, categoriaId, aporteEspecial: { tipo: 'porcentaje_liquido', valor: nuevoAporteValor !== null ? nuevoAporteValor : (categoriaId ? null : 0), aplicaA: ['Cervezas Polar'] } };
+      store.clientes[index] = { ...store.clientes[index], ...updates };
       syncGlobals();
     }
 
@@ -1860,6 +2087,14 @@ function openModal() {
   document.getElementById('modal-title').textContent = m.title;
   document.getElementById('modal-body').innerHTML = m.body;
   abrirModalId('modal');
+
+  // ✅ NUEVO: Si es el modal de clientes, cargar las categorías
+  if (currentScreen === 'clientes') {
+    setTimeout(() => {
+      cargarCategoriasEnModal();
+      toggleMontoSaldoInicial();
+    }, 100);
+  }
 }
 
 function closeModal(e) {

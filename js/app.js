@@ -1,6 +1,6 @@
 // ── VARIABLES GLOBALES ──
 let currentScreen = 'dashboard';
-const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'reportes', 'cliente', 'configuracion', 'cargar-precios'];
+const screens = ['dashboard', 'ventas', 'inventario', 'clientes', 'cuentas', 'reportes', 'cliente', 'configuracion', 'cargar-precios'];
 let filtroVentas = 'todas';
 let filtroInv = 'todos';
 let filtroCli = 'todos';

@@ -272,6 +272,12 @@
     <div class="chip" onclick="filterChip(this,'cli')">Regular</div>
     <div class="chip" onclick="filterChip(this,'cli')">Nuevo</div>
   </div>
+  <div class="chips" style="margin-top:-8px;">
+    <div class="chip active" data-cli-exclusividad="todas" onclick="filtrarClientesPorExclusividad('todas', this)">Todas</div>
+    <div class="chip" data-cli-exclusividad="exclusivo_polar" onclick="filtrarClientesPorExclusividad('exclusivo_polar', this)">🎯 Exclusivos</div>
+    <div class="chip" data-cli-exclusividad="mixto" onclick="filtrarClientesPorExclusividad('mixto', this)">🔄 Mixtos</div>
+    <div class="chip" data-cli-exclusividad="competencia" onclick="filtrarClientesPorExclusividad('competencia', this)">⚠️ Competencia</div>
+  </div>
   <div id="client-list"></div>
 </div>
 

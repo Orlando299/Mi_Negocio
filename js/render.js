@@ -92,6 +92,82 @@ function renderVentas(textFilter = '', statusFilter = 'todas', append = false) {
 //  RENDERIZAR INVENTARIO (con "Cargar más")
 // ================================================================
 
+function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
+  const list = document.getElementById('inv-list');
+  const q = textFilter.toLowerCase();
+
+  if (!append) {
+    store.lastInventarioDoc = null;
+    store.hasMoreInventario = true;
+    list.innerHTML = '';
+  }
+
+  // ✅ CAMBIO: Leer categoría desde cat o categoria
+  let data = store.inventario.filter(p => {
+    const catProd = p.cat || p.categoria || '';
+    const matchText = !q || 
+      (p.nombre && p.nombre.toLowerCase().includes(q)) || 
+      (catProd && catProd.toLowerCase().includes(q));
+    const matchStock = stockFilter === 'todos' || p.estado === stockFilter;
+    return matchText && matchStock;
+  });
+
+  if (!data.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No se encontraron productos</div></div>`;
+    updateKPIs();
+    return;
+  }
+
+  let html = data.map(p => {
+    const nombreEscapado = escapeHtml(p.nombre);
+    // ✅ CAMBIO: cat o categoria
+    const catEscapado = escapeHtml(p.cat || p.categoria || 'General');
+    const precioEscapado = escapeHtml(p.precio);
+    const estadoEscapado = escapeHtml(p.estado);
+    const icon = p.icon || '📦';
+    const stock = p.stock ?? 0;
+    const stockText = estadoEscapado === 'out' ? 'Agotado' : stock + ' u.';
+    const nombreJs = escapeJsString(p.nombre);
+
+    return `
+      <div class="inv-card">
+        <div class="inv-img">${icon}</div>
+        <div class="inv-info">
+          <div class="inv-name">${nombreEscapado}</div>
+          <div class="inv-cat">${catEscapado}</div>
+        </div>
+        <div class="inv-right">
+          <div class="inv-price">${precioEscapado}</div>
+          <div class="inv-stock ${estadoEscapado}">${stockText}</div>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <button class="btn-icon edit" onclick="editProducto('${nombreJs}')" title="Editar">✏️</button>
+          <button class="btn-icon danger" onclick="confirmDeleteProducto('${nombreJs}')" title="Eliminar">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  let botonCargar = '';
+  if (store.hasMoreInventario) {
+    botonCargar = `
+      <div style="text-align:center; margin-top:16px;">
+        <button class="btn btn-outline" onclick="cargarMasInventario()" id="btn-cargar-inventario" ${cargandoInventario ? 'disabled' : ''}>
+          ${cargandoInventario ? '⏳ Cargando...' : '📥 Cargar más productos'}
+        </button>
+      </div>
+    `;
+  }
+
+  list.innerHTML = html + botonCargar;
+  updateKPIs();
+}
+
+// ================================================================
+//  RENDERIZAR CLIENTES (con "Cargar más")
+//  - Incluye exclusividad y saldo
+// ================================================================
+
 function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
   const list = document.getElementById('client-list');
   const q = textFilter.toLowerCase();
@@ -105,7 +181,6 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
   let data = store.clientes.filter(c => {
     const matchText = !q || (c.nombre && c.nombre.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q));
     const matchTag = tagFilter === 'todos' || c.tag === tagFilter;
-    // ✅ NUEVO: Filtro por exclusividad
     const matchExclusividad = filtroCliExclusividad === 'todas' || c.exclusividad === filtroCliExclusividad;
     return matchText && matchTag && matchExclusividad;
   });
@@ -130,7 +205,7 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
     // Premio especial pendiente
     const liquidoPendiente = c.liquidoPendiente?.total || 0;
 
-    // ✅ NUEVO: Badge de exclusividad
+    // Badge de exclusividad
     const exclusividadBadge = c.exclusividad === 'exclusivo_polar' 
       ? '<span class="client-exclusividad exclusivo">🎯 Exclusivo</span>' 
       : c.exclusividad === 'mixto' 
@@ -139,7 +214,7 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
       ? '<span class="client-exclusividad competencia">⚠️ Competencia</span>' 
       : '';
 
-    // ✅ NUEVO: Saldo del cliente
+    // Saldo del cliente
     const saldoActual = c.saldo?.actual || 0;
     const saldoBadge = saldoActual > 0 
       ? `<div class="client-saldo deuda">💵 Debe $${saldoActual.toFixed(2)}</div>`
@@ -159,7 +234,6 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
         <div class="client-right">
           <div class="client-spent">${comprasEscapado}</div>
           <div class="client-orders">${c.pedidos} pedidos</div>
-          <!-- Premio especial pendiente -->
           <div class="client-liquido" style="font-size:12px; color:var(--primary); font-weight:600;">
             🎁 ${liquidoPendiente} uds.
           </div>
@@ -168,89 +242,6 @@ function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
         <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
           <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
           <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
-          <!-- Botón de entrega de premio especial -->
-          <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Entregar premio especial en líquido">🎁</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  let botonCargar = '';
-  if (store.hasMoreClientes) {
-    botonCargar = `
-      <div style="text-align:center; margin-top:16px;">
-        <button class="btn btn-outline" onclick="cargarMasClientes()" id="btn-cargar-clientes" ${cargandoClientes ? 'disabled' : ''}>
-          ${cargandoClientes ? '⏳ Cargando...' : '📥 Cargar más clientes'}
-        </button>
-      </div>
-    `;
-  }
-
-  list.innerHTML = html + botonCargar;
-  updateKPIs();
-}
-
-// ================================================================
-//  RENDERIZAR CLIENTES (con "Cargar más")
-//  - Incluye columna "Premio especial pendiente" y botón de entrega
-// ================================================================
-
-function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
-  const list = document.getElementById('client-list');
-  const q = textFilter.toLowerCase();
-
-  if (!append) {
-    store.lastClienteDoc = null;
-    store.hasMoreClientes = true;
-    list.innerHTML = '';
-  }
-
-  let data = store.clientes.filter(c => {
-    const matchText = !q || (c.nombre && c.nombre.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q));
-    const matchTag = tagFilter === 'todos' || c.tag === tagFilter;
-    return matchText && matchTag;
-  });
-
-  if (!data.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No se encontraron clientes</div></div>`;
-    updateKPIs();
-    return;
-  }
-
-  const tagLabel = { vip: 'VIP', regular: 'Regular', nuevo: 'Nuevo' };
-  let html = data.map(c => {
-    const nombreEscapado = escapeHtml(c.nombre);
-    const phoneEscapado = escapeHtml(c.phone);
-    const comprasEscapado = escapeHtml(c.compras);
-    const tag = escapeHtml(c.tag);
-    const tagLabelText = tagLabel[tag] || tag;
-    const color = c.color || '#7C3AED';
-    const init = c.init || '??';
-    const nombreJs = escapeJsString(c.nombre);
-
-    // Premio especial pendiente
-    const liquidoPendiente = c.liquidoPendiente?.total || 0;
-
-    return `
-      <div class="client-card">
-        <div class="client-avatar" style="background:${color}">${init}</div>
-        <div class="client-info">
-          <div class="client-name">${nombreEscapado}</div>
-          <div class="client-phone">${phoneEscapado}</div>
-          <span class="client-tag ${tag}">${tagLabelText}</span>
-        </div>
-        <div class="client-right">
-          <div class="client-spent">${comprasEscapado}</div>
-          <div class="client-orders">${c.pedidos} pedidos</div>
-          <!-- ✅ CAMBIO FASE 2: Premio especial pendiente -->
-          <div class="client-liquido" style="font-size:12px; color:var(--primary); font-weight:600;">
-            🎁 ${liquidoPendiente} uds.
-          </div>
-        </div>
-        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
-          <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
-          <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
-          <!-- ✅ CAMBIO FASE 2: Botón de entrega de premio especial -->
           <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Entregar premio especial en líquido">🎁</button>
         </div>
       </div>
@@ -412,7 +403,6 @@ async function renderReportes(periodo = 'semana') {
   const cancelados = ventasPeriodo.filter(v => v.status === 'cancelado').length;
   const ticketPromedio = totalPedidos > 0 ? totalIngresos / totalPedidos : 0;
 
-  // ✅ NUEVO: Actualizar por IDs en lugar de por posición
   const setEl = (id, valor) => {
     const el = document.getElementById(id);
     if (el) el.textContent = valor;
@@ -423,7 +413,7 @@ async function renderReportes(periodo = 'semana') {
   setEl('reporte-ticket-promedio', formatCurrency(ticketPromedio));
   setEl('reporte-cancelados', cancelados);
 
-  // ✅ NUEVO: Nuevos clientes del período
+  // Nuevos clientes del período
   try {
     const cliSnap = await firebase.firestore()
       .collection('empresas').doc(empresaId)
@@ -442,7 +432,7 @@ async function renderReportes(periodo = 'semana') {
     setEl('reporte-nuevos-clientes', '+0');
   }
 
-  // ✅ NUEVO: Top productos con datos reales
+  // Top productos
   const topProductos = await store.obtenerProductosMasVendidos(empresaId, 5);
   const topProdContainer = document.getElementById('reporte-top-productos');
   if (topProdContainer) {
@@ -465,7 +455,7 @@ async function renderReportes(periodo = 'semana') {
     }
   }
 
-  // ✅ NUEVO: Top clientes con datos reales
+  // Top clientes
   const clientesTop = await obtenerClientesTop(empresaId, ventasPeriodo, 5);
   const clientesContainer = document.getElementById('reporte-clientes-top');
   if (clientesContainer) {
@@ -482,7 +472,7 @@ async function renderReportes(periodo = 'semana') {
   }
 }
 
-// ✅ NUEVA: Función auxiliar para calcular clientes top
+// Función auxiliar para calcular clientes top
 async function obtenerClientesTop(empresaId, ventasPeriodo, limite = 5) {
   const porCliente = {};
   ventasPeriodo.forEach(v => {
@@ -611,7 +601,6 @@ function renderChartVentas() {
         const total = parseCurrency(v.total);
         if (total > 0) {
           totales[idx] += total;
-          console.log('[Chart] Sumando venta:', v.total, 'en día', diasLabels[idx]);
         }
       }
     } catch (e) {
@@ -619,8 +608,6 @@ function renderChartVentas() {
     }
   });
 
-  console.log('[Chart] Totales por día:', totales);
-  
   const hayDatos = totales.some(t => t > 0);
   const parent = ctx.parentNode;
 
@@ -628,7 +615,6 @@ function renderChartVentas() {
   if (oldMsg) oldMsg.remove();
 
   if (!hayDatos) {
-    console.log('[Chart] No hay ventas en la semana actual');
     if (window.chartVentasInstance) {
       window.chartVentasInstance.destroy();
       window.chartVentasInstance = null;
@@ -712,7 +698,6 @@ function renderChartVentas() {
       animation: { duration: 700, easing: 'easeOutQuart' }
     }
   });
-  console.log('[Chart] Gráfico renderizado con:', totales);
 }
 
 // ================================================================

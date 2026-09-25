@@ -645,12 +645,13 @@
       </div>
     </div>
 
-    <div class="config-tabs" style="margin-bottom:16px;">
+       <div class="config-tabs" style="margin-bottom:16px;">
       <button class="config-tab active" data-tab-cliente="catalogo">🛍️ Catálogo</button>
       <button class="config-tab" data-tab-cliente="chat">💬 Chat</button>
       <button class="config-tab" data-tab-cliente="alertas">🚨 Alertas</button>
       <button class="config-tab" data-tab-cliente="pedidos">📋 Pedidos</button>
-      <button class="config-tab" data-tab-cliente="liquidaciones">🎁 Premios recibidos</button>
+      <button class="config-tab" data-tab-cliente="liquidaciones">🎁 Premios</button>
+      <button class="config-tab" data-tab-cliente="micuenta">💰 Mi cuenta</button>
     </div>
 
     <div id="cliente-panel-catalogo" class="cliente-panel-content active">
@@ -693,13 +694,20 @@
       <div id="historial-pedidos"></div>
     </div>
 
-    <!-- NUEVO PANEL DE LIQUIDACIONES -->
+       <!-- NUEVO PANEL DE LIQUIDACIONES -->
     <div id="cliente-panel-liquidaciones" class="cliente-panel-content" style="display:none;">
       <div class="section-header">
-  <span class="section-title">🎁 Historial de premios especiales en líquido</span>
-</div>
+        <span class="section-title">🎁 Historial de premios especiales en líquido</span>
+      </div>
       <div id="historial-liquidaciones">
         <div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">Aún no has recibido premios especiales</div></div>
+      </div>
+    </div>
+
+    <!-- NUEVO PANEL: MI CUENTA -->
+    <div id="cliente-panel-micuenta" class="cliente-panel-content" style="display:none;">
+      <div id="micuenta-contenido">
+        <div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando tu cuenta...</div></div>
       </div>
     </div>
   </div>

@@ -5942,7 +5942,7 @@ const funcionesGlobales = {
   mostrarRegistroEmpresa, cerrarModalRegistroEmpresa,
   mostrarRegistroCliente, cerrarModalRegistroCliente,
   mostrarLoginUnificado, cerrarModalLogin,
-  registrarEmpresa, registrarClienteNuevo,  cargarUsuariosEmpresa, toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado,registrarEmpleado,
+  registrarEmpresa, registrarClienteNuevo, cargarUsuariosEmpresa, toggleUsuarioEstado, eliminarUsuario, abrirModalEmpleado, cerrarModalRegistroEmpleado, loginUnificado, registrarEmpleado,
   generarCodigoAcceso, mostrarCodigoInvitacion, copiarCodigo, regenerarCodigo, cerrarModalCodigo,
   forzarCierreModal, abrirModalId,
   abrirModalDespacho, confirmarDespacho, generarFacturaDespacho,
@@ -5963,13 +5963,13 @@ const funcionesGlobales = {
   cerrarModalLiquidacion,
   confirmarLiquidacion,
   cargarLiquidacionesCliente, cargarEstadisticasAgente, recargarEstadisticasAgente, importarProductosPolar,
-  agregarProductoPolar, subirCatalogoPolar,renderizarCatalogoMaestro,
+  agregarProductoPolar, subirCatalogoPolar, renderizarCatalogoMaestro,
   agregarProductoPolarAlInventario,
   recargarCatalogoMaestro, quitarProductoPolarDelInventario,
   // Módulo Cargar Precios (Bloque C)
   abrirCargarPrecios,
   cerrarCargarPrecios,
-   // Nombre personalizable del agente (Bloque D)
+  // Nombre personalizable del agente (Bloque D)
   cargarNombreAgente,
   guardarNombreAgente,
   restaurarNombreAgenteDefault,
@@ -5990,7 +5990,11 @@ const funcionesGlobales = {
   obIrACategorias,
   obIrAAgente,
   obFinalizarOnboarding,
-  obCerrarOnboarding, filtrarClientesPorExclusividad
+  obCerrarOnboarding,
+  // ✅ NUEVO: Fase 2 - Registro completo de cliente
+  filtrarClientesPorExclusividad,
+  cargarCategoriasEnModal,
+  toggleMontoSaldoInicial
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

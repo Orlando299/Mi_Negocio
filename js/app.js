@@ -6442,11 +6442,239 @@ function cerrarModalEstadoCuenta(e) {
 }
 
 // ================================================================
-//  PLACEHOLDER: Registrar pago (se implementa en Fase 7)
+//  MÓDULO: REGISTRAR PAGO MANUAL (FASE 7)
 // ================================================================
-function abrirModalRegistrarPago(clienteId) {
-  showToast('💵 El registro manual de pagos se implementará en la siguiente fase');
-  console.log('Cliente ID:', clienteId);
+
+let pagoClienteIdActual = null;
+
+async function abrirModalRegistrarPago(clienteId) {
+  if (!clienteId) {
+    showToast('⚠️ Cliente no especificado');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  pagoClienteIdActual = clienteId;
+
+  try {
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .get();
+
+    if (!clienteDoc.exists) {
+      showToast('⚠️ Cliente no encontrado');
+      return;
+    }
+
+    const cliente = clienteDoc.data();
+    const saldoActual = cliente.saldo?.actual || 0;
+
+    const titleEl = document.getElementById('modal-registrar-pago-title');
+    if (titleEl) {
+      titleEl.textContent = `💵 Registrar pago - ${cliente.nombre || 'Sin nombre'}`;
+    }
+
+    const saldoColor = saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text2)';
+    const saldoLabel = saldoActual > 0 ? '(debe)' : saldoActual < 0 ? '(a favor)' : '(al día)';
+    const montoSugerido = saldoActual > 0 ? saldoActual : 0;
+
+    const body = `
+      <div style="text-align:center; padding:12px; background:var(--surface2); border-radius:var(--radius-sm); margin-bottom:16px;">
+        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Saldo actual</div>
+        <div style="font-size:24px; font-weight:800; color:${saldoColor}; font-family:'JetBrains Mono',monospace; margin-top:4px;">
+          $${Math.abs(saldoActual).toFixed(2)}
+        </div>
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.3px;">
+          ${saldoLabel}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Monto a pagar *</label>
+        <div style="display:flex; gap:8px;">
+          <input type="number" id="pago-manual-monto" 
+                 value="${montoSugerido > 0 ? montoSugerido.toFixed(2) : ''}" 
+                 placeholder="0.00" min="0" step="0.01" style="flex:1;">
+          ${montoSugerido > 0 ? `
+            <button type="button" class="btn btn-outline" 
+                    onclick="document.getElementById('pago-manual-monto').value = '${montoSugerido.toFixed(2)}'" 
+                    style="width:auto; padding:0 12px; font-size:11px; white-space:nowrap;">
+              💰 Pagar todo
+            </button>
+          ` : ''}
+        </div>
+        <small style="color:var(--text3); font-size:11px;">
+          ${saldoActual > 0 
+            ? 'Puedes registrar un abono parcial si el cliente no paga todo.' 
+            : 'Puedes registrar un pago por adelantado.'}
+        </small>
+      </div>
+
+      <div class="field">
+        <label>Método de pago *</label>
+        <select id="pago-manual-metodo">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Pago Móvil">Pago Móvil</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Zelle">Zelle</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Notas (opcional)</label>
+        <input type="text" id="pago-manual-notas" 
+               placeholder="Ej: Abono parcial, pago adelantado, etc." 
+               maxlength="200">
+      </div>
+
+      <button class="btn btn-primary" onclick="confirmarPagoManual()">✅ Registrar pago</button>
+      <button class="btn btn-outline" onclick="cerrarModalRegistrarPago()">Cancelar</button>
+    `;
+
+    const bodyEl = document.getElementById('modal-body-registrar-pago');
+    if (bodyEl) bodyEl.innerHTML = body;
+
+    abrirModalId('modal-registrar-pago');
+
+  } catch (error) {
+    console.error('❌ Error abriendo modal de pago:', error);
+    showToast('❌ Error al abrir el modal: ' + error.message);
+  }
+}
+
+function cerrarModalRegistrarPago(e) {
+  if (e && e.target && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-registrar-pago');
+  pagoClienteIdActual = null;
+}
+
+async function confirmarPagoManual() {
+  const clienteId = pagoClienteIdActual;
+  if (!clienteId) {
+    showToast('⚠️ No hay cliente activo');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  const montoInput = document.getElementById('pago-manual-monto');
+  const metodo = document.getElementById('pago-manual-metodo').value;
+  const notas = document.getElementById('pago-manual-notas').value.trim();
+
+  const monto = parseFloat(montoInput.value);
+  if (isNaN(monto) || monto <= 0) {
+    showToast('⚠️ Ingresa un monto válido mayor a 0');
+    return;
+  }
+
+  const btn = document.querySelector('#modal-registrar-pago .btn-primary');
+  if (btn) btn.disabled = true;
+
+  try {
+    const clienteRef = firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId);
+
+    // 1. Restar del saldo con transacción atómica
+    await firebase.firestore().runTransaction(async (transaction) => {
+      const doc = await transaction.get(clienteRef);
+      if (!doc.exists) throw new Error('Cliente no existe');
+
+      const data = doc.data();
+      const saldoActual = data.saldo || {
+        actual: 0,
+        totalPedidos: 0,
+        totalPagos: 0,
+        saldoInicial: 0,
+        ultimoMovimiento: null,
+        ultimoMovimientoTipo: null
+      };
+
+      const nuevoSaldo = {
+        actual: (saldoActual.actual || 0) - monto,
+        totalPedidos: saldoActual.totalPedidos || 0,
+        totalPagos: (saldoActual.totalPagos || 0) + monto,
+        saldoInicial: saldoActual.saldoInicial || 0,
+        ultimoMovimiento: new Date().toISOString(),
+        ultimoMovimientoTipo: 'pago'
+      };
+
+      transaction.update(clienteRef, { saldo: nuevoSaldo });
+    });
+
+    // 2. Registrar el pago en la subcolección
+    await clienteRef.collection('pagos').add({
+      monto: monto,
+      metodo: metodo,
+      notas: notas || 'Pago manual registrado',
+      tipo: 'pago',
+      ventaId: null,
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      registradoPor: sessionStorage.getItem('userName') || 'Admin',
+      registradoPorUid: firebase.auth().currentUser?.uid || ''
+    });
+
+    // 3. Actualizar store local
+    const indexLocal = store.clientes?.findIndex(c => c.id === clienteId);
+    if (indexLocal !== -1 && store.clientes) {
+      const saldoLocal = store.clientes[indexLocal].saldo || {
+        actual: 0, totalPedidos: 0, totalPagos: 0, saldoInicial: 0
+      };
+      store.clientes[indexLocal].saldo = {
+        actual: (saldoLocal.actual || 0) - monto,
+        totalPedidos: saldoLocal.totalPedidos || 0,
+        totalPagos: (saldoLocal.totalPagos || 0) + monto,
+        saldoInicial: saldoLocal.saldoInicial || 0,
+        ultimoMovimiento: new Date().toISOString(),
+        ultimoMovimientoTipo: 'pago'
+      };
+    }
+
+    // 4. Cerrar modal
+    cerrarModalRegistrarPago();
+
+    // 5. Refrescar UI
+    syncGlobals();
+    showToast(`✅ Pago de $${monto.toFixed(2)} registrado`);
+
+    // Refrescar la lista de Cuentas por Cobrar
+    if (typeof renderCuentasPorCobrar === 'function') {
+      setTimeout(() => renderCuentasPorCobrar(), 300);
+    }
+
+    // Refrescar la lista de clientes
+    if (typeof renderClients === 'function') {
+      setTimeout(() => renderClients('', filtroCli, false), 300);
+    }
+
+    // Actualizar KPIs
+    if (typeof updateKPIs === 'function') {
+      updateKPIs();
+    }
+
+    // Si el estado de cuenta estaba abierto, reabrirlo con datos frescos
+    setTimeout(() => {
+      if (typeof abrirEstadoCuenta === 'function') {
+        abrirEstadoCuenta(clienteId);
+      }
+    }, 600);
+
+  } catch (error) {
+    console.error('❌ Error registrando pago:', error);
+    showToast('❌ Error al registrar: ' + error.message);
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6537,7 +6765,11 @@ const funcionesGlobales = {
     // Fase 6 - Estado de cuenta
   abrirEstadoCuenta,
   cerrarModalEstadoCuenta,
-  abrirModalRegistrarPago
+  abrirModalRegistrarPago,
+   // Fase 7 - Registrar pago manual
+  abrirModalRegistrarPago,
+  cerrarModalRegistrarPago,
+  confirmarPagoManual
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

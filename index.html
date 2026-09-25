@@ -281,6 +281,36 @@
   <div id="client-list"></div>
 </div>
 
+  <!-- ==================== SCREEN: CUENTAS POR COBRAR ==================== -->
+<div class="screen" id="screen-cuentas">
+  <div class="greeting" style="margin-bottom:12px;">
+    <h2 style="font-size:20px; font-weight:700; margin:0;">💰 Cuentas por Cobrar</h2>
+    <p style="font-size:13px; color:var(--text2); margin-top:2px;">Estado de cuenta de tus clientes</p>
+  </div>
+
+  <div class="search-bar" style="margin-bottom:12px;">
+    <input class="search-input" placeholder="🔍  Buscar cliente..." id="cuentas-search" oninput="filtrarCuentas()">
+  </div>
+
+  <div class="chips" style="margin-bottom:12px;">
+    <div class="chip active" data-cuentas-filter="todas" onclick="filtrarCuentasPorTipo('todas', this)">Todas</div>
+    <div class="chip" data-cuentas-filter="deuda" onclick="filtrarCuentasPorTipo('deuda', this)">🔴 Con deuda</div>
+    <div class="chip" data-cuentas-filter="favor" onclick="filtrarCuentasPorTipo('favor', this)">🟢 A favor</div>
+    <div class="chip" data-cuentas-filter="aldia" onclick="filtrarCuentasPorTipo('aldia', this)">⚪ Al día</div>
+  </div>
+
+  <!-- Resumen global -->
+  <div id="cuentas-resumen" style="margin-bottom:12px;">
+    <div class="empty"><div class="empty-text">Cargando resumen...</div></div>
+  </div>
+
+  <!-- Lista de clientes -->
+  <div id="cuentas-lista">
+    <div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Cargando cuentas...</div></div>
+  </div>
+</div>
+
+
 <!-- ==================== SCREEN: CONFIGURACIÓN ==================== -->
 <div class="screen" id="screen-configuracion">
   <div class="config-container">

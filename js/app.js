@@ -5901,6 +5901,18 @@ window.aplicarNombreAgente = aplicarNombreAgente;
 window.abrirCargarPrecios = abrirCargarPrecios;
 window.cerrarCargarPrecios = cerrarCargarPrecios;
 
+// ================================================================
+//  FILTRO POR EXCLUSIVIDAD EN LA PANTALLA CLIENTES
+// ================================================================
+let filtroCliExclusividad = 'todas';
+
+function filtrarClientesPorExclusividad(valor, el) {
+  filtroCliExclusividad = valor;
+  document.querySelectorAll('[data-cli-exclusividad]').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderClients(document.getElementById('client-search')?.value || '', filtroCli, false);
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -5977,7 +5989,7 @@ const funcionesGlobales = {
   obIrACategorias,
   obIrAAgente,
   obFinalizarOnboarding,
-  obCerrarOnboarding
+  obCerrarOnboarding, filtrarClientesPorExclusividad
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

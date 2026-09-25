@@ -5958,6 +5958,231 @@ function filtrarClientesPorExclusividad(valor, el) {
   renderClients(document.getElementById('client-search')?.value || '', filtroCli, false);
 }
 
+// ================================================================
+//  MÓDULO: CONFIRMAR PAGO (FASE 4)
+// ================================================================
+
+let pagoVentaIdActual = null;
+
+async function abrirModalConfirmarPago(ventaId) {
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+
+  if (venta.status !== 'pendiente') {
+    showToast('⚠️ Esta venta ya fue procesada');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  const cliente = store.clientes.find(c => c.nombre === venta.cliente);
+
+  if (!cliente) {
+    showToast('⚠️ Cliente no encontrado');
+    return;
+  }
+
+  // Leer saldo actual del cliente
+  let saldoActual = 0;
+  try {
+    const cliDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(cliente.id)
+      .get();
+    if (cliDoc.exists) {
+      saldoActual = cliDoc.data().saldo?.actual || 0;
+    }
+  } catch (e) {
+    console.warn('Error leyendo saldo:', e);
+  }
+
+  const totalVenta = parseCurrency(venta.total);
+  const saldoDespues = saldoActual - totalVenta;
+
+  pagoVentaIdActual = ventaId;
+
+  const body = `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="font-size:13px; color:var(--text2);">Cliente:</span>
+        <strong style="font-size:13px;">${escapeHtml(cliente.nombre)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="font-size:13px; color:var(--text2);">Total del pedido:</span>
+        <strong style="font-size:13px; color:var(--primary);">${venta.total}</strong>
+      </div>
+    </div>
+
+    <div style="background:var(--surface2); padding:12px; border-radius:var(--radius-sm); margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span style="font-size:12px; color:var(--text3);">Saldo actual:</span>
+        <span style="font-size:13px; font-weight:700; color:${saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text2)'};">
+          $${Math.abs(saldoActual).toFixed(2)} ${saldoActual > 0 ? '(debe)' : saldoActual < 0 ? '(a favor)' : '(al día)'}
+        </span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span style="font-size:12px; color:var(--text3);">Este pago resta:</span>
+        <span style="font-size:13px; font-weight:700; color:var(--green);">-$${totalVenta.toFixed(2)}</span>
+      </div>
+      <div style="border-top:1px solid var(--border); margin:6px 0;"></div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="font-size:12px; color:var(--text3);">Saldo después:</span>
+        <span style="font-size:13px; font-weight:700; color:${saldoDespues > 0 ? 'var(--red)' : saldoDespues < 0 ? 'var(--green)' : 'var(--text2)'};">
+          $${Math.abs(saldoDespues).toFixed(2)} ${saldoDespues > 0 ? '(debe)' : saldoDespues < 0 ? '(a favor)' : '(al día)'}
+        </span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Monto recibido *</label>
+      <div style="display:flex; gap:8px;">
+        <input type="number" id="pago-monto" value="${totalVenta.toFixed(2)}" placeholder="0.00" min="0" step="0.01" style="flex:1;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('pago-monto').value = '${totalVenta.toFixed(2)}'" style="width:auto; padding:0 12px; font-size:12px;">💰 Pagar todo</button>
+      </div>
+      <small style="color:var(--text3); font-size:11px;">Puedes modificar el monto para registrar abonos parciales</small>
+    </div>
+
+    <div class="field">
+      <label>Método de pago *</label>
+      <select id="pago-metodo">
+        <option value="Efectivo" ${venta.metodo === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
+        <option value="Pago Móvil" ${venta.metodo === 'Pago Móvil' ? 'selected' : ''}>Pago Móvil</option>
+        <option value="Transferencia" ${venta.metodo === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
+        <option value="Zelle" ${venta.metodo === 'Zelle' ? 'selected' : ''}>Zelle</option>
+        <option value="Otro" ${venta.metodo !== 'Efectivo' && venta.metodo !== 'Pago Móvil' && venta.metodo !== 'Transferencia' && venta.metodo !== 'Zelle' ? 'selected' : ''}>Otro</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Notas (opcional)</label>
+      <input type="text" id="pago-notas" placeholder="Ej: Abono parcial, pago adelantado, etc.">
+    </div>
+
+    <button class="btn btn-primary" onclick="confirmarPagoConMonto()">✅ Registrar pago</button>
+    <button class="btn btn-outline" onclick="cerrarModalConfirmarPago()">Cancelar</button>
+  `;
+
+  document.getElementById('modal-body-confirmar-pago').innerHTML = body;
+  abrirModalId('modal-confirmar-pago');
+}
+
+function cerrarModalConfirmarPago(e) {
+  if (e && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-confirmar-pago');
+  pagoVentaIdActual = null;
+}
+
+async function confirmarPagoConMonto() {
+  const ventaId = pagoVentaIdActual;
+  if (!ventaId) {
+    showToast('⚠️ No hay venta activa');
+    return;
+  }
+
+  const venta = store.ventas.find(v => v.id === ventaId);
+  if (!venta) {
+    showToast('⚠️ Venta no encontrada');
+    return;
+  }
+
+  const montoInput = document.getElementById('pago-monto');
+  const metodo = document.getElementById('pago-metodo').value;
+  const notas = document.getElementById('pago-notas').value.trim();
+
+  const monto = parseFloat(montoInput.value);
+  if (isNaN(monto) || monto <= 0) {
+    showToast('⚠️ Ingresa un monto válido');
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  const cliente = store.clientes.find(c => c.nombre === venta.cliente);
+
+  if (!cliente) {
+    showToast('⚠️ Cliente no encontrado');
+    return;
+  }
+
+  try {
+    // 1. Registrar el pago en la subcolección y restar del saldo
+    const clienteRef = firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(cliente.id);
+
+    await firebase.firestore().runTransaction(async (transaction) => {
+      const doc = await transaction.get(clienteRef);
+      if (!doc.exists) throw new Error('Cliente no existe');
+
+      const data = doc.data();
+      const saldoActual = data.saldo || {
+        actual: 0,
+        totalPedidos: 0,
+        totalPagos: 0,
+        saldoInicial: 0,
+        ultimoMovimiento: null,
+        ultimoMovimientoTipo: null
+      };
+
+      const nuevoSaldo = {
+        actual: (saldoActual.actual || 0) - monto,
+        totalPedidos: saldoActual.totalPedidos || 0,
+        totalPagos: (saldoActual.totalPagos || 0) + monto,
+        saldoInicial: saldoActual.saldoInicial || 0,
+        ultimoMovimiento: new Date().toISOString(),
+        ultimoMovimientoTipo: 'pago'
+      };
+
+      transaction.update(clienteRef, { saldo: nuevoSaldo });
+    });
+
+    // 2. Registrar el pago en la subcolección
+    await clienteRef.collection('pagos').add({
+      monto: monto,
+      metodo: metodo,
+      notas: notas || 'Pago registrado desde confirmación',
+      tipo: 'pago',
+      ventaId: ventaId,
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      registradoPor: sessionStorage.getItem('userName') || 'Admin',
+      registradoPorUid: firebase.auth().currentUser?.uid || ''
+    });
+
+    // 3. Actualizar la venta a 'pagado'
+    await store.updateVenta(ventaId, {
+      status: 'pagado',
+      metodo: metodo,
+      fechaPagoConfirmado: new Date().toISOString()
+    });
+
+    // 4. Actualizar store local
+    const indexLocal = store.clientes?.findIndex(c => c.id === cliente.id);
+    if (indexLocal !== -1 && store.clientes) {
+      const saldoLocal = store.clientes[indexLocal].saldo || { actual: 0, totalPedidos: 0, totalPagos: 0, saldoInicial: 0 };
+      store.clientes[indexLocal].saldo = {
+        actual: (saldoLocal.actual || 0) - monto,
+        totalPedidos: saldoLocal.totalPedidos || 0,
+        totalPagos: (saldoLocal.totalPagos || 0) + monto,
+        saldoInicial: saldoLocal.saldoInicial || 0,
+        ultimoMovimiento: new Date().toISOString(),
+        ultimoMovimientoTipo: 'pago'
+      };
+    }
+
+    syncGlobals();
+    renderVentas('', filtroVentas, 1);
+    renderClients('', filtroCli, 1);
+    updateKPIs();
+
+    cerrarModalConfirmarPago();
+    showToast(`✅ Pago de $${monto.toFixed(2)} registrado`);
+  } catch (error) {
+    console.error('❌ Error registrando pago:', error);
+    showToast('❌ Error al registrar el pago: ' + error.message);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════

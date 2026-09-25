@@ -92,68 +92,95 @@ function renderVentas(textFilter = '', statusFilter = 'todas', append = false) {
 //  RENDERIZAR INVENTARIO (con "Cargar más")
 // ================================================================
 
-function renderInv(textFilter = '', stockFilter = 'todos', append = false) {
-  const list = document.getElementById('inv-list');
+function renderClients(textFilter = '', tagFilter = 'todos', append = false) {
+  const list = document.getElementById('client-list');
   const q = textFilter.toLowerCase();
 
   if (!append) {
-    store.lastInventarioDoc = null;
-    store.hasMoreInventario = true;
+    store.lastClienteDoc = null;
+    store.hasMoreClientes = true;
     list.innerHTML = '';
   }
 
-  // ✅ CAMBIO FASE 1: Leer categoría desde cat o categoria
-  let data = store.inventario.filter(p => {
-    const catProd = p.cat || p.categoria || '';
-    const matchText = !q || 
-      (p.nombre && p.nombre.toLowerCase().includes(q)) || 
-      (catProd && catProd.toLowerCase().includes(q));
-    const matchStock = stockFilter === 'todos' || p.estado === stockFilter;
-    return matchText && matchStock;
+  let data = store.clientes.filter(c => {
+    const matchText = !q || (c.nombre && c.nombre.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q));
+    const matchTag = tagFilter === 'todos' || c.tag === tagFilter;
+    // ✅ NUEVO: Filtro por exclusividad
+    const matchExclusividad = filtroCliExclusividad === 'todas' || c.exclusividad === filtroCliExclusividad;
+    return matchText && matchTag && matchExclusividad;
   });
 
   if (!data.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No se encontraron productos</div></div>`;
+    list.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No se encontraron clientes</div></div>`;
     updateKPIs();
     return;
   }
 
-  let html = data.map(p => {
-    const nombreEscapado = escapeHtml(p.nombre);
-    // ✅ CAMBIO FASE 1: cat o categoria
-    const catEscapado = escapeHtml(p.cat || p.categoria || 'General');
-    const precioEscapado = escapeHtml(p.precio);
-    const estadoEscapado = escapeHtml(p.estado);
-    const icon = p.icon || '📦';
-    const stock = p.stock ?? 0;
-    const stockText = estadoEscapado === 'out' ? 'Agotado' : stock + ' u.';
-    const nombreJs = escapeJsString(p.nombre);
+  const tagLabel = { vip: 'VIP', regular: 'Regular', nuevo: 'Nuevo' };
+  let html = data.map(c => {
+    const nombreEscapado = escapeHtml(c.nombre);
+    const phoneEscapado = escapeHtml(c.phone);
+    const comprasEscapado = escapeHtml(c.compras);
+    const tag = escapeHtml(c.tag);
+    const tagLabelText = tagLabel[tag] || tag;
+    const color = c.color || '#7C3AED';
+    const init = c.init || '??';
+    const nombreJs = escapeJsString(c.nombre);
+
+    // Premio especial pendiente
+    const liquidoPendiente = c.liquidoPendiente?.total || 0;
+
+    // ✅ NUEVO: Badge de exclusividad
+    const exclusividadBadge = c.exclusividad === 'exclusivo_polar' 
+      ? '<span class="client-exclusividad exclusivo">🎯 Exclusivo</span>' 
+      : c.exclusividad === 'mixto' 
+      ? '<span class="client-exclusividad mixto">🔄 Mixto</span>' 
+      : c.exclusividad === 'competencia' 
+      ? '<span class="client-exclusividad competencia">⚠️ Competencia</span>' 
+      : '';
+
+    // ✅ NUEVO: Saldo del cliente
+    const saldoActual = c.saldo?.actual || 0;
+    const saldoBadge = saldoActual > 0 
+      ? `<div class="client-saldo deuda">💵 Debe $${saldoActual.toFixed(2)}</div>`
+      : saldoActual < 0
+      ? `<div class="client-saldo favor">📈 A favor $${Math.abs(saldoActual).toFixed(2)}</div>`
+      : '';
 
     return `
-      <div class="inv-card">
-        <div class="inv-img">${icon}</div>
-        <div class="inv-info">
-          <div class="inv-name">${nombreEscapado}</div>
-          <div class="inv-cat">${catEscapado}</div>
+      <div class="client-card">
+        <div class="client-avatar" style="background:${color}">${init}</div>
+        <div class="client-info">
+          <div class="client-name">${nombreEscapado}</div>
+          <div class="client-phone">${phoneEscapado}</div>
+          <span class="client-tag ${tag}">${tagLabelText}</span>
+          ${exclusividadBadge}
         </div>
-        <div class="inv-right">
-          <div class="inv-price">${precioEscapado}</div>
-          <div class="inv-stock ${estadoEscapado}">${stockText}</div>
+        <div class="client-right">
+          <div class="client-spent">${comprasEscapado}</div>
+          <div class="client-orders">${c.pedidos} pedidos</div>
+          <!-- Premio especial pendiente -->
+          <div class="client-liquido" style="font-size:12px; color:var(--primary); font-weight:600;">
+            🎁 ${liquidoPendiente} uds.
+          </div>
+          ${saldoBadge}
         </div>
-        <div style="display:flex; gap:4px; align-items:center;">
-          <button class="btn-icon edit" onclick="editProducto('${nombreJs}')" title="Editar">✏️</button>
-          <button class="btn-icon danger" onclick="confirmDeleteProducto('${nombreJs}')" title="Eliminar">🗑️</button>
+        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+          <button class="btn-icon edit" onclick="editCliente('${nombreJs}')" title="Editar">✏️</button>
+          <button class="btn-icon danger" onclick="confirmDeleteCliente('${nombreJs}')" title="Eliminar">🗑️</button>
+          <!-- Botón de entrega de premio especial -->
+          <button class="btn btn-primary" style="height:28px; font-size:11px; padding:0 8px;" onclick="abrirModalLiquidacion('${c.id}')" title="Entregar premio especial en líquido">🎁</button>
         </div>
       </div>
     `;
   }).join('');
 
   let botonCargar = '';
-  if (store.hasMoreInventario) {
+  if (store.hasMoreClientes) {
     botonCargar = `
       <div style="text-align:center; margin-top:16px;">
-        <button class="btn btn-outline" onclick="cargarMasInventario()" id="btn-cargar-inventario" ${cargandoInventario ? 'disabled' : ''}>
-          ${cargandoInventario ? '⏳ Cargando...' : '📥 Cargar más productos'}
+        <button class="btn btn-outline" onclick="cargarMasClientes()" id="btn-cargar-clientes" ${cargandoClientes ? 'disabled' : ''}>
+          ${cargandoClientes ? '⏳ Cargando...' : '📥 Cargar más clientes'}
         </button>
       </div>
     `;

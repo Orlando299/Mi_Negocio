@@ -55,7 +55,7 @@ function renderVentas(textFilter = '', statusFilter = 'todas', append = false) {
           <span class="sale-status ${statusEscapado}">${statusEscapado.charAt(0).toUpperCase() + statusEscapado.slice(1)}</span>
           ${pagoNotificado ? `<span class="badge" style="background:var(--amber); color:#fff; font-size:10px; padding:2px 8px; border-radius:12px;">💳 Pago notificado</span>` : ''}
           <div>
-            ${mostrarConfirmarPago ? `<button class="btn-icon" onclick="confirmarPago('${idJs}')" title="Confirmar pago" style="color:var(--green);">✅</button>` : ''}
+                      ${mostrarConfirmarPago ? `<button class="btn-icon" onclick="abrirModalConfirmarPago('${idJs}')" title="Confirmar pago" style="color:var(--green);">✅</button>` : ''}
             ${mostrarDespachar ? `<button class="btn-icon" onclick="abrirModalDespacho('${idJs}')" title="Despachar pedido" style="color:var(--green);">📦</button>` : ''}
             ${v.status === 'pagado' ? `<button class="btn-icon" onclick="generarFactura('${idJs}')" title="Descargar factura" style="color:var(--primary);">🧾</button>` : ''}
             ${v.status !== 'pendiente' ? `<button class="btn-icon edit" onclick="editVenta('${idJs}')" title="Editar">✏️</button>` : ''}

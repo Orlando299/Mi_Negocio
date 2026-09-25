@@ -3768,9 +3768,10 @@ function cambiarTabCliente(tabId) {
     cargarHistorialCliente();
   } else if (tabId === 'liquidaciones') {
     cargarLiquidacionesCliente();
+  } else if (tabId === 'micuenta') {
+    cargarMiCuenta();
   }
 }
-
 // ================================================================
 //  FUNCIONES DE LIQUIDACIÓN DE LÍQUIDO (NUEVO)
 // ================================================================
@@ -6677,6 +6678,325 @@ async function confirmarPagoManual() {
   }
 }
 
+// ================================================================
+//  MÓDULO: MI CUENTA (CLIENTE) - FASE 9
+// ================================================================
+
+async function cargarMiCuenta() {
+  const container = document.getElementById('micuenta-contenido');
+  if (!container) {
+    console.warn('⚠️ Contenedor micuenta-contenido no encontrado');
+    return;
+  }
+
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    container.innerHTML = '<div class="empty"><div class="empty-text">Inicia sesión para ver tu cuenta</div></div>';
+    return;
+  }
+
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    container.innerHTML = '<div class="empty"><div class="empty-text">No hay sesión activa</div></div>';
+    return;
+  }
+
+  container.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando tu cuenta...</div></div>';
+
+  try {
+    // 1. Leer el cliente
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(user.uid)
+      .get();
+
+    if (!clienteDoc.exists) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">No se encontró tu perfil de cliente</div></div>';
+      return;
+    }
+
+    const cliente = clienteDoc.data();
+    const saldoActual = cliente.saldo?.actual || 0;
+    const premioPendiente = cliente.liquidoPendiente?.total || 0;
+    const categoriaId = cliente.categoriaId;
+
+    // 2. Leer la categoría si existe
+    let categoriaNombre = 'Sin categoría';
+    let categoriaAporte = 0;
+    if (categoriaId) {
+      try {
+        const catDoc = await firebase.firestore()
+          .collection('empresas').doc(empresaId)
+          .collection('categoriasClientes').doc(categoriaId)
+          .get();
+        if (catDoc.exists) {
+          const catData = catDoc.data();
+          categoriaNombre = catData.nombre || 'Sin nombre';
+          categoriaAporte = catData.aporteEspecial?.valor || 0;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Leer ventas del cliente
+    const ventasSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('ventas')
+      .where('cliente', '==', cliente.nombre)
+      .get();
+
+    const ventas = [];
+    ventasSnap.forEach(doc => {
+      const data = doc.data();
+      ventas.push({
+        tipo: 'pedido',
+        fecha: data.fechaDespacho || data.fecha || null,
+        monto: parseCurrency(data.total),
+        metodo: data.metodo || '',
+        numeroFactura: data.numeroFactura || null
+      });
+    });
+
+    // 4. Leer pagos
+    const pagosSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(user.uid)
+      .collection('pagos')
+      .get();
+
+    const pagos = [];
+    pagosSnap.forEach(doc => {
+      const data = doc.data();
+      pagos.push({
+        tipo: data.tipo === 'saldo_inicial' ? 'saldo_inicial' : 'pago',
+        fecha: data.fecha?.toDate ? data.fecha.toDate().toISOString() : (data.fecha || null),
+        monto: data.monto || 0,
+        metodo: data.metodo || ''
+      });
+    });
+
+    // 5. Combinar y ordenar (más reciente primero)
+    const movimientos = [...ventas, ...pagos].sort((a, b) => {
+      const fechaA = a.fecha ? new Date(a.fecha).getTime() : 0;
+      const fechaB = b.fecha ? new Date(b.fecha).getTime() : 0;
+      return fechaB - fechaA;
+    });
+
+    // 6. Renderizar
+    renderMiCuenta(container, {
+      cliente,
+      saldoActual,
+      premioPendiente,
+      categoriaNombre,
+      categoriaAporte,
+      movimientos
+    });
+
+  } catch (error) {
+    console.error('❌ Error cargando mi cuenta:', error);
+    container.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">Error: ${escapeHtml(error.message)}</div></div>`;
+  }
+}
+
+function renderMiCuenta(container, datos) {
+  const { cliente, saldoActual, premioPendiente, categoriaNombre, categoriaAporte, movimientos } = datos;
+
+  const saldoColor = saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text2)';
+  const saldoTipo = saldoActual > 0 ? 'DEBE' : saldoActual < 0 ? 'A FAVOR' : 'AL DÍA';
+  const saldoBg = saldoActual > 0 ? '#FEF2F2' : saldoActual < 0 ? '#ECFDF5' : 'var(--surface2)';
+
+  // Últimos 5 movimientos
+  const ultimos = movimientos.slice(0, 5);
+
+  let movimientosHTML = '';
+  if (ultimos.length === 0) {
+    movimientosHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aún no tienes movimientos</div></div>';
+  } else {
+    movimientosHTML = ultimos.map(m => {
+      const esPago = m.tipo === 'pago';
+      const esSaldoInicial = m.tipo === 'saldo_inicial';
+      const icono = esPago ? '💵' : esSaldoInicial ? '📌' : '🛒';
+      const label = esPago ? 'Pago' : esSaldoInicial ? 'Saldo inicial' : 'Pedido';
+      const signo = esPago ? '-' : '+';
+      const color = esPago ? 'var(--green)' : 'var(--red)';
+
+      let fechaTexto = 'Sin fecha';
+      if (m.fecha) {
+        try {
+          const f = new Date(m.fecha);
+          fechaTexto = f.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        } catch (e) {}
+      }
+
+      return `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+            <span style="font-size:18px;">${icono}</span>
+            <div style="min-width:0;">
+              <div style="font-size:13px; font-weight:600;">
+                ${label}${m.numeroFactura ? ` #${m.numeroFactura}` : ''}
+              </div>
+              <div style="font-size:11px; color:var(--text3);">
+                ${fechaTexto}${m.metodo ? ` · ${m.metodo}` : ''}
+              </div>
+            </div>
+          </div>
+          <div style="font-size:14px; font-weight:700; color:${color}; font-family:'JetBrains Mono',monospace; flex-shrink:0;">
+            ${signo}$${Math.abs(m.monto).toFixed(2)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const html = `
+    <!-- Saldo actual -->
+    <div style="text-align:center; padding:20px 16px; background:${saldoBg}; border-radius:var(--radius); margin-bottom:16px;">
+      <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Mi saldo actual</div>
+      <div style="font-size:36px; font-weight:800; color:${saldoColor}; font-family:'JetBrains Mono',monospace; margin-top:6px;">
+        $${Math.abs(saldoActual).toFixed(2)}
+      </div>
+      <div style="font-size:13px; font-weight:700; color:${saldoColor}; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px;">
+        ${saldoTipo}
+      </div>
+    </div>
+
+    <!-- Info del cliente -->
+    <div class="card" style="padding:14px; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:12px; color:var(--text3); font-weight:600; text-transform:uppercase;">👤 Cliente</span>
+        <strong style="font-size:13px;">${escapeHtml(cliente.nombre || '')}</strong>
+      </div>
+      ${cliente.email ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-size:12px; color:var(--text3); font-weight:600; text-transform:uppercase;">📧 Email</span>
+          <span style="font-size:13px;">${escapeHtml(cliente.email)}</span>
+        </div>
+      ` : ''}
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:12px; color:var(--text3); font-weight:600; text-transform:uppercase;">🏷️ Categoría</span>
+        <span style="font-size:13px;">${escapeHtml(categoriaNombre)} ${categoriaAporte > 0 ? `(${categoriaAporte}%)` : ''}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; color:var(--text3); font-weight:600; text-transform:uppercase;">🎁 Premio pendiente</span>
+        <span style="font-size:13px; font-weight:700; color:var(--primary);">${premioPendiente} uds.</span>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button class="btn btn-outline" onclick="abrirMiHistorialCompleto()" style="flex:1; font-size:12px; padding:10px;">
+        📊 Ver historial completo
+      </button>
+      <button class="btn btn-outline" onclick="abrirMetodosPago()" style="flex:1; font-size:12px; padding:10px;">
+        💳 Métodos de pago
+      </button>
+    </div>
+
+    <!-- Últimos movimientos -->
+    <div class="card" style="padding:14px;">
+      <div style="font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
+        📋 Últimos movimientos (${ultimos.length})
+      </div>
+      ${movimientosHTML}
+    </div>
+
+    <div style="margin-top:16px; padding:12px; background:var(--surface2); border-radius:var(--radius-sm); text-align:center;">
+      <div style="font-size:12px; color:var(--text3); line-height:1.5;">
+        ℹ️ Para registrar un pago, contacta a tu franquiciado.
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+async function abrirMiHistorialCompleto() {
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showToast('⚠️ Inicia sesión primero');
+    return;
+  }
+
+  // Reutilizar el modal de estado de cuenta
+  if (typeof abrirEstadoCuenta === 'function') {
+    abrirEstadoCuenta(user.uid);
+  } else {
+    showToast('⚠️ Función no disponible');
+  }
+}
+
+function abrirMetodosPago() {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  firebase.firestore().collection('empresas').doc(empresaId).get()
+    .then(doc => {
+      if (!doc.exists) {
+        showToast('⚠️ Empresa no encontrada');
+        return;
+      }
+
+      const datosPago = doc.data().datosPago || {};
+
+      let html = '<div style="padding:8px 0;">';
+      
+      if (datosPago.pagoMovil?.telefono) {
+        html += `
+          <div style="background:var(--surface2); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+            <div style="font-weight:700; margin-bottom:6px;">📱 Pago Móvil</div>
+            <div style="font-size:13px; line-height:1.7;">
+              <div><strong>Teléfono:</strong> ${escapeHtml(datosPago.pagoMovil.telefono)}</div>
+              <div><strong>Cédula:</strong> ${escapeHtml(datosPago.pagoMovil.cedula || 'N/A')}</div>
+              <div><strong>Banco:</strong> ${escapeHtml(datosPago.pagoMovil.banco || 'N/A')}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (datosPago.zelle?.email) {
+        html += `
+          <div style="background:var(--surface2); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+            <div style="font-weight:700; margin-bottom:6px;">💵 Zelle</div>
+            <div style="font-size:13px; line-height:1.7;">
+              <div><strong>Email:</strong> ${escapeHtml(datosPago.zelle.email)}</div>
+              <div><strong>Titular:</strong> ${escapeHtml(datosPago.zelle.nombre || 'N/A')}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (datosPago.transferencia?.cuenta) {
+        html += `
+          <div style="background:var(--surface2); padding:12px; border-radius:var(--radius-sm); margin-bottom:12px;">
+            <div style="font-weight:700; margin-bottom:6px;">🏦 Transferencia</div>
+            <div style="font-size:13px; line-height:1.7;">
+              <div><strong>Banco:</strong> ${escapeHtml(datosPago.transferencia.banco || 'N/A')}</div>
+              <div><strong>Cuenta:</strong> ${escapeHtml(datosPago.transferencia.cuenta)}</div>
+              <div><strong>Titular:</strong> ${escapeHtml(datosPago.transferencia.titular || 'N/A')}</div>
+              <div><strong>Cédula:</strong> ${escapeHtml(datosPago.transferencia.cedula || 'N/A')}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (html === '<div style="padding:8px 0;">') {
+        html += '<div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Tu franquiciado aún no ha configurado métodos de pago</div></div>';
+      }
+
+      html += '</div>';
+      html += '<button class="btn btn-outline" onclick="closeModal()" style="margin-top:8px;">Cerrar</button>';
+
+      openModalWithContent('💳 Métodos de pago', html);
+    })
+    .catch(error => {
+      console.error('Error cargando métodos de pago:', error);
+      showToast('❌ Error al cargar métodos de pago');
+    });
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
@@ -6769,7 +7089,12 @@ const funcionesGlobales = {
    // Fase 7 - Registrar pago manual
   abrirModalRegistrarPago,
   cerrarModalRegistrarPago,
-  confirmarPagoManual
+  confirmarPagoManual,
+    // Fase 9 - Mi cuenta del cliente
+  cargarMiCuenta,
+  renderMiCuenta,
+  abrirMiHistorialCompleto,
+  abrirMetodosPago
 };
 
 Object.entries(funcionesGlobales).forEach(([nombre, fn]) => {

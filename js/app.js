@@ -6183,6 +6183,266 @@ async function confirmarPagoConMonto() {
   }
 }
 
+// ================================================================
+//  MÓDULO: ESTADO DE CUENTA (FASE 6)
+// ================================================================
+
+async function abrirEstadoCuenta(clienteId) {
+  const empresaId = sessionStorage.getItem('empresaId');
+  if (!empresaId) {
+    showToast('⚠️ No hay sesión activa');
+    return;
+  }
+
+  if (!clienteId) {
+    showToast('⚠️ Cliente no especificado');
+    return;
+  }
+
+  // Mostrar modal con loader
+  const bodyEl = document.getElementById('modal-body-estado-cuenta');
+  const titleEl = document.getElementById('modal-estado-cuenta-title');
+  
+  if (titleEl) titleEl.textContent = '💰 Estado de cuenta';
+  if (bodyEl) {
+    bodyEl.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Cargando estado de cuenta...</div></div>';
+  }
+
+  abrirModalId('modal-estado-cuenta');
+
+  try {
+    // 1. Leer cliente
+    const clienteDoc = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .get();
+
+    if (!clienteDoc.exists) {
+      if (bodyEl) {
+        bodyEl.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">Cliente no encontrado</div></div>';
+      }
+      return;
+    }
+
+    const cliente = clienteDoc.data();
+    const saldoActual = cliente.saldo?.actual || 0;
+    const ultimoMovimiento = cliente.saldo?.ultimoMovimiento;
+    const ultimoMovimientoTipo = cliente.saldo?.ultimoMovimientoTipo;
+
+    if (titleEl) {
+      titleEl.textContent = `💰 Estado de cuenta - ${cliente.nombre || 'Sin nombre'}`;
+    }
+
+    // 2. Leer ventas del cliente (todas)
+    const ventasSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('ventas')
+      .where('cliente', '==', cliente.nombre)
+      .get();
+
+    const ventas = [];
+    ventasSnap.forEach(doc => {
+      const data = doc.data();
+      ventas.push({
+        id: doc.id,
+        tipo: 'pedido',
+        fecha: data.fechaDespacho || data.fecha || null,
+        monto: parseCurrency(data.total),
+        metodo: data.metodo || 'Sin método',
+        status: data.status || 'pendiente',
+        notas: data.notas || '',
+        numeroFactura: data.numeroFactura || null
+      });
+    });
+
+    // 3. Leer pagos del cliente
+    const pagosSnap = await firebase.firestore()
+      .collection('empresas').doc(empresaId)
+      .collection('clientes').doc(clienteId)
+      .collection('pagos')
+      .get();
+
+    const pagos = [];
+    pagosSnap.forEach(doc => {
+      const data = doc.data();
+      pagos.push({
+        id: doc.id,
+        tipo: data.tipo === 'saldo_inicial' ? 'saldo_inicial' : 'pago',
+        fecha: data.fecha?.toDate ? data.fecha.toDate().toISOString() : (data.fecha || null),
+        monto: data.monto || 0,
+        metodo: data.metodo || 'Sin método',
+        notas: data.notas || '',
+        registradoPor: data.registradoPor || 'Admin'
+      });
+    });
+
+    // 4. Combinar y ordenar por fecha (más reciente primero)
+    const movimientos = [...ventas, ...pagos];
+    movimientos.sort((a, b) => {
+      const fechaA = a.fecha ? new Date(a.fecha).getTime() : 0;
+      const fechaB = b.fecha ? new Date(b.fecha).getTime() : 0;
+      return fechaB - fechaA;
+    });
+
+    // 5. Calcular saldo acumulado desde el inicio
+    const movimientosAsc = [...movimientos].sort((a, b) => {
+      const fechaA = a.fecha ? new Date(a.fecha).getTime() : 0;
+      const fechaB = b.fecha ? new Date(b.fecha).getTime() : 0;
+      return fechaA - fechaB;
+    });
+
+    let saldoAcumulado = 0;
+    const movimientosConSaldo = movimientosAsc.map(m => {
+      if (m.tipo === 'pedido') {
+        saldoAcumulado += m.monto;
+      } else if (m.tipo === 'pago') {
+        saldoAcumulado -= m.monto;
+      } else if (m.tipo === 'saldo_inicial') {
+        saldoAcumulado += m.monto;
+      }
+      return { ...m, saldoDespues: saldoAcumulado };
+    });
+
+    movimientosConSaldo.reverse();
+
+    // 6. Renderizar
+    const saldoColor = saldoActual > 0 ? 'var(--red)' : saldoActual < 0 ? 'var(--green)' : 'var(--text2)';
+    const saldoTipo = saldoActual > 0 ? 'DEBE' : saldoActual < 0 ? 'A FAVOR' : 'AL DÍA';
+
+    let ultimoMovTexto = 'Sin movimientos';
+    if (ultimoMovimiento) {
+      try {
+        const fecha = new Date(ultimoMovimiento);
+        const diffDias = Math.floor((Date.now() - fecha.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDias === 0) ultimoMovTexto = 'Hoy';
+        else if (diffDias === 1) ultimoMovTexto = 'Ayer';
+        else if (diffDias < 7) ultimoMovTexto = `Hace ${diffDias} días`;
+        else if (diffDias < 30) ultimoMovTexto = `Hace ${Math.floor(diffDias / 7)} sem.`;
+        else ultimoMovTexto = `Hace ${Math.floor(diffDias / 30)} mes(es)`;
+      } catch (e) {}
+    }
+
+    let historialHTML = '';
+    if (movimientosConSaldo.length === 0) {
+      historialHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Sin movimientos registrados</div></div>';
+    } else {
+      historialHTML = movimientosConSaldo.map(m => {
+        const esPedido = m.tipo === 'pedido';
+        const esPago = m.tipo === 'pago';
+        const esSaldoInicial = m.tipo === 'saldo_inicial';
+
+        let icono = '🛒';
+        let label = 'Pedido';
+        let signo = '+';
+        let color = 'var(--red)';
+
+        if (esPago) {
+          icono = '💵';
+          label = 'Pago';
+          signo = '-';
+          color = 'var(--green)';
+        } else if (esSaldoInicial) {
+          icono = '📌';
+          label = 'Saldo inicial';
+          signo = m.monto >= 0 ? '+' : '-';
+          color = m.monto >= 0 ? 'var(--red)' : 'var(--green)';
+        }
+
+        let fechaTexto = 'Sin fecha';
+        if (m.fecha) {
+          try {
+            const f = new Date(m.fecha);
+            fechaTexto = f.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          } catch (e) {}
+        }
+
+        const saldoDespuesColor = m.saldoDespues > 0 ? 'var(--red)' : m.saldoDespues < 0 ? 'var(--green)' : 'var(--text3)';
+
+        return `
+          <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                <span style="font-size:18px; flex-shrink:0;">${icono}</span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${label}${m.numeroFactura ? ` #${m.numeroFactura}` : ''}
+                  </div>
+                  <div style="font-size:11px; color:var(--text3);">
+                    ${fechaTexto}${m.metodo ? ` · ${m.metodo}` : ''}
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right; flex-shrink:0;">
+                <div style="font-size:14px; font-weight:700; color:${color}; font-family:'JetBrains Mono',monospace;">
+                  ${signo}$${Math.abs(m.monto).toFixed(2)}
+                </div>
+                <div style="font-size:10px; color:${saldoDespuesColor}; font-family:'JetBrains Mono',monospace;">
+                  Saldo: $${Math.abs(m.saldoDespues).toFixed(2)}
+                </div>
+              </div>
+            </div>
+            ${m.notas ? `<div style="font-size:11px; color:var(--text3); margin-top:4px; margin-left:26px; font-style:italic;">${escapeHtml(m.notas)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    const body = `
+      <div style="text-align:center; padding:16px; background:${saldoActual > 0 ? '#FEF2F2' : saldoActual < 0 ? '#ECFDF5' : 'var(--surface2)'}; border-radius:var(--radius); margin-bottom:16px;">
+        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Saldo actual</div>
+        <div style="font-size:32px; font-weight:800; color:${saldoColor}; font-family:'JetBrains Mono',monospace; margin-top:4px;">
+          $${Math.abs(saldoActual).toFixed(2)}
+        </div>
+        <div style="font-size:13px; font-weight:600; color:${saldoColor}; text-transform:uppercase; letter-spacing:0.5px;">
+          ${saldoTipo}
+        </div>
+        <div style="font-size:11px; color:var(--text3); margin-top:6px;">
+          Últ. movimiento: ${ultimoMovTexto}
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="cerrarModalEstadoCuenta(); abrirModalRegistrarPago('${escapeJsString(clienteId)}')" style="margin-bottom:16px;">
+        ➕ Registrar pago
+      </button>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h4 style="font-size:13px; font-weight:700; margin:0; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">
+          📊 Historial de movimientos (${movimientosConSaldo.length})
+        </h4>
+      </div>
+
+      <div style="max-height:50vh; overflow-y:auto; background:var(--surface2); border-radius:var(--radius-sm); padding:8px 12px;">
+        ${historialHTML}
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button class="btn btn-outline" onclick="cerrarModalEstadoCuenta()" style="flex:1;">Cerrar</button>
+      </div>
+    `;
+
+    if (bodyEl) bodyEl.innerHTML = body;
+
+  } catch (error) {
+    console.error('❌ Error cargando estado de cuenta:', error);
+    if (bodyEl) {
+      bodyEl.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">Error: ${escapeHtml(error.message)}</div></div>`;
+    }
+  }
+}
+
+function cerrarModalEstadoCuenta(e) {
+  if (e && e.target && e.target !== e.currentTarget) return;
+  forzarCierreModal('modal-estado-cuenta');
+}
+
+// ================================================================
+//  PLACEHOLDER: Registrar pago (se implementa en Fase 7)
+// ================================================================
+function abrirModalRegistrarPago(clienteId) {
+  showToast('💵 El registro manual de pagos se implementará en la siguiente fase');
+  console.log('Cliente ID:', clienteId);
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  EXPOSICIÓN DE FUNCIONES GLOBALES (incluyendo liquidación)
 // ═══════════════════════════════════════════════════════════════
